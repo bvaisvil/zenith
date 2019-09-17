@@ -13,7 +13,7 @@ use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline};
 use tui::Terminal;
-use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt};
+use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt};
 
 use std::sync::mpsc;
 use std::thread;
@@ -123,7 +123,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             exit_key: Key::Char('q'),
-            tick_rate: Duration::from_millis(250),
+            tick_rate: Duration::from_millis(500),
         }
     }
 }
@@ -177,25 +177,46 @@ impl Events {
 }
 
 
-struct CPUTimeApp {
+struct CPUTimeApp<'a> {
     cpu_usage_histogram: Vec<u64>,
+    cpu_utilization: u64,
+    mem_utilization: u64,
+    mem_total: u64,
+    swap_utilization: u64,
+    swap_total: u64,
+    disk_total: u64,
+    disk_available: u64,
     cpus: Vec<(String, u64)>,
-    system: System
+    system: System,
+    overview: Vec<(&'a str, u64)>
 }
 
-impl CPUTimeApp {
-    fn new () -> CPUTimeApp{
+impl<'a> CPUTimeApp<'a>{
+    fn new () -> CPUTimeApp<'a>{
         CPUTimeApp{
             cpu_usage_histogram: vec![],
             cpus: vec![],
-            system: System::new()
+            system: System::new(),
+            cpu_utilization: 0,
+            mem_utilization: 0,
+            mem_total: 0,
+            swap_total: 0,
+            swap_utilization: 0,
+            disk_available: 0,
+            disk_total: 0,
+            overview: vec![
+                ("CPU", 0),
+                ("MEM", 0),
+                ("SWAP", 0),
+                ("DISK", 0)
+            ]
         }
     }
 
     fn update(&mut self, width: u16) {
         self.system.refresh_all();
         let procs = self.system.get_processor_list();
-        let mut num_procs = 0;
+        let mut num_procs = 1;
         let mut usage: f32 = 0.0;
         self.cpus.clear();
         for p in procs.iter().skip(1){
@@ -205,10 +226,34 @@ impl CPUTimeApp {
             num_procs += 1;
         }
         let usage = usage / num_procs as f32;
+        self.cpu_utilization = (usage * 100.0) as u64;
+        self.overview[0] = ("CPU", self.cpu_utilization);
         self.cpu_usage_histogram.push((usage * 100.0) as u64);
         if self.cpu_usage_histogram.len() > width as usize{
             self.cpu_usage_histogram.remove(0);
         }
+
+        self.mem_utilization = self.system.get_used_memory();
+        self.mem_total = self.system.get_total_memory();
+
+        self.overview[1] = ("MEM", ((self.mem_utilization as f32/ self.mem_total as f32) * 100.0) as u64);
+
+        self.swap_utilization = self.system.get_used_swap();
+        self.swap_total = self.system.get_total_swap();
+
+        self.overview[2] = ("SWAP", ((self.swap_utilization as f32/ self.swap_total as f32) * 100.0) as u64);
+
+        self.disk_available = 0;
+        self.disk_total = 0;
+
+        for d in self.system.get_disks().iter(){
+            self.disk_available += d.get_available_space();
+            self.disk_total += d.get_total_space();
+        }
+
+        let du = self.disk_total - self.disk_available;
+        self.overview[3] = ("DISK", ((du as f32 / self.disk_total as f32) * 100.0) as u64);
+
     }
 }
 
@@ -220,37 +265,16 @@ impl<'a> App<'a> {
     fn new() -> App<'a> {
         App {
             data: vec![
-                ("B1", 9),
-                ("B2", 12),
-                ("B3", 5),
-                ("B4", 8),
-                ("B5", 2),
-                ("B6", 4),
-                ("B7", 5),
-                ("B8", 9),
-                ("B9", 14),
-                ("B10", 15),
-                ("B11", 1),
-                ("B12", 0),
-                ("B13", 4),
-                ("B14", 6),
-                ("B15", 4),
-                ("B16", 6),
-                ("B17", 4),
-                ("B18", 7),
-                ("B19", 13),
-                ("B20", 8),
-                ("B21", 11),
-                ("B22", 21),
-                ("B23", 3),
-                ("B24", 5),
+                ("CPU", 9),
+                ("MEM", 12),
+                ("SWAP", 5),
+                ("NET DOWN", 8),
+                ("NET UP", 2),
             ],
         }
     }
 
     fn update(&mut self) {
-        let value = self.data.pop().unwrap();
-        self.data.insert(0, value);
     }
 }
 
@@ -268,8 +292,6 @@ fn main() -> Result<(), Box<Error>> {
     let events = Events::new();
 
     let mut cpu_time_app = CPUTimeApp::new();
-    // App
-    let mut app = App::new();
 
     loop {
         let mut width: u16 = 0;
@@ -277,13 +299,19 @@ fn main() -> Result<(), Box<Error>> {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(2)
-                .constraints([Constraint::Percentage(10), Constraint::Percentage(90)].as_ref())
+                .constraints([Constraint::Percentage(10), Constraint::Percentage(25), Constraint::Percentage(65)].as_ref())
                 .split(f.size());
             width = f.size().width;
+            let title =  format!("CPU [{: >3}%] MEM [{: >3}%] SWP [{: >3}%]",
+                                 cpu_time_app.cpu_utilization,
+                                 ((cpu_time_app.mem_utilization as f32/ cpu_time_app.mem_total as f32) * 100.0) as u64,
+                                 ((cpu_time_app.swap_utilization as f32/ cpu_time_app.swap_total as f32) * 100.0) as u64
+            );
             Sparkline::default()
-                .block(Block::default().title("CPU Histogram").borders(Borders::ALL))
+                .block(
+                    Block::default().title(title.as_str()).borders(Borders::ALL))
                 .data(&cpu_time_app.cpu_usage_histogram)
-                .style(Style::default().fg(Color::LightBlue))
+                .style(Style::default().fg(Color::Cyan))
                 .max(100)
                 .render(&mut f, chunks[0]);
             {
@@ -292,25 +320,42 @@ fn main() -> Result<(), Box<Error>> {
                 for (p, u) in cpus.iter(){
                     xz.push((p.as_str(), u.clone()));
                 }
+                let overview_width: u16 = (4 + 2) * 4;
+                let overview_perc = ((overview_width as f32) / (width as f32) * 100.0) as u16;
+                let cpu_width: u16 = width - overview_width;
+                let cpu_percw = 100 - overview_perc;
+
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                    .constraints([Constraint::Percentage(cpu_percw), Constraint::Percentage(overview_perc)].as_ref())
                     .split(chunks[1]);
+
+                // bit messy way to calc cpu bar width..
+                let mut np = cpu_time_app.cpus.len() as u16;
+                if np == 0{
+                    np = 1;
+                }
+                let mut cpu_bw = ((((cpu_width as f32) - (np as f32 * 2.0)) / np as f32)) as u16;
+                if cpu_bw < 1{
+                    cpu_bw = 1;
+                }
+
                 BarChart::default()
-                    .block(Block::default().title("CPUS").borders(Borders::ALL))
+                    .block(Block::default().title(format!("CPUS {}", np).as_str()).borders(Borders::ALL))
                     .data(xz.as_slice())
-                    .bar_width(5)
-                    .bar_gap(3)
+                    .bar_width(cpu_bw)
+                    .bar_gap(1)
                     .max(100)
                     .style(Style::default().fg(Color::Green))
                     .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
                     .render(&mut f, chunks[0]);
                 BarChart::default()
-                    .block(Block::default().title("Data3").borders(Borders::ALL))
-                    .data(&app.data)
+                    .block(Block::default().title("Overview").borders(Borders::ALL))
+                    .data(&cpu_time_app.overview)
                     .style(Style::default().fg(Color::Red))
-                    .bar_width(7)
-                    .bar_gap(0)
+                    .bar_width(4)
+                    .bar_gap(1)
+                    .max(100)
                     .value_style(Style::default().bg(Color::Red))
                     .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
                     .render(&mut f, chunks[1]);
@@ -324,7 +369,6 @@ fn main() -> Result<(), Box<Error>> {
                 }
             }
             Event::Tick => {
-                app.update();
                 cpu_time_app.update(width);
             }
         }
