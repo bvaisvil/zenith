@@ -317,10 +317,11 @@ fn main() -> Result<(), Box<Error>> {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(2)
-                .constraints([Constraint::Percentage(10),
-                    Constraint::Percentage(10),
-                    Constraint::Percentage(25),
-                    Constraint::Percentage(55)].as_ref())
+                .constraints([
+                    Constraint::Percentage(20),
+                    Constraint::Percentage(20),
+                    Constraint::Percentage(45),
+                    Constraint::Percentage(15)].as_ref())
                 .split(f.size());
             width = f.size().width;
             let title =  format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}]", cpu_time_app.cpu_utilization,
