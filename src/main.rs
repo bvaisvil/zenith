@@ -11,7 +11,7 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline};
+use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text};
 use tui::Terminal;
 use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt};
 
@@ -189,7 +189,9 @@ struct CPUTimeApp<'a> {
     disk_available: u64,
     cpus: Vec<(String, u64)>,
     system: System,
-    overview: Vec<(&'a str, u64)>
+    overview: Vec<(&'a str, u64)>,
+    net_in: u64,
+    net_out: u64
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -211,7 +213,9 @@ impl<'a> CPUTimeApp<'a>{
                 ("MEM", 0),
                 ("SWAP", 0),
                 ("DISK", 0)
-            ]
+            ],
+            net_in: 0,
+            net_out: 0
         }
     }
 
@@ -262,6 +266,12 @@ impl<'a> CPUTimeApp<'a>{
         let du = self.disk_total - self.disk_available;
         self.overview[3] = ("DISK", ((du as f32 / self.disk_total as f32) * 100.0) as u64);
 
+
+        let net = self.system.get_network();
+
+        self.net_in = net.get_income();
+        self.net_out = net.get_outcome();
+
     }
 }
 
@@ -307,10 +317,15 @@ fn main() -> Result<(), Box<Error>> {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(2)
-                .constraints([Constraint::Percentage(10), Constraint::Percentage(10), Constraint::Percentage(25), Constraint::Percentage(55)].as_ref())
+                .constraints([Constraint::Percentage(10),
+                    Constraint::Percentage(10),
+                    Constraint::Percentage(25),
+                    Constraint::Percentage(55)].as_ref())
                 .split(f.size());
             width = f.size().width;
-            let title =  format!("CPU [{: >3}%]", cpu_time_app.cpu_utilization);
+            let title =  format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}]", cpu_time_app.cpu_utilization,
+                                 (cpu_time_app.net_out as f64 / 1024.0),
+                                 (cpu_time_app.net_in as f64 / 1024.0));
             Sparkline::default()
                 .block(
                     Block::default().title(title.as_str()).borders(Borders::ALL))
