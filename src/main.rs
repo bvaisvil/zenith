@@ -182,6 +182,7 @@ struct CPUTimeApp<'a> {
     cpu_utilization: u64,
     mem_utilization: u64,
     mem_total: u64,
+    mem_usage_histogram: Vec<u64>,
     swap_utilization: u64,
     swap_total: u64,
     disk_total: u64,
@@ -195,6 +196,7 @@ impl<'a> CPUTimeApp<'a>{
     fn new () -> CPUTimeApp<'a>{
         CPUTimeApp{
             cpu_usage_histogram: vec![],
+            mem_usage_histogram: vec![],
             cpus: vec![],
             system: System::new(),
             cpu_utilization: 0,
@@ -236,7 +238,13 @@ impl<'a> CPUTimeApp<'a>{
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
 
-        self.overview[1] = ("MEM", ((self.mem_utilization as f32/ self.mem_total as f32) * 100.0) as u64);
+        let mem = ((self.mem_utilization as f32/ self.mem_total as f32) * 100.0) as u64;
+
+        self.overview[1] = ("MEM", mem);
+        self.mem_usage_histogram.push(mem);
+        if self.mem_usage_histogram.len() > width as usize{
+            self.mem_usage_histogram.remove(0);
+        }
 
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
@@ -299,21 +307,29 @@ fn main() -> Result<(), Box<Error>> {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(2)
-                .constraints([Constraint::Percentage(10), Constraint::Percentage(25), Constraint::Percentage(65)].as_ref())
+                .constraints([Constraint::Percentage(10), Constraint::Percentage(10), Constraint::Percentage(25), Constraint::Percentage(55)].as_ref())
                 .split(f.size());
             width = f.size().width;
-            let title =  format!("CPU [{: >3}%] MEM [{: >3}%] SWP [{: >3}%]",
-                                 cpu_time_app.cpu_utilization,
+            let title =  format!("CPU [{: >3}%]", cpu_time_app.cpu_utilization);
+            Sparkline::default()
+                .block(
+                    Block::default().title(title.as_str()).borders(Borders::ALL))
+                .data(&cpu_time_app.cpu_usage_histogram)
+                .style(Style::default().fg(Color::Blue))
+                .max(100)
+                .render(&mut f, chunks[0]);
+
+            let title2 =  format!("MEM [{: >3}%] SWP [{: >3}%]",
                                  ((cpu_time_app.mem_utilization as f32/ cpu_time_app.mem_total as f32) * 100.0) as u64,
                                  ((cpu_time_app.swap_utilization as f32/ cpu_time_app.swap_total as f32) * 100.0) as u64
             );
             Sparkline::default()
                 .block(
-                    Block::default().title(title.as_str()).borders(Borders::ALL))
-                .data(&cpu_time_app.cpu_usage_histogram)
+                    Block::default().title(title2.as_str()).borders(Borders::ALL))
+                .data(&cpu_time_app.mem_usage_histogram)
                 .style(Style::default().fg(Color::Cyan))
                 .max(100)
-                .render(&mut f, chunks[0]);
+                .render(&mut f, chunks[1]);
             {
                 let cpus = cpu_time_app.cpus.as_slice();
                 let mut xz :Vec<(&str, u64)> = vec![];
@@ -328,7 +344,7 @@ fn main() -> Result<(), Box<Error>> {
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([Constraint::Percentage(cpu_percw), Constraint::Percentage(overview_perc)].as_ref())
-                    .split(chunks[1]);
+                    .split(chunks[2]);
 
                 // bit messy way to calc cpu bar width..
                 let mut np = cpu_time_app.cpus.len() as u16;
