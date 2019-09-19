@@ -336,7 +336,7 @@ fn main() -> Result<(), Box<Error>> {
                 .direction(Direction::Vertical)
                 .margin(2)
                 .constraints([
-                    Constraint::Percentage(20),
+                    Constraint::Length(10),
                     Constraint::Percentage(20),
                     Constraint::Percentage(20),
                     Constraint::Percentage(15)].as_ref())
