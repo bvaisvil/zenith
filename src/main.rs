@@ -1,6 +1,7 @@
 #[allow(dead_code)]
 
 extern crate sysinfo;
+#[macro_use] extern crate byte_unit;
 
 use std::io;
 use std::error::{Error};
@@ -14,6 +15,7 @@ use tui::style::{Color, Modifier, Style};
 use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text};
 use tui::Terminal;
 use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt};
+use byte_unit::{Byte, ByteUnit};
 
 use std::sync::mpsc;
 use std::thread;
@@ -296,6 +298,22 @@ impl<'a> App<'a> {
     }
 }
 
+fn mem_title(app: &CPUTimeApp) -> String {
+    format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
+            Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap().get_adjusted_unit(ByteUnit::GB),
+            ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64,
+            Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap().get_adjusted_unit(ByteUnit::GB),
+            ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64
+    )
+}
+
+fn cpu_title(app: &CPUTimeApp) -> String {
+    format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}]",
+            app.cpu_utilization,
+            Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_adjusted_unit(ByteUnit::KB),
+            Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_adjusted_unit(ByteUnit::KB))
+}
+
 
 fn main() -> Result<(), Box<Error>> {
     // Terminal initialization
@@ -320,32 +338,27 @@ fn main() -> Result<(), Box<Error>> {
                 .constraints([
                     Constraint::Percentage(20),
                     Constraint::Percentage(20),
-                    Constraint::Percentage(45),
+                    Constraint::Percentage(20),
                     Constraint::Percentage(15)].as_ref())
                 .split(f.size());
             width = f.size().width;
-            let title =  format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}]", cpu_time_app.cpu_utilization,
-                                 (cpu_time_app.net_out as f64 / 1024.0),
-                                 (cpu_time_app.net_in as f64 / 1024.0));
+            let title =  cpu_title(&cpu_time_app);
             Sparkline::default()
                 .block(
                     Block::default().title(title.as_str()).borders(Borders::ALL))
                 .data(&cpu_time_app.cpu_usage_histogram)
                 .style(Style::default().fg(Color::Blue))
                 .max(100)
-                .render(&mut f, chunks[0]);
+                .render(&mut f, chunks[1]);
 
-            let title2 =  format!("MEM [{: >3}%] SWP [{: >3}%]",
-                                 ((cpu_time_app.mem_utilization as f32/ cpu_time_app.mem_total as f32) * 100.0) as u64,
-                                 ((cpu_time_app.swap_utilization as f32/ cpu_time_app.swap_total as f32) * 100.0) as u64
-            );
+            let title2 =  mem_title(&cpu_time_app);
             Sparkline::default()
                 .block(
                     Block::default().title(title2.as_str()).borders(Borders::ALL))
                 .data(&cpu_time_app.mem_usage_histogram)
                 .style(Style::default().fg(Color::Cyan))
                 .max(100)
-                .render(&mut f, chunks[1]);
+                .render(&mut f, chunks[2]);
             {
                 let cpus = cpu_time_app.cpus.as_slice();
                 let mut xz :Vec<(&str, u64)> = vec![];
@@ -360,7 +373,7 @@ fn main() -> Result<(), Box<Error>> {
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([Constraint::Percentage(cpu_percw), Constraint::Percentage(overview_perc)].as_ref())
-                    .split(chunks[2]);
+                    .split(chunks[0]);
 
                 // bit messy way to calc cpu bar width..
                 let mut np = cpu_time_app.cpus.len() as u16;
@@ -373,7 +386,7 @@ fn main() -> Result<(), Box<Error>> {
                 }
 
                 BarChart::default()
-                    .block(Block::default().title(format!("CPUS {}", np).as_str()).borders(Borders::ALL))
+                    .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
                     .data(xz.as_slice())
                     .bar_width(cpu_bw)
                     .bar_gap(1)
