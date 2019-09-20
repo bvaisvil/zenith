@@ -2,6 +2,7 @@
 
 extern crate sysinfo;
 #[macro_use] extern crate byte_unit;
+#[macro_use] extern crate maplit;
 
 use std::io;
 use std::error::{Error};
@@ -12,9 +13,9 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text};
+use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text, Table, Row};
 use tui::Terminal;
-use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt};
+use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process};
 use byte_unit::{Byte, ByteUnit};
 
 use std::sync::mpsc;
@@ -22,6 +23,7 @@ use std::thread;
 use std::task::{Poll};
 use std::thread::{sleep_ms};
 use std::time::Duration;
+use std::collections::{HashMap};
 
 use termion::input::TermRead;
 
@@ -178,6 +180,13 @@ impl Events {
     }
 }
 
+struct ZProcess{
+    pid: i32,
+    name: String,
+    memory: u64,
+    cpu_usage: f32,
+    command: Vec<String>
+}
 
 struct CPUTimeApp<'a> {
     cpu_usage_histogram: Vec<u64>,
@@ -193,7 +202,8 @@ struct CPUTimeApp<'a> {
     system: System,
     overview: Vec<(&'a str, u64)>,
     net_in: u64,
-    net_out: u64
+    net_out: u64,
+    processes: Vec<ZProcess>
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -217,7 +227,8 @@ impl<'a> CPUTimeApp<'a>{
                 ("DISK", 0)
             ],
             net_in: 0,
-            net_out: 0
+            net_out: 0,
+            processes: vec![]
         }
     }
 
@@ -273,6 +284,16 @@ impl<'a> CPUTimeApp<'a>{
 
         self.net_in = net.get_income();
         self.net_out = net.get_outcome();
+
+        for (pid, process) in self.system.get_process_list(){
+            self.processes.push( ZProcess{
+                name: String::from(process.name()),
+                pid: pid.clone(),
+                memory: process.memory(),
+                cpu_usage: process.cpu_usage(),
+                command: process.cmd().to_vec()
+            });
+        }
 
     }
 }
@@ -339,9 +360,11 @@ fn main() -> Result<(), Box<Error>> {
                     Constraint::Length(10),
                     Constraint::Percentage(20),
                     Constraint::Percentage(20),
-                    Constraint::Percentage(15)].as_ref())
+                    Constraint::Percentage(20)].as_ref())
                 .split(f.size());
             width = f.size().width;
+
+
             let title =  cpu_title(&cpu_time_app);
             Sparkline::default()
                 .block(
@@ -351,6 +374,7 @@ fn main() -> Result<(), Box<Error>> {
                 .max(100)
                 .render(&mut f, chunks[1]);
 
+
             let title2 =  mem_title(&cpu_time_app);
             Sparkline::default()
                 .block(
@@ -359,6 +383,23 @@ fn main() -> Result<(), Box<Error>> {
                 .style(Style::default().fg(Color::Cyan))
                 .max(100)
                 .render(&mut f, chunks[2]);
+
+//            let header = ["pid", "name", "cpu", "mem"];
+//
+//            let rows = cpu_time_app.processes.iter().map(|p|{
+//                Row::Data(vec![
+//                    format!("{}", p.pid),
+//                    p.name.as_str(),
+//                    p.cpu_usage.to_string().as_str(),
+//                    format!("{}", p.memory).as_str()
+//                ].into_iter())
+//            });
+//
+//            Table::new(header.into_iter(), rows)
+//                .block(Block::default().borders(Borders::ALL).title("Table"))
+//                .widths(&[10, 10, 10])
+//                .render(&mut f, chunks[3]);
+
             {
                 let cpus = cpu_time_app.cpus.as_slice();
                 let mut xz :Vec<(&str, u64)> = vec![];
