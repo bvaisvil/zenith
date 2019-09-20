@@ -372,7 +372,7 @@ fn main() -> Result<(), Box<Error>> {
 
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
-                    .constraints([Constraint::Percentage(cpu_percw), Constraint::Percentage(overview_perc)].as_ref())
+                    .constraints([Constraint::Percentage(overview_perc), Constraint::Percentage(cpu_percw)].as_ref())
                     .split(chunks[0]);
 
                 // bit messy way to calc cpu bar width..
@@ -393,7 +393,7 @@ fn main() -> Result<(), Box<Error>> {
                     .max(100)
                     .style(Style::default().fg(Color::Green))
                     .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
-                    .render(&mut f, chunks[0]);
+                    .render(&mut f, chunks[1]);
                 BarChart::default()
                     .block(Block::default().title("Overview").borders(Borders::ALL))
                     .data(&cpu_time_app.overview)
@@ -403,7 +403,7 @@ fn main() -> Result<(), Box<Error>> {
                     .max(100)
                     .value_style(Style::default().bg(Color::Red))
                     .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
-                    .render(&mut f, chunks[1]);
+                    .render(&mut f, chunks[0]);
             }
         })?;
 
