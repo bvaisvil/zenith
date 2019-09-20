@@ -127,7 +127,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             exit_key: Key::Char('q'),
-            tick_rate: Duration::from_millis(500),
+            tick_rate: Duration::from_millis(750),
         }
     }
 }
@@ -284,7 +284,7 @@ impl<'a> CPUTimeApp<'a>{
 
         self.net_in = net.get_income();
         self.net_out = net.get_outcome();
-
+        self.processes.clear();
         for (pid, process) in self.system.get_process_list(){
             self.processes.push( ZProcess{
                 name: String::from(process.name()),
@@ -294,7 +294,8 @@ impl<'a> CPUTimeApp<'a>{
                 command: process.cmd().to_vec()
             });
         }
-
+        self.processes.sort_by(|a, b| a.cpu_usage.partial_cmp(&b.cpu_usage).unwrap());
+        self.processes.reverse();
     }
 }
 
@@ -348,7 +349,7 @@ fn main() -> Result<(), Box<Error>> {
     // Setup event handlers
     let events = Events::new();
 
-    let mut cpu_time_app = CPUTimeApp::new();
+    let mut app = CPUTimeApp::new();
 
     loop {
         let mut width: u16 = 0;
@@ -365,43 +366,53 @@ fn main() -> Result<(), Box<Error>> {
             width = f.size().width;
 
 
-            let title =  cpu_title(&cpu_time_app);
+            let title =  cpu_title(&app);
             Sparkline::default()
                 .block(
                     Block::default().title(title.as_str()).borders(Borders::ALL))
-                .data(&cpu_time_app.cpu_usage_histogram)
+                .data(&app.cpu_usage_histogram)
                 .style(Style::default().fg(Color::Blue))
                 .max(100)
                 .render(&mut f, chunks[1]);
 
 
-            let title2 =  mem_title(&cpu_time_app);
+            let title2 =  mem_title(&app);
             Sparkline::default()
                 .block(
                     Block::default().title(title2.as_str()).borders(Borders::ALL))
-                .data(&cpu_time_app.mem_usage_histogram)
+                .data(&app.mem_usage_histogram)
                 .style(Style::default().fg(Color::Cyan))
                 .max(100)
                 .render(&mut f, chunks[2]);
 
-//            let header = ["pid", "name", "cpu", "mem"];
-//
-//            let rows = cpu_time_app.processes.iter().map(|p|{
-//                Row::Data(vec![
-//                    format!("{}", p.pid),
-//                    p.name.as_str(),
-//                    p.cpu_usage.to_string().as_str(),
-//                    format!("{}", p.memory).as_str()
-//                ].into_iter())
-//            });
-//
-//            Table::new(header.into_iter(), rows)
-//                .block(Block::default().borders(Borders::ALL).title("Table"))
-//                .widths(&[10, 10, 10])
-//                .render(&mut f, chunks[3]);
+            let header = ["PID", "NAME", "CPU%", "MEM", "MEM%", "CMD"];
+
+            let rows = app.processes.iter().map(|p|{
+                vec![
+                    format!("{}", p.pid),
+                    p.name.clone(),
+                    format!("{:.2}", p.cpu_usage),
+                    format!("{}", Byte::from_unit(p.memory as f64, ByteUnit::KB).unwrap().get_adjusted_unit(ByteUnit::MB)),
+                    format!("{:.2}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
+                    format!("{}", p.command.join(" "))
+                ]
+            });
+            let rows = rows.map(|r|{
+                Row::Data(r.into_iter())
+            });
+            let mut cmd_width = width - 65;
+            if cmd_width == 0{
+                cmd_width = 10;
+            }
+            Table::new(header.into_iter(), rows)
+                .block(Block::default().borders(Borders::ALL)
+                                       .title(format!("{} Running Tasks",
+                                                      app.processes.len()).as_str()))
+                .widths(&[8, 20, 10, 10, 5, cmd_width ])
+                .render(&mut f, chunks[3]);
 
             {
-                let cpus = cpu_time_app.cpus.as_slice();
+                let cpus = app.cpus.as_slice();
                 let mut xz :Vec<(&str, u64)> = vec![];
                 for (p, u) in cpus.iter(){
                     xz.push((p.as_str(), u.clone()));
@@ -417,7 +428,7 @@ fn main() -> Result<(), Box<Error>> {
                     .split(chunks[0]);
 
                 // bit messy way to calc cpu bar width..
-                let mut np = cpu_time_app.cpus.len() as u16;
+                let mut np = app.cpus.len() as u16;
                 if np == 0{
                     np = 1;
                 }
@@ -437,7 +448,7 @@ fn main() -> Result<(), Box<Error>> {
                     .render(&mut f, chunks[1]);
                 BarChart::default()
                     .block(Block::default().title("Overview").borders(Borders::ALL))
-                    .data(&cpu_time_app.overview)
+                    .data(&app.overview)
                     .style(Style::default().fg(Color::Red))
                     .bar_width(4)
                     .bar_gap(1)
@@ -455,7 +466,7 @@ fn main() -> Result<(), Box<Error>> {
                 }
             }
             Event::Tick => {
-                cpu_time_app.update(width);
+                app.update(width);
             }
         }
     }
