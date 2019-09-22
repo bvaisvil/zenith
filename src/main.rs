@@ -394,15 +394,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 
             // process table
-            let header = ["PID", "USER", "CPU%", "MEM%", "RES", "CMD"];
+
 
             let rows = app.processes.iter().map(|p|{
                 vec![
-                    format!("{}", p.pid),
-                    format!("{}", p.user_name),
-                    format!("{:.2}", p.cpu_usage),
-                    format!("{:.2}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
-                    format!("{:4.2}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                    format!("{: >5}", p.pid),
+                    format!("{: >10}", p.user_name),
+                    format!("{:>.1}", p.cpu_usage),
+                    format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
+                    format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
                         .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
                     format!("{}", p.command.join(" "))
                 ]
@@ -410,16 +410,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             let rows = rows.map(|r|{
                 Row::Data(r.into_iter())
             });
-            let mut cmd_width = width as i16 - 41;
+            let mut cmd_width = width as i16 - 50;
             if cmd_width < 0{
                 cmd_width = 0;
             }
             let cmd_width = cmd_width as u16;
+            let mut cmd_header = String::from("CMD");
+            for i in 3..cmd_width{
+                cmd_header += " ";
+            }
+            let header = ["PID   ", "USER       ", "CPU%  ", "MEM%  ", "RES     ", cmd_header.as_str()];
             Table::new(header.into_iter(), rows)
                 .block(Block::default().borders(Borders::ALL)
                                        .title(format!("{} Running Tasks",
                                                       app.processes.len()).as_str()))
-                .widths(&[5, 10, 4, 4, 7, cmd_width ])
+                .widths(&[6, 11, 6, 6, 8, cmd_width ])
+                .column_spacing(0)
                 .header_style(Style::default().bg(Color::DarkGray))
                 .render(&mut f, chunks[3]);
 
