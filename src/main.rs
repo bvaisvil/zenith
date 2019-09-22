@@ -17,6 +17,7 @@ use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text,
 use tui::Terminal;
 use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process};
 use byte_unit::{Byte, ByteUnit};
+use users::{User, UsersCache, Users};
 
 use std::sync::mpsc;
 use std::thread;
@@ -182,7 +183,8 @@ impl Events {
 
 struct ZProcess{
     pid: i32,
-    name: String,
+    uid: u32,
+    user_name: String,
     memory: u64,
     cpu_usage: f32,
     command: Vec<String>
@@ -203,7 +205,8 @@ struct CPUTimeApp<'a> {
     overview: Vec<(&'a str, u64)>,
     net_in: u64,
     net_out: u64,
-    processes: Vec<ZProcess>
+    processes: Vec<ZProcess>,
+    user_cache: UsersCache
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -228,7 +231,8 @@ impl<'a> CPUTimeApp<'a>{
             ],
             net_in: 0,
             net_out: 0,
-            processes: vec![]
+            processes: vec![],
+            user_cache: UsersCache::new()
         }
     }
 
@@ -287,7 +291,8 @@ impl<'a> CPUTimeApp<'a>{
         self.processes.clear();
         for (pid, process) in self.system.get_process_list(){
             self.processes.push( ZProcess{
-                name: String::from(process.name()),
+                uid: process.uid,
+                user_name: self.user_cache.get_user_by_uid(process.uid).unwrap().name().to_string_lossy().to_string(),
                 pid: pid.clone(),
                 memory: process.memory(),
                 cpu_usage: process.cpu_usage(),
@@ -352,8 +357,10 @@ fn main() -> Result<(), Box<Error>> {
     let mut app = CPUTimeApp::new();
 
     loop {
+
         let mut width: u16 = 0;
         terminal.draw(|mut f| {
+            // primary layout division.
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(2)
@@ -365,7 +372,7 @@ fn main() -> Result<(), Box<Error>> {
                 .split(f.size());
             width = f.size().width;
 
-
+            // CPU sparkline
             let title =  cpu_title(&app);
             Sparkline::default()
                 .block(
@@ -375,7 +382,7 @@ fn main() -> Result<(), Box<Error>> {
                 .max(100)
                 .render(&mut f, chunks[1]);
 
-
+            // memory sparkline
             let title2 =  mem_title(&app);
             Sparkline::default()
                 .block(
@@ -385,12 +392,14 @@ fn main() -> Result<(), Box<Error>> {
                 .max(100)
                 .render(&mut f, chunks[2]);
 
-            let header = ["PID", "NAME", "CPU%", "MEM", "MEM%", "CMD"];
+
+            // process table
+            let header = ["PID", "USER", "CPU%", "MEM", "MEM%", "CMD"];
 
             let rows = app.processes.iter().map(|p|{
                 vec![
                     format!("{}", p.pid),
-                    p.name.clone(),
+                    format!("{}", p.user_name),
                     format!("{:.2}", p.cpu_usage),
                     format!("{}", Byte::from_unit(p.memory as f64, ByteUnit::KB).unwrap().get_adjusted_unit(ByteUnit::MB)),
                     format!("{:.2}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
@@ -421,7 +430,7 @@ fn main() -> Result<(), Box<Error>> {
                 let overview_perc = ((overview_width as f32) / (width as f32) * 100.0) as u16;
                 let cpu_width: u16 = width - overview_width;
                 let cpu_percw = 100 - overview_perc;
-
+                // secondary UI division
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([Constraint::Percentage(overview_perc), Constraint::Percentage(cpu_percw)].as_ref())
@@ -436,7 +445,7 @@ fn main() -> Result<(), Box<Error>> {
                 if cpu_bw < 1{
                     cpu_bw = 1;
                 }
-
+                // Bar chart for current CPU usage.
                 BarChart::default()
                     .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
                     .data(xz.as_slice())
@@ -446,6 +455,8 @@ fn main() -> Result<(), Box<Error>> {
                     .style(Style::default().fg(Color::Green))
                     .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
                     .render(&mut f, chunks[1]);
+
+                // Bar Chart for current overview
                 BarChart::default()
                     .block(Block::default().title("Overview").borders(Borders::ALL))
                     .data(&app.overview)
