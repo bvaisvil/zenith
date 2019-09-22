@@ -22,7 +22,6 @@ use users::{User, UsersCache, Users};
 use std::sync::mpsc;
 use std::thread;
 use std::task::{Poll};
-use std::thread::{sleep_ms};
 use std::time::Duration;
 use std::collections::{HashMap};
 
@@ -342,7 +341,7 @@ fn cpu_title(app: &CPUTimeApp) -> String {
 }
 
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
     let stdout = MouseTerminal::from(stdout);
@@ -410,7 +409,7 @@ fn main() -> Result<(), Box<Error>> {
             let rows = rows.map(|r|{
                 Row::Data(r.into_iter())
             });
-            let mut cmd_width = width as i16 - 65;
+            let mut cmd_width = width as i16 - 41;
             if cmd_width < 0{
                 cmd_width = 0;
             }
@@ -444,7 +443,7 @@ fn main() -> Result<(), Box<Error>> {
                 if np == 0{
                     np = 1;
                 }
-                let mut cpu_bw = ((((cpu_width as f32) - (np as f32 * 2.0)) / np as f32)) as i16;
+                let mut cpu_bw = (((cpu_width as f32) - (np as f32 * 2.0)) / np as f32) as i16;
                 if cpu_bw < 1{
                     cpu_bw = 1;
                 }
