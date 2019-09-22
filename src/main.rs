@@ -394,15 +394,16 @@ fn main() -> Result<(), Box<Error>> {
 
 
             // process table
-            let header = ["PID", "USER", "CPU%", "MEM", "MEM%", "CMD"];
+            let header = ["PID", "USER", "CPU%", "MEM%", "RES", "CMD"];
 
             let rows = app.processes.iter().map(|p|{
                 vec![
                     format!("{}", p.pid),
                     format!("{}", p.user_name),
                     format!("{:.2}", p.cpu_usage),
-                    format!("{}", Byte::from_unit(p.memory as f64, ByteUnit::KB).unwrap().get_adjusted_unit(ByteUnit::MB)),
                     format!("{:.2}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
+                    format!("{:4.2}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                        .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
                     format!("{}", p.command.join(" "))
                 ]
             });
@@ -418,7 +419,8 @@ fn main() -> Result<(), Box<Error>> {
                 .block(Block::default().borders(Borders::ALL)
                                        .title(format!("{} Running Tasks",
                                                       app.processes.len()).as_str()))
-                .widths(&[8, 10, 10, 10, 5, cmd_width ])
+                .widths(&[5, 10, 4, 4, 7, cmd_width ])
+                .header_style(Style::default().bg(Color::DarkGray))
                 .render(&mut f, chunks[3]);
 
             {
