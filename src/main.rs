@@ -326,9 +326,9 @@ impl<'a> App<'a> {
 
 fn mem_title(app: &CPUTimeApp) -> String {
     format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
-            Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap().get_adjusted_unit(ByteUnit::GB),
+            Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
             ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64,
-            Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap().get_adjusted_unit(ByteUnit::GB),
+            Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
             ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64
     )
 }
@@ -336,8 +336,9 @@ fn mem_title(app: &CPUTimeApp) -> String {
 fn cpu_title(app: &CPUTimeApp) -> String {
     format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}]",
             app.cpu_utilization,
-            Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_adjusted_unit(ByteUnit::KB),
-            Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_adjusted_unit(ByteUnit::KB))
+            Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false),
+            Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false)
+    )
 }
 
 
