@@ -15,7 +15,7 @@ use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text, Table, Row};
 use tui::Terminal;
-use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process};
+use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process, ProcessStatus};
 use byte_unit::{Byte, ByteUnit};
 use users::{User, UsersCache, Users};
 
@@ -186,7 +186,8 @@ struct ZProcess{
     user_name: String,
     memory: u64,
     cpu_usage: f32,
-    command: Vec<String>
+    command: Vec<String>,
+    status: ProcessStatus
 }
 
 struct CPUTimeApp<'a> {
@@ -295,7 +296,8 @@ impl<'a> CPUTimeApp<'a>{
                 pid: pid.clone(),
                 memory: process.memory(),
                 cpu_usage: process.cpu_usage(),
-                command: process.cmd().to_vec()
+                command: process.cmd().to_vec(),
+                status: process.status()
             });
         }
         self.processes.sort_by(|a, b| a.cpu_usage.partial_cmp(&b.cpu_usage).unwrap());
@@ -340,7 +342,26 @@ fn cpu_title(app: &CPUTimeApp) -> String {
             Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false)
     )
 }
-
+pub trait ProcessStatusExt{
+    fn to_single_char(&self) -> &str;
+}
+impl ProcessStatusExt for ProcessStatus{
+    fn to_single_char(&self) -> &str{
+        match *self {
+            ProcessStatus::Idle       => "I",
+            ProcessStatus::Run        => "R",
+            ProcessStatus::Sleep      => "S",
+            ProcessStatus::Stop       => "T",
+            ProcessStatus::Zombie     => "Z",
+            ProcessStatus::Tracing    => "t",
+            ProcessStatus::Dead       => "x",
+            ProcessStatus::Wakekill   => "K",
+            ProcessStatus::Waking     => "W",
+            ProcessStatus::Parked     => "P",
+            ProcessStatus::Unknown(_) => "U",
+        }
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Terminal initialization
@@ -404,13 +425,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
                     format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
                         .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
+                    format!("{:1}", p.status.to_single_char()),
                     format!("{}", p.command.join(" "))
                 ]
             });
             let rows = rows.map(|r|{
                 Row::Data(r.into_iter())
             });
-            let mut cmd_width = width as i16 - 50;
+            let mut cmd_width = width as i16 - 47;
             if cmd_width < 0{
                 cmd_width = 0;
             }
@@ -419,12 +441,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             for i in 3..cmd_width{
                 cmd_header += " ";
             }
-            let header = ["PID   ", "USER       ", "CPU%  ", "MEM%  ", "RES     ", cmd_header.as_str()];
+            let header = [ "PID   ",
+                                    "USER       ",
+                                    "CPU%  ",
+                                    "MEM%  ",
+                                    "MEM     ",
+                                    "S ",
+                                    cmd_header.as_str()];
             Table::new(header.into_iter(), rows)
                 .block(Block::default().borders(Borders::ALL)
                                        .title(format!("{} Running Tasks",
                                                       app.processes.len()).as_str()))
-                .widths(&[6, 11, 6, 6, 8, cmd_width ])
+                .widths(&[6, 11, 6, 6, 8, 2, cmd_width ])
                 .column_spacing(0)
                 .header_style(Style::default().bg(Color::DarkGray))
                 .render(&mut f, chunks[3]);
