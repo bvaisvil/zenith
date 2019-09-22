@@ -255,26 +255,6 @@ impl<'a> CPUTimeApp<'a>{
     }
 }
 
-struct App<'a> {
-    data: Vec<(&'a str, u64)>,
-}
-
-impl<'a> App<'a> {
-    fn new() -> App<'a> {
-        App {
-            data: vec![
-                ("CPU", 9),
-                ("MEM", 12),
-                ("SWAP", 5),
-                ("NET DOWN", 8),
-                ("NET UP", 2),
-            ],
-        }
-    }
-
-    fn update(&mut self) {
-    }
-}
 
 fn mem_title(app: &CPUTimeApp) -> String {
     format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
