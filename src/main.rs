@@ -137,7 +137,9 @@ struct ZProcess{
     memory: u64,
     cpu_usage: f32,
     command: Vec<String>,
-    status: ProcessStatus
+    exe: String,
+    status: ProcessStatus,
+    name: String
 }
 
 struct CPUTimeApp<'a> {
@@ -247,7 +249,9 @@ impl<'a> CPUTimeApp<'a>{
                 memory: process.memory(),
                 cpu_usage: process.cpu_usage(),
                 command: process.cmd().to_vec(),
-                status: process.status()
+                status: process.status(),
+                exe: format!("{}", process.exe().display()),
+                name: process.name().to_string()
             });
         }
         self.processes.sort_by(|a, b| a.cpu_usage.partial_cmp(&b.cpu_usage).unwrap());
@@ -292,6 +296,7 @@ impl ProcessStatusExt for ProcessStatus{
         }
     }
 }
+
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Terminal initialization
@@ -345,8 +350,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 
             // process table
-
-
             let rows = app.processes.iter().map(|p|{
                 vec![
                     format!("{: >5}", p.pid),
@@ -356,7 +359,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
                         .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
                     format!("{:1}", p.status.to_single_char()),
-                    format!("{}", p.command.join(" "))
+                    format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
                 ]
             });
             let rows = rows.map(|r|{
