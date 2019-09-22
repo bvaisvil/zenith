@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+//#[allow(dead_code)]
 
 extern crate sysinfo;
 #[macro_use] extern crate byte_unit;
@@ -344,12 +344,12 @@ fn cpu_title(app: &CPUTimeApp) -> String {
 
 fn main() -> Result<(), Box<Error>> {
     // Terminal initialization
-    let stdout = io::stdout().into_raw_mode()?;
+    let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
     let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-    terminal.hide_cursor()?;
+    let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
+    terminal.hide_cursor().expect("Hiding cursor failed.");
 
     // Setup event handlers
     let events = Events::new();
@@ -409,15 +409,16 @@ fn main() -> Result<(), Box<Error>> {
             let rows = rows.map(|r|{
                 Row::Data(r.into_iter())
             });
-            let mut cmd_width = width - 65;
-            if cmd_width == 0{
-                cmd_width = 10;
+            let mut cmd_width = width as i16 - 65;
+            if cmd_width < 0{
+                cmd_width = 0;
             }
+            let cmd_width = cmd_width as u16;
             Table::new(header.into_iter(), rows)
                 .block(Block::default().borders(Borders::ALL)
                                        .title(format!("{} Running Tasks",
                                                       app.processes.len()).as_str()))
-                .widths(&[8, 20, 10, 10, 5, cmd_width ])
+                .widths(&[8, 10, 10, 10, 5, cmd_width ])
                 .render(&mut f, chunks[3]);
 
             {
@@ -441,10 +442,11 @@ fn main() -> Result<(), Box<Error>> {
                 if np == 0{
                     np = 1;
                 }
-                let mut cpu_bw = ((((cpu_width as f32) - (np as f32 * 2.0)) / np as f32)) as u16;
+                let mut cpu_bw = ((((cpu_width as f32) - (np as f32 * 2.0)) / np as f32)) as i16;
                 if cpu_bw < 1{
                     cpu_bw = 1;
                 }
+                let cpu_bw = cpu_bw as u16;
                 // Bar chart for current CPU usage.
                 BarChart::default()
                     .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
@@ -468,9 +470,9 @@ fn main() -> Result<(), Box<Error>> {
                     .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
                     .render(&mut f, chunks[0]);
             }
-        })?;
+        }).expect("Could not draw frame.");
 
-        match events.next()? {
+        match events.next().expect("No new event.") {
             Event::Input(input) => {
                 if input == Key::Char('q') {
                     break;
