@@ -279,7 +279,22 @@ fn cpu_title(app: &CPUTimeApp) -> String {
 pub trait ProcessStatusExt{
     fn to_single_char(&self) -> &str;
 }
+
 impl ProcessStatusExt for ProcessStatus{
+    #[cfg(target_os = "macos")]
+    fn to_single_char(&self) -> &str{
+        match *self{
+            ProcessStatus::Idle       => "I",
+            ProcessStatus::Run        => "R",
+            ProcessStatus::Sleep      => "S",
+            ProcessStatus::Stop       => "T",
+            ProcessStatus::Zombie     => "Z",
+            ProcessStatus::Unknown(_) => "U"
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[cfg(target_os = "unix")]
     fn to_single_char(&self) -> &str{
         match *self {
             ProcessStatus::Idle       => "I",
@@ -296,6 +311,7 @@ impl ProcessStatusExt for ProcessStatus{
         }
     }
 }
+
 
 
 fn main() -> Result<(), Box<dyn Error>> {
