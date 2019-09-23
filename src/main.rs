@@ -328,6 +328,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let events = Events::new();
 
     let mut app = CPUTimeApp::new();
+    let hostname = get_hostname().unwrap();
 
     loop {
 
@@ -341,7 +342,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     Constraint::Length(10),
                     Constraint::Percentage(20),
                     Constraint::Percentage(20),
-                    Constraint::Percentage(20)].as_ref())
+                    Constraint::Min(10)
+                ].as_ref())
                 .split(f.size());
             width = f.size().width;
 
@@ -446,7 +448,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                 // Bar Chart for current overview
                 BarChart::default()
-                    .block(Block::default().title(get_hostname().unwrap().as_str()).borders(Borders::ALL))
+                    .block(Block::default().title(hostname.as_str()).borders(Borders::ALL))
                     .data(&app.overview)
                     .style(Style::default().fg(Color::Red))
                     .bar_width(3)
