@@ -416,13 +416,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     xz.push((p.as_str(), u.clone()));
                 }
                 let overview_width: u16 = (3 + 2) * 4;
-                let overview_perc = ((overview_width as f32) / (width as f32) * 100.0) as u16;
-                let cpu_width: u16 = width - overview_width;
-                let cpu_percw = 100 - overview_perc;
+                 let mut cpu_width: i16 = width as i16 - overview_width as i16;
+                 if cpu_width < 1 {
+                     cpu_width = 1;
+                 }
                 // secondary UI division
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
-                    .constraints([Constraint::Percentage(overview_perc), Constraint::Percentage(cpu_percw)].as_ref())
+                    .constraints([Constraint::Length(overview_width), Constraint::Min(cpu_width as u16)].as_ref())
                     .split(chunks[0]);
 
                 // bit messy way to calc cpu bar width..
