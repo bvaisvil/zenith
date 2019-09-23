@@ -1,6 +1,7 @@
 //#[allow(dead_code)]
 
 extern crate sysinfo;
+extern crate hostname;
 #[macro_use] extern crate byte_unit;
 #[macro_use] extern crate maplit;
 
@@ -18,6 +19,7 @@ use tui::Terminal;
 use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process, ProcessStatus};
 use byte_unit::{Byte, ByteUnit};
 use users::{User, UsersCache, Users};
+use hostname::get_hostname;
 
 use std::sync::mpsc;
 use std::thread;
@@ -178,8 +180,8 @@ impl<'a> CPUTimeApp<'a>{
             overview: vec![
                 ("CPU", 0),
                 ("MEM", 0),
-                ("SWAP", 0),
-                ("DISK", 0)
+                ("SWP", 0),
+                ("DSK", 0)
             ],
             net_in: 0,
             net_out: 0,
@@ -222,7 +224,7 @@ impl<'a> CPUTimeApp<'a>{
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
 
-        self.overview[2] = ("SWAP", ((self.swap_utilization as f32/ self.swap_total as f32) * 100.0) as u64);
+        self.overview[2] = ("SWP", ((self.swap_utilization as f32/ self.swap_total as f32) * 100.0) as u64);
 
         self.disk_available = 0;
         self.disk_total = 0;
@@ -233,7 +235,7 @@ impl<'a> CPUTimeApp<'a>{
         }
 
         let du = self.disk_total - self.disk_available;
-        self.overview[3] = ("DISK", ((du as f32 / self.disk_total as f32) * 100.0) as u64);
+        self.overview[3] = ("DSK", ((du as f32 / self.disk_total as f32) * 100.0) as u64);
 
 
         let net = self.system.get_network();
@@ -411,7 +413,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 for (p, u) in cpus.iter(){
                     xz.push((p.as_str(), u.clone()));
                 }
-                let overview_width: u16 = (4 + 2) * 4;
+                let overview_width: u16 = (3 + 2) * 4;
                 let overview_perc = ((overview_width as f32) / (width as f32) * 100.0) as u16;
                 let cpu_width: u16 = width - overview_width;
                 let cpu_percw = 100 - overview_perc;
@@ -444,10 +446,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                 // Bar Chart for current overview
                 BarChart::default()
-                    .block(Block::default().title("Overview").borders(Borders::ALL))
+                    .block(Block::default().title(get_hostname().unwrap().as_str()).borders(Borders::ALL))
                     .data(&app.overview)
                     .style(Style::default().fg(Color::Red))
-                    .bar_width(4)
+                    .bar_width(3)
                     .bar_gap(1)
                     .max(100)
                     .value_style(Style::default().bg(Color::Red))
