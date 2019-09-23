@@ -294,6 +294,22 @@ impl ProcessStatusExt for ProcessStatus{
     }
 
     #[cfg(target_os = "linux")]
+    fn to_single_char(&self) -> &str{
+        match *self {
+            ProcessStatus::Idle       => "I",
+            ProcessStatus::Run        => "R",
+            ProcessStatus::Sleep      => "S",
+            ProcessStatus::Stop       => "T",
+            ProcessStatus::Zombie     => "Z",
+            ProcessStatus::Tracing    => "t",
+            ProcessStatus::Dead       => "x",
+            ProcessStatus::Wakekill   => "K",
+            ProcessStatus::Waking     => "W",
+            ProcessStatus::Parked     => "P",
+            ProcessStatus::Unknown(_) => "U",
+        }
+    }
+
     #[cfg(target_os = "unix")]
     fn to_single_char(&self) -> &str{
         match *self {
