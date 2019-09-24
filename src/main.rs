@@ -339,7 +339,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .direction(Direction::Vertical)
                 .margin(2)
                 .constraints([
-                    Constraint::Length(10),
+                    Constraint::Length(8),
                     Constraint::Percentage(20),
                     Constraint::Percentage(20),
                     Constraint::Min(10)
