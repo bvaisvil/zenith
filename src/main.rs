@@ -381,8 +381,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
                 ]
             });
-            let rows = rows.map(|r|{
-                Row::Data(r.into_iter())
+            let mut rows = rows.enumerate().map(|(i, r)|{
+                if i == 0{
+                    Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
+                }
+                else{
+                    Row::Data(r.into_iter())
+                }
+
             });
             let mut cmd_width = width as i16 - 47;
             if cmd_width < 0{
