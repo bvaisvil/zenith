@@ -18,10 +18,10 @@ use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text,
 use tui::Terminal;
 use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process, ProcessStatus};
 use byte_unit::{Byte, ByteUnit};
-use users::{User, UsersCache, Users};
+use users::{User, UsersCache, Users, Groups};
 use hostname::get_hostname;
 
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::task::{Poll};
 use std::time::Duration;
@@ -35,6 +35,7 @@ use termion::input::TermRead;
 
 use rand::distributions::{Distribution, Uniform};
 use rand::rngs::ThreadRng;
+use std::io::Write;
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -256,9 +257,13 @@ impl<'a> CPUTimeApp<'a>{
         self.net_out = net.get_outcome();
         self.processes.clear();
         for (pid, process) in self.system.get_process_list(){
+            let user_name = match self.user_cache.get_user_by_uid(process.uid){
+                Some(user) => user.name().to_string_lossy().to_string(),
+                None => String::from("")
+            };
             self.processes.push( ZProcess{
                 uid: process.uid,
-                user_name: self.user_cache.get_user_by_uid(process.uid).unwrap().name().to_string_lossy().to_string(),
+                user_name: user_name,
                 pid: pid.clone(),
                 memory: process.memory(),
                 cpu_usage: process.cpu_usage(),
@@ -335,7 +340,6 @@ impl ProcessStatusExt for ProcessStatus{
 
 fn panic_hook(info: &PanicInfo<'_>) {
 	let location = info.location().unwrap();  // The current implementation always returns Some
-
 	let msg = match info.payload().downcast_ref::<&'static str>() {
 		Some(s) => *s,
 		None => match info.payload().downcast_ref::<String>() {
@@ -347,7 +351,7 @@ fn panic_hook(info: &PanicInfo<'_>) {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    panic::set_hook(Box::new(|info| { panic_hook(info);}));
+
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
     let stdout = MouseTerminal::from(stdout);
@@ -355,6 +359,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
     terminal.hide_cursor().expect("Hiding cursor failed.");
+
+    panic::set_hook(Box::new(|info| {
+        panic_hook(info);
+    }));
 
     // Setup event handlers
     let events = Events::new();
