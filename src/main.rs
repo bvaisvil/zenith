@@ -9,7 +9,7 @@ use std::io;
 use std::error::{Error};
 use termion::event::Key;
 use termion::input::MouseTerminal;
-use termion::raw::IntoRawMode;
+use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
@@ -35,7 +35,7 @@ use termion::input::TermRead;
 
 use rand::distributions::{Distribution, Uniform};
 use rand::rngs::ThreadRng;
-use std::io::Write;
+use std::io::{Write, Stdout};
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -350,6 +350,179 @@ fn panic_hook(info: &PanicInfo<'_>) {
 	println!("{}thread '<unnamed>' panicked at '{}', {}\r", termion::screen::ToMainScreen, msg, location);
 }
 
+struct TerminalRenderer<'a>{
+    terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
+    app: CPUTimeApp<'a>,
+    events: Events,
+    hostname: String
+}
+
+impl<'a> TerminalRenderer<'a> {
+    fn new() -> TerminalRenderer<'a> {
+        let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
+        let stdout = MouseTerminal::from(stdout);
+        let stdout = AlternateScreen::from(stdout);
+        let backend = TermionBackend::new(stdout);
+        TerminalRenderer {
+            terminal: Terminal::new(backend).unwrap(),
+            app: CPUTimeApp::new(),
+            events: Events::new(),
+            hostname: get_hostname().unwrap_or(String::from("")),
+        }
+    }
+
+    fn start(&mut self) {
+        loop {
+            let mut app = &self.app;
+            let hostname = &self.hostname;
+            let mut width: u16 = 0;
+            self.terminal.draw( |mut f| {
+                // primary layout division.
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .margin(2)
+                    .constraints([
+                        Constraint::Length(8),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Min(10)
+                    ].as_ref())
+                    .split(f.size());
+                width = f.size().width;
+
+                // CPU sparkline
+                let title = cpu_title(&app);
+                Sparkline::default()
+                    .block(
+                        Block::default().title(title.as_str()).borders(Borders::ALL))
+                    .data(&app.cpu_usage_histogram)
+                    .style(Style::default().fg(Color::Blue))
+                    .max(100)
+                    .render(&mut f, chunks[1]);
+
+                // memory sparkline
+                let title2 = mem_title(&app);
+                Sparkline::default()
+                    .block(
+                        Block::default().title(title2.as_str()).borders(Borders::ALL))
+                    .data(&app.mem_usage_histogram)
+                    .style(Style::default().fg(Color::Cyan))
+                    .max(100)
+                    .render(&mut f, chunks[2]);
+
+
+                // process table
+                let rows = app.processes.iter().map(|p| {
+                    vec![
+                        format!("{: >5}", p.pid),
+                        format!("{: >10}", p.user_name),
+                        format!("{:>.1}", p.cpu_usage),
+                        format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
+                        format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                            .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
+                        format!("{:1}", p.status.to_single_char()),
+                        format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
+                    ]
+                });
+                let mut rows = rows.enumerate().map(|(i, r)| {
+                    if i == 0 {
+                        Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
+                    } else {
+                        Row::Data(r.into_iter())
+                    }
+                });
+                let mut cmd_width = width as i16 - 47;
+                if cmd_width < 0 {
+                    cmd_width = 0;
+                }
+                let cmd_width = cmd_width as u16;
+                let mut cmd_header = String::from("CMD");
+                for i in 3..cmd_width {
+                    cmd_header += " ";
+                }
+                let header = ["PID   ",
+                    "USER       ",
+                    "CPU%  ",
+                    "MEM%  ",
+                    "MEM     ",
+                    "S ",
+                    cmd_header.as_str()];
+                Table::new(header.into_iter(), rows)
+                    .block(Block::default().borders(Borders::ALL)
+                        .title(format!("{} Running Tasks",
+                                       app.processes.len()).as_str()))
+                    .widths(&[6, 11, 6, 6, 8, 2, cmd_width])
+                    .column_spacing(0)
+                    .header_style(Style::default().bg(Color::DarkGray))
+                    .render(&mut f, chunks[3]);
+
+                {
+                    let cpus = app.cpus.as_slice();
+                    let mut xz: Vec<(&str, u64)> = vec![];
+                    for (p, u) in cpus.iter() {
+                        xz.push((p.as_str(), u.clone()));
+                    }
+                    let overview_width: u16 = (3 + 2) * 4;
+                    let mut cpu_width: i16 = width as i16 - overview_width as i16;
+                    if cpu_width < 1 {
+                        cpu_width = 1;
+                    }
+                    // secondary UI division
+                    let chunks = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints([Constraint::Length(overview_width), Constraint::Min(cpu_width as u16)].as_ref())
+                        .split(chunks[0]);
+
+                    // bit messy way to calc cpu bar width..
+                    let mut np = app.cpus.len() as u16;
+                    if np == 0 {
+                        np = 1;
+                    }
+                    let mut cpu_bw = (((cpu_width as f32) - (np as f32 * 2.0)) / np as f32) as i16;
+                    if cpu_bw < 1 {
+                        cpu_bw = 1;
+                    }
+                    let cpu_bw = cpu_bw as u16;
+
+                    // Bar chart for current CPU usage.
+                    BarChart::default()
+                        .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
+                        .data(xz.as_slice())
+                        .bar_width(cpu_bw)
+                        .bar_gap(1)
+                        .max(100)
+                        .style(Style::default().fg(Color::Green))
+                        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+                        .render(&mut f, chunks[1]);
+
+                    // Bar Chart for current overview
+                    BarChart::default()
+                        .block(Block::default().title(hostname.as_str()).borders(Borders::ALL))
+                        .data(&app.overview)
+                        .style(Style::default().fg(Color::Red))
+                        .bar_width(3)
+                        .bar_gap(1)
+                        .max(100)
+                        .value_style(Style::default().bg(Color::Red))
+                        .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
+                        .render(&mut f, chunks[0]);
+                }
+            }).expect("Could not draw frame.");
+
+            match self.events.next().expect("No new event.") {
+                Event::Input(input) => {
+                    if input == Key::Char('q') {
+                        break;
+                    }
+                }
+                Event::Tick => {
+                    self.app.update(width);
+                }
+            }
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
 
     // Terminal initialization
@@ -358,6 +531,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let stdout = AlternateScreen::from(stdout);
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
+    //terminal.what_is_this();
     terminal.hide_cursor().expect("Hiding cursor failed.");
 
     panic::set_hook(Box::new(|info| {
@@ -367,159 +541,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Setup event handlers
     let events = Events::new();
 
-    let mut app = CPUTimeApp::new();
-    let hostname = get_hostname().unwrap();
-
-    loop {
-
-        let mut width: u16 = 0;
-        terminal.draw(|mut f| {
-            // primary layout division.
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(2)
-                .constraints([
-                    Constraint::Length(8),
-                    Constraint::Percentage(20),
-                    Constraint::Percentage(20),
-                    Constraint::Min(10)
-                ].as_ref())
-                .split(f.size());
-            width = f.size().width;
-
-            // CPU sparkline
-            let title =  cpu_title(&app);
-            Sparkline::default()
-                .block(
-                    Block::default().title(title.as_str()).borders(Borders::ALL))
-                .data(&app.cpu_usage_histogram)
-                .style(Style::default().fg(Color::Blue))
-                .max(100)
-                .render(&mut f, chunks[1]);
-
-            // memory sparkline
-            let title2 =  mem_title(&app);
-            Sparkline::default()
-                .block(
-                    Block::default().title(title2.as_str()).borders(Borders::ALL))
-                .data(&app.mem_usage_histogram)
-                .style(Style::default().fg(Color::Cyan))
-                .max(100)
-                .render(&mut f, chunks[2]);
+    //let mut app = CPUTimeApp::new();
+    //let hostname = get_hostname().unwrap();
+    let mut r = TerminalRenderer::new();
+    r.start();
 
 
-            // process table
-            let rows = app.processes.iter().map(|p|{
-                vec![
-                    format!("{: >5}", p.pid),
-                    format!("{: >10}", p.user_name),
-                    format!("{:>.1}", p.cpu_usage),
-                    format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
-                    format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                        .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
-                    format!("{:1}", p.status.to_single_char()),
-                    format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
-                ]
-            });
-            let mut rows = rows.enumerate().map(|(i, r)|{
-                if i == 0{
-                    Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
-                }
-                else{
-                    Row::Data(r.into_iter())
-                }
-
-            });
-            let mut cmd_width = width as i16 - 47;
-            if cmd_width < 0{
-                cmd_width = 0;
-            }
-            let cmd_width = cmd_width as u16;
-            let mut cmd_header = String::from("CMD");
-            for i in 3..cmd_width{
-                cmd_header += " ";
-            }
-            let header = [ "PID   ",
-                                    "USER       ",
-                                    "CPU%  ",
-                                    "MEM%  ",
-                                    "MEM     ",
-                                    "S ",
-                                    cmd_header.as_str()];
-            Table::new(header.into_iter(), rows)
-                .block(Block::default().borders(Borders::ALL)
-                                       .title(format!("{} Running Tasks",
-                                                      app.processes.len()).as_str()))
-                .widths(&[6, 11, 6, 6, 8, 2, cmd_width ])
-                .column_spacing(0)
-                .header_style(Style::default().bg(Color::DarkGray))
-                .render(&mut f, chunks[3]);
-
-            {
-                let cpus = app.cpus.as_slice();
-                let mut xz :Vec<(&str, u64)> = vec![];
-                for (p, u) in cpus.iter(){
-                    xz.push((p.as_str(), u.clone()));
-                }
-                let overview_width: u16 = (3 + 2) * 4;
-                 let mut cpu_width: i16 = width as i16 - overview_width as i16;
-                 if cpu_width < 1 {
-                     cpu_width = 1;
-                 }
-                // secondary UI division
-                let chunks = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints([Constraint::Length(overview_width), Constraint::Min(cpu_width as u16)].as_ref())
-                    .split(chunks[0]);
-
-                // bit messy way to calc cpu bar width..
-                let mut np = app.cpus.len() as u16;
-                if np == 0{
-                    np = 1;
-                }
-                let mut cpu_bw = (((cpu_width as f32) - (np as f32 * 2.0)) / np as f32) as i16;
-                if cpu_bw < 1{
-                    cpu_bw = 1;
-                }
-                let cpu_bw = cpu_bw as u16;
-
-                //println!("{}{:?}\r", termion::screen::ToMainScreen, &app.overview);
-                // Bar chart for current CPU usage.
-                BarChart::default()
-                    .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
-                    .data(xz.as_slice())
-                    .bar_width(cpu_bw)
-                    .bar_gap(1)
-                    .max(100)
-                    .style(Style::default().fg(Color::Green))
-                    .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
-                    .render(&mut f, chunks[1]);
-
-                // Bar Chart for current overview
-                BarChart::default()
-                    .block(Block::default().title(hostname.as_str()).borders(Borders::ALL))
-                    .data(&app.overview)
-                    .style(Style::default().fg(Color::Red))
-                    .bar_width(3)
-                    .bar_gap(1)
-                    .max(100)
-                    .value_style(Style::default().bg(Color::Red))
-                    .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
-                    .render(&mut f, chunks[0]);
-            }
-        }).expect("Could not draw frame.");
-
-        match events.next().expect("No new event.") {
-            Event::Input(input) => {
-                if input == Key::Char('q') {
-                    break;
-                }
-            }
-            Event::Tick => {
-                app.update(width);
-            }
-        }
-    }
 
     Ok(())
 }
