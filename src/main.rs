@@ -216,7 +216,11 @@ impl<'a> CPUTimeApp<'a>{
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
 
-        let mem = ((self.mem_utilization as f32/ self.mem_total as f32) * 100.0) as u64;
+        let mut mem: u64 = 0;
+        if self.mem_total > 0{
+            mem = ((self.mem_utilization as f64/ self.mem_total as f64) * 100.0) as u64;
+        }
+
 
         self.overview[1] = ("MEM", mem);
         self.mem_usage_histogram.push(mem);
@@ -227,7 +231,12 @@ impl<'a> CPUTimeApp<'a>{
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
 
-        self.overview[2] = ("SWP", ((self.swap_utilization as f32/ self.swap_total as f32) * 100.0) as u64);
+
+        let mut swp: u64 = 0;
+        if self.swap_total > 0 && self.swap_utilization > 0{
+            swp = ((self.swap_utilization as f64/ self.swap_total as f64) * 100.0) as u64;
+        }
+        self.overview[2] = ("SWP", swp);
 
         self.disk_available = 0;
         self.disk_total = 0;
@@ -266,11 +275,19 @@ impl<'a> CPUTimeApp<'a>{
 
 
 fn mem_title(app: &CPUTimeApp) -> String {
+    let mut mem: u64 = 0;
+    if app.mem_utilization > 0 && app.mem_total > 0{
+        mem = ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64;
+    }
+    let mut swp: u64 = 0;
+    if app.swap_utilization > 0 && app.swap_total > 0{
+        swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
+    }
     format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
             Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
-            ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64,
+            mem,
             Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
-            ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64
+            swp
     )
 }
 
@@ -354,7 +371,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .direction(Direction::Vertical)
                 .margin(2)
                 .constraints([
-                    Constraint::Length(10),
+                    Constraint::Length(8),
                     Constraint::Percentage(20),
                     Constraint::Percentage(20),
                     Constraint::Min(10)
@@ -457,6 +474,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     cpu_bw = 1;
                 }
                 let cpu_bw = cpu_bw as u16;
+
+                //println!("{}{:?}\r", termion::screen::ToMainScreen, &app.overview);
                 // Bar chart for current CPU usage.
                 BarChart::default()
                     .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
