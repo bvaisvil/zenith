@@ -27,6 +27,9 @@ use std::task::{Poll};
 use std::time::Duration;
 use std::collections::{HashMap};
 
+use std::panic::{PanicInfo};
+use std::panic;
+
 use termion::input::TermRead;
 
 
@@ -213,7 +216,11 @@ impl<'a> CPUTimeApp<'a>{
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
 
-        let mem = ((self.mem_utilization as f32/ self.mem_total as f32) * 100.0) as u64;
+        let mut mem: u64 = 0;
+        if self.mem_total > 0{
+            mem = ((self.mem_utilization as f64/ self.mem_total as f64) * 100.0) as u64;
+        }
+
 
         self.overview[1] = ("MEM", mem);
         self.mem_usage_histogram.push(mem);
@@ -224,7 +231,12 @@ impl<'a> CPUTimeApp<'a>{
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
 
-        self.overview[2] = ("SWP", ((self.swap_utilization as f32/ self.swap_total as f32) * 100.0) as u64);
+
+        let mut swp: u64 = 0;
+        if self.swap_total > 0 && self.swap_utilization > 0{
+            swp = ((self.swap_utilization as f64/ self.swap_total as f64) * 100.0) as u64;
+        }
+        self.overview[2] = ("SWP", swp);
 
         self.disk_available = 0;
         self.disk_total = 0;
@@ -263,11 +275,19 @@ impl<'a> CPUTimeApp<'a>{
 
 
 fn mem_title(app: &CPUTimeApp) -> String {
+    let mut mem: u64 = 0;
+    if app.mem_utilization > 0 && app.mem_total > 0{
+        mem = ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64;
+    }
+    let mut swp: u64 = 0;
+    if app.swap_utilization > 0 && app.swap_total > 0{
+        swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
+    }
     format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
             Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
-            ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64,
+            mem,
             Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
-            ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64
+            swp
     )
 }
 
@@ -313,9 +333,21 @@ impl ProcessStatusExt for ProcessStatus{
     }
 }
 
+fn panic_hook(info: &PanicInfo<'_>) {
+	let location = info.location().unwrap();  // The current implementation always returns Some
 
+	let msg = match info.payload().downcast_ref::<&'static str>() {
+		Some(s) => *s,
+		None => match info.payload().downcast_ref::<String>() {
+			Some(s) => &s[..],
+			None => "Box<Any>",
+		}
+	};
+	println!("{}thread '<unnamed>' panicked at '{}', {}\r", termion::screen::ToMainScreen, msg, location);
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
+    panic::set_hook(Box::new(|info| { panic_hook(info);}));
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
     let stdout = MouseTerminal::from(stdout);
@@ -442,6 +474,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     cpu_bw = 1;
                 }
                 let cpu_bw = cpu_bw as u16;
+
+                //println!("{}{:?}\r", termion::screen::ToMainScreen, &app.overview);
                 // Bar chart for current CPU usage.
                 BarChart::default()
                     .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
