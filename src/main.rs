@@ -27,6 +27,9 @@ use std::task::{Poll};
 use std::time::Duration;
 use std::collections::{HashMap};
 
+use std::panic::{PanicInfo};
+use std::panic;
+
 use termion::input::TermRead;
 
 
@@ -313,9 +316,21 @@ impl ProcessStatusExt for ProcessStatus{
     }
 }
 
+fn panic_hook(info: &PanicInfo<'_>) {
+	let location = info.location().unwrap();  // The current implementation always returns Some
 
+	let msg = match info.payload().downcast_ref::<&'static str>() {
+		Some(s) => *s,
+		None => match info.payload().downcast_ref::<String>() {
+			Some(s) => &s[..],
+			None => "Box<Any>",
+		}
+	};
+	println!("{}thread '<unnamed>' panicked at '{}', {}\r", termion::screen::ToMainScreen, msg, location);
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
+    panic::set_hook(Box::new(|info| { panic_hook(info);}));
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
     let stdout = MouseTerminal::from(stdout);
