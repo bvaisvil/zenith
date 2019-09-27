@@ -537,12 +537,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
-
-    // Setup event handlers
-    let events = Events::new();
-
-    //let mut app = CPUTimeApp::new();
-    //let hostname = get_hostname().unwrap();
     let mut r = TerminalRenderer::new();
     r.start();
 
