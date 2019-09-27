@@ -11,6 +11,7 @@ use termion::event::Key;
 use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
+use std::fmt::Display;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
@@ -350,6 +351,43 @@ fn panic_hook(info: &PanicInfo<'_>) {
 	println!("{}thread '<unnamed>' panicked at '{}', {}\r", termion::screen::ToMainScreen, msg, location);
 }
 
+fn process_table<'a>(app: &CPUTimeApp, width: u16, cmd_header: &'a mut String) -> (Vec<Vec<String>>, [&'a str;7], [u16;7])
+{
+    // process table
+    let rows = app.processes.iter().map(|p| {
+        vec![
+            format!("{: >5}", p.pid),
+            format!("{: >10}", p.user_name),
+            format!("{:>.1}", p.cpu_usage),
+            format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
+            format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
+            format!("{:1}", p.status.to_single_char()),
+            format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
+        ]
+    }).collect();
+
+    let mut cmd_width = width as i16 - 47;
+    if cmd_width < 0 {
+        cmd_width = 0;
+    }
+    let cmd_width = cmd_width as u16;
+    for i in 3..cmd_width {
+        cmd_header.push(' ');
+    }
+    let header = [
+        "PID   ",
+        "USER       ",
+        "CPU%  ",
+        "MEM%  ",
+        "MEM     ",
+        "S ",
+        cmd_header.as_str()
+    ];
+    let widths = [6, 11, 6, 6, 8, 2, cmd_width];
+    (rows, header, widths)
+}
+
 struct TerminalRenderer<'a>{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
     app: CPUTimeApp<'a>,
@@ -377,6 +415,7 @@ impl<'a> TerminalRenderer<'a> {
             let hostname = &self.hostname;
             let mut width: u16 = 0;
             self.terminal.draw( |mut f| {
+
                 // primary layout division.
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
@@ -410,51 +449,21 @@ impl<'a> TerminalRenderer<'a> {
                     .max(100)
                     .render(&mut f, chunks[2]);
 
-
-                // process table
-                let rows = app.processes.iter().map(|p| {
-                    vec![
-                        format!("{: >5}", p.pid),
-                        format!("{: >10}", p.user_name),
-                        format!("{:>.1}", p.cpu_usage),
-                        format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
-                        format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                            .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
-                        format!("{:1}", p.status.to_single_char()),
-                        format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
-                    ]
-                });
-                let mut rows = rows.enumerate().map(|(i, r)| {
+                let mut cmd_header = String::from("CMD");
+                let (rows, header, widths) = process_table(&app, width, &mut cmd_header);
+                let rows = rows.iter().enumerate().map(|(i, r)| {
                     if i == 0 {
                         Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
                     } else {
                         Row::Data(r.into_iter())
                     }
                 });
-                let mut cmd_width = width as i16 - 47;
-                if cmd_width < 0 {
-                    cmd_width = 0;
-                }
-                let cmd_width = cmd_width as u16;
-                let mut cmd_header = String::from("CMD");
-                for i in 3..cmd_width {
-                    cmd_header += " ";
-                }
-                let header = ["PID   ",
-                    "USER       ",
-                    "CPU%  ",
-                    "MEM%  ",
-                    "MEM     ",
-                    "S ",
-                    cmd_header.as_str()];
                 Table::new(header.into_iter(), rows)
                     .block(Block::default().borders(Borders::ALL)
-                        .title(format!("{} Running Tasks",
-                                       app.processes.len()).as_str()))
-                    .widths(&[6, 11, 6, 6, 8, 2, cmd_width])
+                        .title(format!("{} Running Tasks", app.processes.len()).as_str()))
+                    .widths(&widths)
                     .column_spacing(0)
-                    .header_style(Style::default().bg(Color::DarkGray))
-                    .render(&mut f, chunks[3]);
+                    .header_style(Style::default().bg(Color::DarkGray)).render(&mut f, chunks[3]);
 
                 {
                     let cpus = app.cpus.as_slice();
