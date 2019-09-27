@@ -171,8 +171,8 @@ struct CPUTimeApp<'a> {
 impl<'a> CPUTimeApp<'a>{
     fn new () -> CPUTimeApp<'a>{
         CPUTimeApp{
-            cpu_usage_histogram: vec![],
-            mem_usage_histogram: vec![],
+            cpu_usage_histogram: Vec::with_capacity(60),
+            mem_usage_histogram: Vec::with_capacity(60),
             cpus: vec![],
             system: System::new(),
             cpu_utilization: 0,
@@ -190,7 +190,7 @@ impl<'a> CPUTimeApp<'a>{
             ],
             net_in: 0,
             net_out: 0,
-            processes: vec![],
+            processes: Vec::with_capacity(400),
             user_cache: UsersCache::new()
         }
     }
@@ -479,7 +479,8 @@ impl<'a> TerminalRenderer<'a> {
                     // secondary UI division
                     let chunks = Layout::default()
                         .direction(Direction::Horizontal)
-                        .constraints([Constraint::Length(overview_width), Constraint::Min(cpu_width as u16)].as_ref())
+                        .constraints([Constraint::Length(overview_width),
+                            Constraint::Min(cpu_width as u16)].as_ref())
                         .split(chunks[0]);
 
                     // bit messy way to calc cpu bar width..
