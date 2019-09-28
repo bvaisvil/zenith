@@ -27,7 +27,7 @@ use std::sync::{mpsc, Arc};
 use std::thread;
 use std::task::{Poll};
 use std::time::Duration;
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 
 use std::panic::{PanicInfo};
 use std::panic;
@@ -165,7 +165,8 @@ struct CPUTimeApp<'a> {
     overview: Vec<(&'a str, u64)>,
     net_in: u64,
     net_out: u64,
-    processes: Vec<ZProcess>,
+    processes: Vec<i32>,
+    process_map: HashMap<i32, ZProcess>,
     user_cache: UsersCache
 }
 
@@ -192,10 +193,54 @@ impl<'a> CPUTimeApp<'a>{
             net_in: 0,
             net_out: 0,
             processes: Vec::with_capacity(400),
+            process_map: HashMap::with_capacity(400),
             user_cache: UsersCache::new()
         }
     }
+    fn update_process_list(&mut self){
+        self.processes.clear();
+        let process_list = self.system.get_process_list();
+        let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
+        for (pid, process) in process_list{
+            if self.process_map.contains_key(pid){
+                let zp = self.process_map.get_mut(pid).unwrap();
+                zp.memory = process.memory();
+                zp.cpu_usage = process.cpu_usage();
+                zp.status = process.status();
+            }
+            else{
+                let user_name = match self.user_cache.get_user_by_uid(process.uid){
+                    Some(user) => user.name().to_string_lossy().to_string(),
+                    None => String::from("")
+                };
+                let zprocess = ZProcess{
+                    uid: process.uid,
+                    user_name: user_name,
+                    pid: pid.clone(),
+                    memory: process.memory(),
+                    cpu_usage: process.cpu_usage(),
+                    command: process.cmd().to_vec(),
+                    status: process.status(),
+                    exe: format!("{}", process.exe().display()),
+                    name: process.name().to_string()
+                };
+                self.process_map.insert(zprocess.pid, zprocess);
+            }
+            self.processes.push(pid.clone());
+            current_pids.insert(pid.clone());
+        }
 
+        // remove pids that are gone
+        self.process_map.retain(|&k, _| current_pids.contains(&k));
+
+        let pm = &self.process_map;
+        self.processes.sort_by(|a, b| {
+            let pa =pm.get(a).unwrap();
+            let pb = pm.get(b).unwrap();
+            pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap()
+        });
+        self.processes.reverse();
+    }
     fn update(&mut self, width: u16) {
         self.system.refresh_all();
         let procs = self.system.get_processor_list();
@@ -257,37 +302,18 @@ impl<'a> CPUTimeApp<'a>{
 
         self.net_in = net.get_income();
         self.net_out = net.get_outcome();
-        self.processes.clear();
-        for (pid, process) in self.system.get_process_list(){
-            let user_name = match self.user_cache.get_user_by_uid(process.uid){
-                Some(user) => user.name().to_string_lossy().to_string(),
-                None => String::from("")
-            };
-            self.processes.push( ZProcess{
-                uid: process.uid,
-                user_name: user_name,
-                pid: pid.clone(),
-                memory: process.memory(),
-                cpu_usage: process.cpu_usage(),
-                command: process.cmd().to_vec(),
-                status: process.status(),
-                exe: format!("{}", process.exe().display()),
-                name: process.name().to_string()
-            });
-        }
-        self.processes.sort_by(|a, b| a.cpu_usage.partial_cmp(&b.cpu_usage).unwrap());
-        self.processes.reverse();
+        self.update_process_list();
     }
 }
 
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
-    if app.mem_utilization > 0 && app.mem_total > 0{
+    if app.mem_utilization > 0 && app.mem_total > 0 {
         mem = ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64;
     }
     let mut swp: u64 = 0;
-    if app.swap_utilization > 0 && app.swap_total > 0{
+    if app.swap_utilization > 0 && app.swap_total > 0 {
         swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
     }
     format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
@@ -357,7 +383,8 @@ fn render_process_table<'a>(app: &CPUTimeApp,
                      area: Rect,
                      f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
     // process table
-    let rows = app.processes.iter().map(|p| {
+    let rows = app.processes.iter().map(|pid| {
+        let p = app.process_map.get(pid).unwrap();
         vec![
             format!("{: >5}", p.pid),
             format!("{: >10}", p.user_name),
