@@ -13,10 +13,11 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use std::fmt::Display;
 use tui::backend::TermionBackend;
-use tui::layout::{Constraint, Direction, Layout};
+use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text, Table, Row};
 use tui::Terminal;
+use tui::Frame;
 use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process, ProcessStatus};
 use byte_unit::{Byte, ByteUnit};
 use users::{User, UsersCache, Users, Groups};
@@ -351,8 +352,10 @@ fn panic_hook(info: &PanicInfo<'_>) {
 	println!("{}thread '<unnamed>' panicked at '{}', {}\r", termion::screen::ToMainScreen, msg, location);
 }
 
-fn process_table<'a>(app: &CPUTimeApp, width: u16, cmd_header: &'a mut String) -> (Vec<Vec<String>>, [&'a str;7], [u16;7])
-{
+fn render_process_table<'a>(app: &CPUTimeApp,
+                     width: u16,
+                     area: Rect,
+                     f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
     // process table
     let rows = app.processes.iter().map(|p| {
         vec![
@@ -365,13 +368,14 @@ fn process_table<'a>(app: &CPUTimeApp, width: u16, cmd_header: &'a mut String) -
             format!("{:1}", p.status.to_single_char()),
             format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
         ]
-    }).collect();
+    });
 
     let mut cmd_width = width as i16 - 47;
     if cmd_width < 0 {
         cmd_width = 0;
     }
     let cmd_width = cmd_width as u16;
+    let mut cmd_header = String::from("CMD");
     for i in 3..cmd_width {
         cmd_header.push(' ');
     }
@@ -385,8 +389,87 @@ fn process_table<'a>(app: &CPUTimeApp, width: u16, cmd_header: &'a mut String) -
         cmd_header.as_str()
     ];
     let widths = [6, 11, 6, 6, 8, 2, cmd_width];
-    (rows, header, widths)
+    let rows = rows.enumerate().map(|(i, r)| {
+        if i == 0 {
+            Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
+        } else {
+            Row::Data(r.into_iter())
+        }
+    });
+    Table::new(header.into_iter(), rows)
+        .block(Block::default().borders(Borders::ALL)
+            .title(format!("{} Running Tasks", app.processes.len()).as_str()))
+        .widths(&widths)
+        .column_spacing(0)
+        .header_style(Style::default().bg(Color::DarkGray)).render(f, area);
+
 }
+
+fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+    let title = cpu_title(&app);
+    Sparkline::default()
+        .block(
+            Block::default().title(title.as_str()).borders(Borders::ALL))
+        .data(&app.cpu_usage_histogram)
+        .style(Style::default().fg(Color::Blue))
+        .max(100)
+        .render(f, area);
+}
+
+fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
+    let title2 = mem_title(&app);
+    Sparkline::default()
+        .block(
+            Block::default().title(title2.as_str()).borders(Borders::ALL))
+        .data(&app.mem_usage_histogram)
+        .style(Style::default().fg(Color::Cyan))
+        .max(100)
+        .render(f, area);
+}
+
+fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+
+    let cpus = app.cpus.as_slice();
+    let mut bars: Vec<(&str, u64)> = vec![];
+    for (p, u) in cpus.iter() {
+        bars.push((p.as_str(), u.clone()));
+    }
+
+    let mut np = app.cpus.len() as u16;
+    if np == 0 {
+        np = 1;
+    }
+    let mut cpu_bw = (((width as f32) - (np as f32 * 2.0)) / np as f32) as i16;
+    if cpu_bw < 1 {
+        cpu_bw = 1;
+    }
+    let cpu_bw = cpu_bw as u16;
+
+    // Bar chart for current CPU usage.
+    BarChart::default()
+        .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
+        .data(bars.as_slice())
+        .bar_width(cpu_bw)
+        .bar_gap(1)
+        .max(100)
+        .style(Style::default().fg(Color::Green))
+        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+        .render(f, area);
+}
+
+fn render_overview(app: &CPUTimeApp, area: Rect,  hostname: &str, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+    BarChart::default()
+        .block(Block::default().title(hostname).borders(Borders::ALL))
+        .data(&app.overview)
+        .style(Style::default().fg(Color::Red))
+        .bar_width(3)
+        .bar_gap(1)
+        .max(100)
+        .value_style(Style::default().bg(Color::Red))
+        .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
+        .render(f, area);
+}
+
 
 struct TerminalRenderer<'a>{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
@@ -415,9 +498,9 @@ impl<'a> TerminalRenderer<'a> {
             let hostname = &self.hostname;
             let mut width: u16 = 0;
             self.terminal.draw( |mut f| {
-
+                width = f.size().width;
                 // primary layout division.
-                let chunks = Layout::default()
+                let v_sections = Layout::default()
                     .direction(Direction::Vertical)
                     .margin(2)
                     .constraints([
@@ -427,96 +510,32 @@ impl<'a> TerminalRenderer<'a> {
                         Constraint::Min(10)
                     ].as_ref())
                     .split(f.size());
-                width = f.size().width;
 
-                // CPU sparkline
-                let title = cpu_title(&app);
-                Sparkline::default()
-                    .block(
-                        Block::default().title(title.as_str()).borders(Borders::ALL))
-                    .data(&app.cpu_usage_histogram)
-                    .style(Style::default().fg(Color::Blue))
-                    .max(100)
-                    .render(&mut f, chunks[1]);
 
-                // memory sparkline
-                let title2 = mem_title(&app);
-                Sparkline::default()
-                    .block(
-                        Block::default().title(title2.as_str()).borders(Borders::ALL))
-                    .data(&app.mem_usage_histogram)
-                    .style(Style::default().fg(Color::Cyan))
-                    .max(100)
-                    .render(&mut f, chunks[2]);
-
-                let mut cmd_header = String::from("CMD");
-                let (rows, header, widths) = process_table(&app, width, &mut cmd_header);
-                let rows = rows.iter().enumerate().map(|(i, r)| {
-                    if i == 0 {
-                        Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
-                    } else {
-                        Row::Data(r.into_iter())
-                    }
-                });
-                Table::new(header.into_iter(), rows)
-                    .block(Block::default().borders(Borders::ALL)
-                        .title(format!("{} Running Tasks", app.processes.len()).as_str()))
-                    .widths(&widths)
-                    .column_spacing(0)
-                    .header_style(Style::default().bg(Color::DarkGray)).render(&mut f, chunks[3]);
-
-                {
-                    let cpus = app.cpus.as_slice();
-                    let mut xz: Vec<(&str, u64)> = vec![];
-                    for (p, u) in cpus.iter() {
-                        xz.push((p.as_str(), u.clone()));
-                    }
-                    let overview_width: u16 = (3 + 2) * 4;
-                    let mut cpu_width: i16 = width as i16 - overview_width as i16;
-                    if cpu_width < 1 {
-                        cpu_width = 1;
-                    }
-                    // secondary UI division
-                    let chunks = Layout::default()
-                        .direction(Direction::Horizontal)
-                        .constraints([Constraint::Length(overview_width),
-                            Constraint::Min(cpu_width as u16)].as_ref())
-                        .split(chunks[0]);
-
-                    // bit messy way to calc cpu bar width..
-                    let mut np = app.cpus.len() as u16;
-                    if np == 0 {
-                        np = 1;
-                    }
-                    let mut cpu_bw = (((cpu_width as f32) - (np as f32 * 2.0)) / np as f32) as i16;
-                    if cpu_bw < 1 {
-                        cpu_bw = 1;
-                    }
-                    let cpu_bw = cpu_bw as u16;
-
-                    // Bar chart for current CPU usage.
-                    BarChart::default()
-                        .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
-                        .data(xz.as_slice())
-                        .bar_width(cpu_bw)
-                        .bar_gap(1)
-                        .max(100)
-                        .style(Style::default().fg(Color::Green))
-                        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
-                        .render(&mut f, chunks[1]);
-
-                    // Bar Chart for current overview
-                    BarChart::default()
-                        .block(Block::default().title(hostname.as_str()).borders(Borders::ALL))
-                        .data(&app.overview)
-                        .style(Style::default().fg(Color::Red))
-                        .bar_width(3)
-                        .bar_gap(1)
-                        .max(100)
-                        .value_style(Style::default().bg(Color::Red))
-                        .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
-                        .render(&mut f, chunks[0]);
+                let overview_width: u16 = (3 + 2) * 4;
+                let mut cpu_width: i16 = width as i16 - overview_width as i16;
+                if cpu_width < 1 {
+                    cpu_width = 1;
                 }
+
+                // secondary layout
+                let h_sections = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Length(overview_width),
+                        Constraint::Min(cpu_width as u16)].as_ref())
+                    .split(v_sections[0]);
+
+
+
+                render_cpu_histogram(&app, v_sections[1], &mut f);
+
+                render_memory_histogram(&app, v_sections[2], &mut f);
+
+                render_process_table(&app, width, v_sections[3], &mut f);
+
+                render_cpu_bars(&app, h_sections[1], cpu_width as u16, &mut f);
+
+                render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
             }).expect("Could not draw frame.");
 
             match self.events.next().expect("No new event.") {
