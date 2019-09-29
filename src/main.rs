@@ -144,6 +144,7 @@ struct ZProcess{
     user_name: String,
     memory: u64,
     cpu_usage: f32,
+    cum_cpu_usage: f64,
     command: Vec<String>,
     exe: String,
     status: ProcessStatus,
@@ -167,7 +168,8 @@ struct CPUTimeApp<'a> {
     net_out: u64,
     processes: Vec<i32>,
     process_map: HashMap<i32, ZProcess>,
-    user_cache: UsersCache
+    user_cache: UsersCache,
+    cum_cpu_process: Option<i32>
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -194,19 +196,28 @@ impl<'a> CPUTimeApp<'a>{
             net_out: 0,
             processes: Vec::with_capacity(400),
             process_map: HashMap::with_capacity(400),
-            user_cache: UsersCache::new()
+            user_cache: UsersCache::new(),
+            cum_cpu_process: Option::from(0)
         }
     }
     fn update_process_list(&mut self){
         self.processes.clear();
         let process_list = self.system.get_process_list();
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
+        let mut top_pid = 0;
+        let mut top_cum_cpu_usage: f64 = 0.0;
+
         for (pid, process) in process_list{
             if self.process_map.contains_key(pid){
                 let zp = self.process_map.get_mut(pid).unwrap();
                 zp.memory = process.memory();
                 zp.cpu_usage = process.cpu_usage();
+                zp.cum_cpu_usage += zp.cpu_usage as f64;
                 zp.status = process.status();
+                if zp.cum_cpu_usage > top_cum_cpu_usage{
+                    top_pid = zp.pid;
+                    top_cum_cpu_usage = zp.cum_cpu_usage;
+                }
             }
             else{
                 let user_name = match self.user_cache.get_user_by_uid(process.uid){
@@ -222,8 +233,13 @@ impl<'a> CPUTimeApp<'a>{
                     command: process.cmd().to_vec(),
                     status: process.status(),
                     exe: format!("{}", process.exe().display()),
-                    name: process.name().to_string()
+                    name: process.name().to_string(),
+                    cum_cpu_usage: process.cpu_usage() as f64
                 };
+                if zprocess.cum_cpu_usage > top_cum_cpu_usage{
+                    top_pid = zprocess.pid;
+                    top_cum_cpu_usage = zprocess.cum_cpu_usage;
+                }
                 self.process_map.insert(zprocess.pid, zprocess);
             }
             self.processes.push(pid.clone());
@@ -240,6 +256,7 @@ impl<'a> CPUTimeApp<'a>{
             pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap()
         });
         self.processes.reverse();
+        self.cum_cpu_process = Option::from(top_pid);
     }
     fn update(&mut self, width: u16) {
         self.system.refresh_all();
@@ -325,10 +342,28 @@ fn mem_title(app: &CPUTimeApp) -> String {
 }
 
 fn cpu_title(app: &CPUTimeApp) -> String {
-    format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}]",
+    let top_process_name = match app.cum_cpu_process {
+        Some(pid) => match &app.process_map.get(&pid){
+            Some(zp) => &zp.name,
+            None => ""
+        }
+        None => ""
+    };
+    let top_process_amt = match app.cum_cpu_process {
+        Some(pid) => match &app.process_map.get(&pid){
+            Some(zp) => zp.cum_cpu_usage,
+            None => 0.0
+        }
+        None => 0.0
+    };
+    let top_pid = app.cum_cpu_process.unwrap_or(0);
+    format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}] TOP [{} - {} - {:.2}]",
             app.cpu_utilization,
             Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false),
-            Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false)
+            Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false),
+            top_pid,
+            top_process_name,
+            top_process_amt
     )
 }
 pub trait ProcessStatusExt{
