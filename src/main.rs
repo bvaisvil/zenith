@@ -351,13 +351,13 @@ fn cpu_title(app: &CPUTimeApp) -> String {
     };
     let top_process_amt = match app.cum_cpu_process {
         Some(pid) => match &app.process_map.get(&pid){
-            Some(zp) => zp.cum_cpu_usage,
-            None => 0.0
+            Some(zp) => zp.user_name.clone(),
+            None => String::from("")
         }
-        None => 0.0
+        None => String::from("")
     };
     let top_pid = app.cum_cpu_process.unwrap_or(0);
-    format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}] TOP [{} - {} - {:.2}]",
+    format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}] TOP [{} - {} - {}]",
             app.cpu_utilization,
             Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false),
             Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false),
