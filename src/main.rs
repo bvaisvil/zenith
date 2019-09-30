@@ -22,6 +22,7 @@ use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, Process
 use byte_unit::{Byte, ByteUnit};
 use users::{User, UsersCache, Users, Groups};
 use hostname::get_hostname;
+use sys_info;
 
 use std::sync::{mpsc, Arc};
 use std::thread;
@@ -138,7 +139,7 @@ impl Events {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct ZProcess{
     pid: i32,
     uid: u32,
@@ -170,7 +171,8 @@ struct CPUTimeApp<'a> {
     processes: Vec<i32>,
     process_map: HashMap<i32, ZProcess>,
     user_cache: UsersCache,
-    cum_cpu_process: Option<i32>
+    cum_cpu_process: Option<i32>,
+    frequency: u64
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -198,7 +200,8 @@ impl<'a> CPUTimeApp<'a>{
             processes: Vec::with_capacity(400),
             process_map: HashMap::with_capacity(400),
             user_cache: UsersCache::new(),
-            cum_cpu_process: Option::from(0)
+            cum_cpu_process: Option::from(0),
+            frequency: 0
         }
     }
     fn update_process_list(&mut self){
@@ -259,6 +262,11 @@ impl<'a> CPUTimeApp<'a>{
         self.processes.reverse();
         self.cum_cpu_process = Option::from(top_pid);
     }
+
+    fn update_frequency(&mut self){
+        self.frequency = sys_info::cpu_speed().unwrap_or(0);
+    }
+
     fn update(&mut self, width: u16) {
         self.system.refresh_all();
         let procs = self.system.get_processor_list();
@@ -321,6 +329,7 @@ impl<'a> CPUTimeApp<'a>{
         self.net_in = net.get_income();
         self.net_out = net.get_outcome();
         self.update_process_list();
+        self.update_frequency();
     }
 }
 
@@ -510,7 +519,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
 
     // Bar chart for current CPU usage.
     BarChart::default()
-        .block(Block::default().title(format!("CPU(S) [{}]", np).as_str()).borders(Borders::ALL))
+        .block(Block::default().title(format!("CPU(S) [{}] Freq [{} MHz]", np, app.frequency).as_str()).borders(Borders::ALL))
         .data(bars.as_slice())
         .bar_width(cpu_bw)
         .bar_gap(1)
