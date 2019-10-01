@@ -150,7 +150,9 @@ struct ZProcess{
     command: Vec<String>,
     exe: String,
     status: ProcessStatus,
-    name: String
+    name: String,
+    priority: i32,
+    virtual_memory: u64
 }
 
 struct CPUTimeApp<'a> {
@@ -218,6 +220,8 @@ impl<'a> CPUTimeApp<'a>{
                 zp.cpu_usage = process.cpu_usage();
                 zp.cum_cpu_usage += zp.cpu_usage as f64;
                 zp.status = process.status();
+                zp.priority = process.priority;
+                zp.virtual_memory = process.virtual_memory;
                 if zp.cum_cpu_usage > top_cum_cpu_usage{
                     top_pid = zp.pid;
                     top_cum_cpu_usage = zp.cum_cpu_usage;
@@ -238,7 +242,9 @@ impl<'a> CPUTimeApp<'a>{
                     status: process.status(),
                     exe: format!("{}", process.exe().display()),
                     name: process.name().to_string(),
-                    cum_cpu_usage: process.cpu_usage() as f64
+                    cum_cpu_usage: process.cpu_usage() as f64,
+                    priority: process.priority,
+                    virtual_memory: process.virtual_memory
                 };
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage{
                     top_pid = zprocess.pid;
@@ -432,17 +438,20 @@ fn render_process_table<'a>(app: &CPUTimeApp,
         let p = app.process_map.get(pid).unwrap();
         vec![
             format!("{: >5}", p.pid),
-            format!("{: >10}", p.user_name),
+            format!("{: <10}", p.user_name),
+            format!("{: <3}", p.priority),
             format!("{:>.1}", p.cpu_usage),
             format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
             format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
+            format!("{: >8}", Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
                 .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
             format!("{:1}", p.status.to_single_char()),
             format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
         ]
     });
 
-    let mut cmd_width = width as i16 - 47;
+    let mut cmd_width = width as i16 - 57;
     if cmd_width < 0 {
         cmd_width = 0;
     }
@@ -451,16 +460,18 @@ fn render_process_table<'a>(app: &CPUTimeApp,
     for i in 3..cmd_width {
         cmd_header.push(' ');
     }
-    let header = [
+    let header = vec![
         "PID   ",
         "USER       ",
+        "P  ",
         "CPU%  ",
         "MEM%  ",
         "MEM     ",
+        "VIRT    ",
         "S ",
         cmd_header.as_str()
     ];
-    let widths = [6, 11, 6, 6, 8, 2, cmd_width];
+    let widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
     let rows = rows.enumerate().map(|(i, r)| {
         if i == 0 {
             Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
@@ -471,7 +482,7 @@ fn render_process_table<'a>(app: &CPUTimeApp,
     Table::new(header.into_iter(), rows)
         .block(Block::default().borders(Borders::ALL)
             .title(format!("{} Running Tasks", app.processes.len()).as_str()))
-        .widths(&widths)
+        .widths(widths.as_slice())
         .column_spacing(0)
         .header_style(Style::default().bg(Color::DarkGray)).render(f, area);
 
