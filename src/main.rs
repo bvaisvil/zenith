@@ -451,7 +451,7 @@ fn render_process_table<'a>(app: &CPUTimeApp,
         ]
     });
 
-    let mut cmd_width = width as i16 - 57;
+    let mut cmd_width = width as i16 - 58;
     if cmd_width < 0 {
         cmd_width = 0;
     }
@@ -463,7 +463,7 @@ fn render_process_table<'a>(app: &CPUTimeApp,
     let header = vec![
         "PID   ",
         "USER       ",
-        "P  ",
+        "P   ",
         "CPU%  ",
         "MEM%  ",
         "MEM     ",
