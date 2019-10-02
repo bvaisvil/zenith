@@ -444,22 +444,19 @@ fn panic_hook(info: &PanicInfo<'_>) {
 	println!("{}thread '<unnamed>' panicked at '{}', {}\r", termion::screen::ToMainScreen, msg, location);
 }
 
-fn render_process_table<'a>(app: &CPUTimeApp,
-                     width: u16,
-                     area: Rect,
-                     f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
+fn render_process_table<'a>(
+    app: &CPUTimeApp,
+    width: u16,
+    area: Rect,
+    process_table_start: usize,
+    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
     // process table
-    if area.height < 4{
+    if area.height < 5{
         return;
     }
-    let display_height = area.height as usize - 4;
+    let display_height = area.height as usize - 4; // 4 for the margins and table header
     //panic!("{}", area.height);
-    let mut start: usize = 0;
-    let mut end: usize = display_height as usize;
-    if app.highlighted_row > display_height as usize{
-        end = app.highlighted_row + 1;
-        start = end - display_height as usize;
-    }
+    let end = process_table_start + display_height;
 
     let mut rows: Vec<Vec<String>> = app.processes.iter().map(|(pid)| {
         let p = app.process_map.get(pid).unwrap();
@@ -500,7 +497,7 @@ fn render_process_table<'a>(app: &CPUTimeApp,
     ];
     let widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
     let rows = rows.iter().enumerate().filter_map(|(i, r)| {
-        if i >= start && i < end{
+        if i >= process_table_start && i < end{
             if app.highlighted_row == i{
                 Some(Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta).modifier(Modifier::BOLD)))
             }
@@ -592,7 +589,8 @@ struct TerminalRenderer<'a>{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
     app: CPUTimeApp<'a>,
     events: Events,
-    hostname: String
+    hostname: String,
+    process_table_row_start: usize
 }
 
 impl<'a> TerminalRenderer<'a> {
@@ -606,6 +604,7 @@ impl<'a> TerminalRenderer<'a> {
             app: CPUTimeApp::new(),
             events: Events::new(),
             hostname: get_hostname().unwrap_or(String::from("")),
+            process_table_row_start: 0
         }
     }
 
@@ -613,7 +612,9 @@ impl<'a> TerminalRenderer<'a> {
         loop {
             let mut app = &self.app;
             let hostname = &self.hostname;
+            let pst = &self.process_table_row_start;
             let mut width: u16 = 0;
+            let mut process_table_height: u16 = 0;
             self.terminal.draw( |mut f| {
                 width = f.size().width;
                 // primary layout division.
@@ -648,8 +649,10 @@ impl<'a> TerminalRenderer<'a> {
 
                 render_memory_histogram(&app, v_sections[2], &mut f);
 
-                render_process_table(&app, width, v_sections[3], &mut f);
-
+                render_process_table(&app, width, v_sections[3], *pst,&mut f);
+                if v_sections[3].height > 4{ // account for table border & margins.
+                    process_table_height = v_sections[3].height - 5;
+                }
                 render_cpu_bars(&app, h_sections[1], cpu_width as u16, &mut f);
 
                 render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
@@ -662,11 +665,18 @@ impl<'a> TerminalRenderer<'a> {
                     }
                     else if input == Key::Up{
                         self.app.highlight_up();
+                        if self.process_table_row_start > 0 && self.app.highlighted_row < self.process_table_row_start{
+                            self.process_table_row_start -= 1;
+                        }
                     }
                     else if input == Key::Down{
                         self.app.highlight_down();
+                        if self.process_table_row_start < self.app.process_map.len() &&
+                            self.app.highlighted_row > (self.process_table_row_start + process_table_height as usize){
+                            self.process_table_row_start += 1;
+                        }
                     }
-                }
+                },
                 Event::Tick => {
                     self.app.update(width);
                 }
