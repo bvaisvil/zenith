@@ -474,7 +474,7 @@ fn render_process_table<'a>(app: &CPUTimeApp,
             format!("{: >8}", Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
                 .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
             format!("{:1}", p.status.to_single_char()),
-            format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
+            format!("{} - ", p.name) + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" ")
         ]
     }).collect();
 
@@ -502,7 +502,7 @@ fn render_process_table<'a>(app: &CPUTimeApp,
     let rows = rows.iter().enumerate().filter_map(|(i, r)| {
         if i >= start && i < end{
             if app.highlighted_row == i{
-                Some(Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta)))
+                Some(Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta).modifier(Modifier::BOLD)))
             }
             else{
                 Some(Row::Data(r.into_iter()))
