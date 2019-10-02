@@ -619,17 +619,17 @@ impl<'a> TerminalRenderer<'a> {
                 // primary layout division.
                 let v_sections = Layout::default()
                     .direction(Direction::Vertical)
-                    .margin(2)
+                    .margin(0)
                     .constraints([
-                        Constraint::Length(8),
                         Constraint::Percentage(20),
                         Constraint::Percentage(20),
-                        Constraint::Min(10)
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(40)
                     ].as_ref())
                     .split(f.size());
 
 
-                let overview_width: u16 = (3 + 2) * 4;
+                let overview_width: u16 = 18;
                 let mut cpu_width: i16 = width as i16 - overview_width as i16;
                 if cpu_width < 1 {
                     cpu_width = 1;
