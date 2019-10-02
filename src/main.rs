@@ -543,28 +543,37 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBa
 
 fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
 
-    let cpus = app.cpus.as_slice();
+    let mut cpus = app.cpus.to_owned();
     let mut bars: Vec<(&str, u64)> = vec![];
-    for (p, u) in cpus.iter() {
-        bars.push((p.as_str(), u.clone()));
-    }
+    let mut bar_gap: u16 = 1;
+
 
     let mut np = app.cpus.len() as u16;
     if np == 0 {
         np = 1;
     }
-    let mut cpu_bw = (((width as f32) - (np as f32 * 2.0)) / np as f32) as i16;
+    if width > 2 && (np * 2) >= width - 2{
+        bar_gap = 0;
+    }
+    let mut cpu_bw = ((width as f32 - (np * bar_gap) as f32) / np as f32) as i16;
     if cpu_bw < 1 {
         cpu_bw = 1;
     }
     let cpu_bw = cpu_bw as u16;
+    for (i, (p, u)) in cpus.iter_mut().enumerate() {
+
+        if i > 8 && cpu_bw == 1{
+            p.remove(0);
+        }
+        bars.push((p.as_str(), u.clone()));
+    }
 
     // Bar chart for current CPU usage.
     BarChart::default()
         .block(Block::default().title(format!("CPU(S) [{}] Freq [{} MHz]", np, app.frequency).as_str()).borders(Borders::ALL))
         .data(bars.as_slice())
         .bar_width(cpu_bw)
-        .bar_gap(1)
+        .bar_gap(bar_gap)
         .max(100)
         .style(Style::default().fg(Color::Green))
         .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
