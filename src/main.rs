@@ -153,7 +153,8 @@ struct ZProcess{
     status: ProcessStatus,
     name: String,
     priority: i32,
-    virtual_memory: u64
+    virtual_memory: u64,
+    threads_total: u64
 }
 
 struct CPUTimeApp<'a> {
@@ -179,6 +180,7 @@ struct CPUTimeApp<'a> {
     cum_cpu_process: Option<i32>,
     frequency: u64,
     highlighted_row: usize,
+    threads_total: usize,
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -210,7 +212,8 @@ impl<'a> CPUTimeApp<'a>{
             user_cache: UsersCache::new(),
             cum_cpu_process: Option::from(0),
             frequency: 0,
-            highlighted_row: 0
+            highlighted_row: 0,
+            threads_total: 0
         }
     }
 
@@ -232,6 +235,7 @@ impl<'a> CPUTimeApp<'a>{
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
         let mut top_pid = 0;
         let mut top_cum_cpu_usage: f64 = 0.0;
+        self.threads_total = 0;
 
         for (pid, process) in process_list{
             if self.process_map.contains_key(pid){
@@ -242,6 +246,8 @@ impl<'a> CPUTimeApp<'a>{
                 zp.status = process.status();
                 zp.priority = process.priority;
                 zp.virtual_memory = process.virtual_memory;
+                zp.threads_total = process.threads_total;
+                self.threads_total += zp.threads_total as usize;
                 if zp.cum_cpu_usage > top_cum_cpu_usage{
                     top_pid = zp.pid;
                     top_cum_cpu_usage = zp.cum_cpu_usage;
@@ -264,8 +270,10 @@ impl<'a> CPUTimeApp<'a>{
                     name: process.name().to_string(),
                     cum_cpu_usage: process.cpu_usage() as f64,
                     priority: process.priority,
-                    virtual_memory: process.virtual_memory
+                    virtual_memory: process.virtual_memory,
+                    threads_total: process.threads_total,
                 };
+                self.threads_total += zprocess.threads_total as usize;
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage{
                     top_pid = zprocess.pid;
                     top_cum_cpu_usage = zprocess.cum_cpu_usage;
@@ -524,7 +532,7 @@ fn render_process_table<'a>(
 
     Table::new(header.into_iter(), rows)
         .block(Block::default().borders(Borders::ALL)
-            .title(format!("{} Running Tasks", app.processes.len()).as_str()))
+            .title(format!("Tasks [{}] Threads [{}]", app.processes.len(), app.threads_total).as_str()))
         .widths(widths.as_slice())
         .column_spacing(0)
         .header_style(Style::default().bg(Color::DarkGray)).render(f, area);
@@ -631,7 +639,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     Sparkline::default()
         .block(Block::default().title(format!("↓ [{:^10}] Max [{:^10}]", net_down.to_string(), down_max_bytes.to_string()).as_str()))
         .data(&app.net_in_histogram)
-        .style(Style::default().fg(Color::LightYellow))
+        .style(Style::default().fg(Color::LightMagenta))
         .max(down_max)
         .render(f, area[1]);
 }
