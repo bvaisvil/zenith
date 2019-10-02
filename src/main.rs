@@ -174,7 +174,8 @@ struct CPUTimeApp<'a> {
     process_map: HashMap<i32, ZProcess>,
     user_cache: UsersCache,
     cum_cpu_process: Option<i32>,
-    frequency: u64
+    frequency: u64,
+    highlighted_row: usize,
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -203,9 +204,23 @@ impl<'a> CPUTimeApp<'a>{
             process_map: HashMap::with_capacity(400),
             user_cache: UsersCache::new(),
             cum_cpu_process: Option::from(0),
-            frequency: 0
+            frequency: 0,
+            highlighted_row: 0
         }
     }
+
+    fn highlight_up(&mut self){
+        if self.highlighted_row != 0{
+            self.highlighted_row -= 1;
+        }
+    }
+
+    fn highlight_down(&mut self){
+        if self.highlighted_row < self.process_map.len(){
+            self.highlighted_row += 1;
+        }
+    }
+
     fn update_process_list(&mut self){
         self.processes.clear();
         let process_list = self.system.get_process_list();
@@ -434,7 +449,19 @@ fn render_process_table<'a>(app: &CPUTimeApp,
                      area: Rect,
                      f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
     // process table
-    let rows = app.processes.iter().map(|pid| {
+    if area.height < 4{
+        return;
+    }
+    let display_height = area.height as usize - 4;
+    //panic!("{}", area.height);
+    let mut start: usize = 0;
+    let mut end: usize = display_height as usize;
+    if app.highlighted_row > display_height as usize{
+        end = app.highlighted_row + 1;
+        start = end - display_height as usize;
+    }
+
+    let mut rows: Vec<Vec<String>> = app.processes.iter().map(|(pid)| {
         let p = app.process_map.get(pid).unwrap();
         vec![
             format!("{: >5}", p.pid),
@@ -449,7 +476,7 @@ fn render_process_table<'a>(app: &CPUTimeApp,
             format!("{:1}", p.status.to_single_char()),
             format!("{}", p.command.join(" ")) + &[p.exe.as_str(), p.name.as_str()].join(" ")
         ]
-    });
+    }).collect();
 
     let mut cmd_width = width as i16 - 58;
     if cmd_width < 0 {
@@ -472,13 +499,20 @@ fn render_process_table<'a>(app: &CPUTimeApp,
         cmd_header.as_str()
     ];
     let widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
-    let rows = rows.enumerate().map(|(i, r)| {
-        if i == 0 {
-            Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta))
-        } else {
-            Row::Data(r.into_iter())
+    let rows = rows.iter().enumerate().filter_map(|(i, r)| {
+        if i >= start && i < end{
+            if app.highlighted_row == i{
+                Some(Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta)))
+            }
+            else{
+                Some(Row::Data(r.into_iter()))
+            }
+        }
+        else{
+            None
         }
     });
+
     Table::new(header.into_iter(), rows)
         .block(Block::default().borders(Borders::ALL)
             .title(format!("{} Running Tasks", app.processes.len()).as_str()))
@@ -625,6 +659,12 @@ impl<'a> TerminalRenderer<'a> {
                 Event::Input(input) => {
                     if input == Key::Char('q') {
                         break;
+                    }
+                    else if input == Key::Up{
+                        self.app.highlight_up();
+                    }
+                    else if input == Key::Down{
+                        self.app.highlight_down();
                     }
                 }
                 Event::Tick => {
