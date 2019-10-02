@@ -474,8 +474,19 @@ fn render_process_table<'a>(
             format!("{} - ", p.name) + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" ")
         ]
     }).collect();
-
-    let mut cmd_width = width as i16 - 58;
+    let mut header = vec![
+        "PID   ",
+        "USER       ",
+        "P   ",
+        "CPU%  ",
+        "MEM%  ",
+        "MEM     ",
+        "VIRT    ",
+        "S "
+    ];
+    let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
+    let s: u16 = widths.iter().sum();
+    let mut cmd_width = width as i16 - s as i16 - 3;
     if cmd_width < 0 {
         cmd_width = 0;
     }
@@ -484,18 +495,8 @@ fn render_process_table<'a>(
     for i in 3..cmd_width {
         cmd_header.push(' ');
     }
-    let header = vec![
-        "PID   ",
-        "USER       ",
-        "P   ",
-        "CPU%  ",
-        "MEM%  ",
-        "MEM     ",
-        "VIRT    ",
-        "S ",
-        cmd_header.as_str()
-    ];
-    let widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
+    header.push(cmd_header.as_str());
+    widths.push(cmd_header.len() as u16);
     let rows = rows.iter().enumerate().filter_map(|(i, r)| {
         if i >= process_table_start && i < end{
             if app.highlighted_row == i{
