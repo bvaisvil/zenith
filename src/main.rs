@@ -39,6 +39,7 @@ use termion::input::TermRead;
 use rand::distributions::{Distribution, Uniform};
 use rand::rngs::ThreadRng;
 use std::io::{Write, Stdout};
+use sysinfo::Signal::Continue;
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -169,6 +170,8 @@ struct CPUTimeApp<'a> {
     system: System,
     overview: Vec<(&'a str, u64)>,
     net_in: u64,
+    net_in_histogram: Vec<u64>,
+    net_out_histogram: Vec<u64>,
     net_out: u64,
     processes: Vec<i32>,
     process_map: HashMap<i32, ZProcess>,
@@ -199,7 +202,9 @@ impl<'a> CPUTimeApp<'a>{
                 ("DSK", 0)
             ],
             net_in: 0,
+            net_in_histogram: Vec::with_capacity(60),
             net_out: 0,
+            net_out_histogram: Vec::with_capacity(60),
             processes: Vec::with_capacity(400),
             process_map: HashMap::with_capacity(400),
             user_cache: UsersCache::new(),
@@ -349,6 +354,14 @@ impl<'a> CPUTimeApp<'a>{
 
         self.net_in = net.get_income();
         self.net_out = net.get_outcome();
+        self.net_in_histogram.push(self.net_in);
+        self.net_out_histogram.push(self.net_out);
+        while self.net_in_histogram.len() > (width / 2) as usize{
+            self.net_in_histogram.remove(0);
+        }
+        while self.net_out_histogram.len() > (width / 2) as usize{
+            self.net_out_histogram.remove(0);
+        }
         self.update_process_list();
         self.update_frequency();
     }
@@ -388,10 +401,8 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         None => String::from("")
     };
     let top_pid = app.cum_cpu_process.unwrap_or(0);
-    format!("CPU [{: >3}%] UP [{:.2}] DN [{:.2}] TOP [{} - {} - {}]",
+    format!("CPU [{: >3}%] TOP [{} - {} - {}]",
             app.cpu_utilization,
-            Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false),
-            Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false),
             top_pid,
             top_process_name,
             top_process_amt
@@ -594,6 +605,36 @@ fn render_overview(app: &CPUTimeApp, area: Rect,  hostname: &str, f: &mut Frame<
         .render(f, area);
 }
 
+fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+    let up_max: u64 = match app.net_out_histogram.iter().max(){
+        Some(x) => x.clone(),
+        None => 1
+    };
+    let up_max_bytes =  Byte::from_unit(up_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+
+    let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    Sparkline::default()
+        .block(Block::default().title(format!("Net Up [{:.2}] Max [{:.2}]", net_up, up_max_bytes).as_str()).borders(Borders::ALL))
+        .data(&app.net_out_histogram)
+        .style(Style::default().fg(Color::LightYellow))
+        .max(up_max)
+        .render(f, area[0]);
+
+
+    let down_max: u64 = match app.net_in_histogram.iter().max(){
+        Some(x) => x.clone(),
+        None => 1
+    };
+    let down_max_bytes =  Byte::from_unit(down_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    Sparkline::default()
+        .block(Block::default().title(format!("Net Down [{:.2}] Max [{:.2}]", net_down, down_max_bytes).as_str()).borders(Borders::ALL))
+        .data(&app.net_in_histogram)
+        .style(Style::default().fg(Color::LightYellow))
+        .max(down_max)
+        .render(f, area[1]);
+}
+
 
 struct TerminalRenderer<'a>{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
@@ -632,9 +673,10 @@ impl<'a> TerminalRenderer<'a> {
                     .direction(Direction::Vertical)
                     .margin(0)
                     .constraints([
-                        Constraint::Percentage(20),
-                        Constraint::Percentage(20),
-                        Constraint::Percentage(20),
+                        Constraint::Percentage(15),
+                        Constraint::Percentage(15),
+                        Constraint::Percentage(15),
+                        Constraint::Percentage(15),
                         Constraint::Percentage(40)
                     ].as_ref())
                     .split(f.size());
@@ -653,19 +695,27 @@ impl<'a> TerminalRenderer<'a> {
                         Constraint::Min(cpu_width as u16)].as_ref())
                     .split(v_sections[0]);
 
+                let net = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                    .split(v_sections[3]);
+
 
 
                 render_cpu_histogram(&app, v_sections[1], &mut f);
 
                 render_memory_histogram(&app, v_sections[2], &mut f);
 
-                render_process_table(&app, width, v_sections[3], *pst,&mut f);
+                render_process_table(&app, width, v_sections[4], *pst,&mut f);
                 if v_sections[3].height > 4{ // account for table border & margins.
-                    process_table_height = v_sections[3].height - 5;
+                    process_table_height = v_sections[4].height - 5;
                 }
                 render_cpu_bars(&app, h_sections[1], cpu_width as u16, &mut f);
 
                 render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
+
+                render_net(&app, net, &mut f);
+
             }).expect("Could not draw frame.");
 
             match self.events.next().expect("No new event.") {
