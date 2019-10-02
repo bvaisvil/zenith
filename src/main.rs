@@ -477,7 +477,7 @@ fn render_process_table<'a>(
             format!("{: <3}", p.priority),
             format!("{:>.1}", p.cpu_usage),
             format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
-            format!("{: >8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
+            format!("{:>8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
                 .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
             format!("{: >8}", Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
                 .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
@@ -535,7 +535,7 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBacke
     let title = cpu_title(&app);
     Sparkline::default()
         .block(
-            Block::default().title(title.as_str()).borders(Borders::ALL))
+            Block::default().title(title.as_str()))
         .data(&app.cpu_usage_histogram)
         .style(Style::default().fg(Color::Blue))
         .max(100)
@@ -546,7 +546,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBa
     let title2 = mem_title(&app);
     Sparkline::default()
         .block(
-            Block::default().title(title2.as_str()).borders(Borders::ALL))
+            Block::default().title(title2.as_str()))
         .data(&app.mem_usage_histogram)
         .style(Style::default().fg(Color::Cyan))
         .max(100)
@@ -605,7 +605,8 @@ fn render_overview(app: &CPUTimeApp, area: Rect,  hostname: &str, f: &mut Frame<
         .render(f, area);
 }
 
-fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
+              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
     let up_max: u64 = match app.net_out_histogram.iter().max(){
         Some(x) => x.clone(),
         None => 1
@@ -613,9 +614,8 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<TermionBackend<Al
     let up_max_bytes =  Byte::from_unit(up_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
 
     let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
-        .block(Block::default().title(format!("Net Up [{:.2}] Max [{:.2}]", net_up, up_max_bytes).as_str()).borders(Borders::ALL))
+        .block(Block::default().title(format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(), up_max_bytes.to_string()).as_str()))
         .data(&app.net_out_histogram)
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
@@ -626,9 +626,10 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<TermionBackend<Al
         Some(x) => x.clone(),
         None => 1
     };
+    let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     let down_max_bytes =  Byte::from_unit(down_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
-        .block(Block::default().title(format!("Net Down [{:.2}] Max [{:.2}]", net_down, down_max_bytes).as_str()).borders(Borders::ALL))
+        .block(Block::default().title(format!("↓ [{:^10}] Max [{:^10}]", net_down.to_string(), down_max_bytes.to_string()).as_str()))
         .data(&app.net_in_histogram)
         .style(Style::default().fg(Color::LightYellow))
         .max(down_max)
@@ -673,11 +674,10 @@ impl<'a> TerminalRenderer<'a> {
                     .direction(Direction::Vertical)
                     .margin(0)
                     .constraints([
-                        Constraint::Percentage(15),
-                        Constraint::Percentage(15),
-                        Constraint::Percentage(15),
-                        Constraint::Percentage(15),
-                        Constraint::Percentage(40)
+                        Constraint::Length(8),
+                        Constraint::Length(10),
+                        Constraint::Length(10),
+                        Constraint::Min(8)
                     ].as_ref())
                     .split(f.size());
 
@@ -688,27 +688,33 @@ impl<'a> TerminalRenderer<'a> {
                     cpu_width = 1;
                 }
 
+                Block::default().title("CPU & Memory").borders(Borders::ALL).render(&mut f, v_sections[1]);
+                let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(v_sections[1]);
+
                 // secondary layout
                 let h_sections = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([Constraint::Length(overview_width),
                         Constraint::Min(cpu_width as u16)].as_ref())
                     .split(v_sections[0]);
-
-                let net = Layout::default()
-                    .direction(Direction::Horizontal)
+                Block::default().title("Network").borders(Borders::ALL).render(&mut f, v_sections[2]);
+                let net =
+                    Layout::default()
+                        .margin(1)
+                    .direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                    .split(v_sections[3]);
+                    .split(v_sections[2]);
 
 
 
-                render_cpu_histogram(&app, v_sections[1], &mut f);
+                render_cpu_histogram(&app, cpu_mem[0], &mut f);
 
-                render_memory_histogram(&app, v_sections[2], &mut f);
+                render_memory_histogram(&app, cpu_mem[1], &mut f);
 
-                render_process_table(&app, width, v_sections[4], *pst,&mut f);
+                render_process_table(&app, width, v_sections[3], *pst,&mut f);
                 if v_sections[3].height > 4{ // account for table border & margins.
-                    process_table_height = v_sections[4].height - 5;
+                    process_table_height = v_sections[3].height - 5;
                 }
                 render_cpu_bars(&app, h_sections[1], cpu_width as u16, &mut f);
 
