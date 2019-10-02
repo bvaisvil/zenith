@@ -475,8 +475,8 @@ fn render_process_table<'a>(
             format!("{: >5}", p.pid),
             format!("{: <10}", p.user_name),
             format!("{: <3}", p.priority),
-            format!("{:>.1}", p.cpu_usage),
-            format!("{:>.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
+            format!("{:>5.1}", p.cpu_usage),
+            format!("{:>5.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
             format!("{:>8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
                 .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
             format!("{: >8}", Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
