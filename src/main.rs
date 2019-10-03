@@ -185,7 +185,7 @@ struct CPUTimeApp<'a> {
 
 impl<'a> CPUTimeApp<'a>{
     fn new () -> CPUTimeApp<'a>{
-        CPUTimeApp{
+        let mut s = CPUTimeApp{
             cpu_usage_histogram: Vec::with_capacity(60),
             mem_usage_histogram: Vec::with_capacity(60),
             cpus: vec![],
@@ -214,7 +214,10 @@ impl<'a> CPUTimeApp<'a>{
             frequency: 0,
             highlighted_row: 0,
             threads_total: 0
-        }
+        };
+        s.system.refresh_all();
+        s.system.refresh_all();
+        return s
     }
 
     fn highlight_up(&mut self){
@@ -364,10 +367,10 @@ impl<'a> CPUTimeApp<'a>{
         self.net_out = net.get_outcome();
         self.net_in_histogram.push(self.net_in);
         self.net_out_histogram.push(self.net_out);
-        while self.net_in_histogram.len() > (width / 2) as usize{
+        while self.net_in_histogram.len() > (width) as usize{
             self.net_in_histogram.remove(0);
         }
-        while self.net_out_histogram.len() > (width / 2) as usize{
+        while self.net_out_histogram.len() > (width) as usize{
             self.net_out_histogram.remove(0);
         }
         self.update_process_list();
