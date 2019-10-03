@@ -610,7 +610,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
 
 fn render_overview(app: &CPUTimeApp, area: Rect,  hostname: &str, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
     BarChart::default()
-        .block(Block::default().title(hostname).borders(Borders::ALL).border_style(Style::default().fg(Color::Red)))
+        .block(Block::default().title(hostname).title_style(Style::default().modifier(Modifier::BOLD)).borders(Borders::ALL).border_style(Style::default().fg(Color::Red)))
         .data(&app.overview)
         .style(Style::default().fg(Color::Red))
         .bar_width(3)
