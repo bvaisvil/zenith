@@ -351,7 +351,6 @@ impl<'a> CPUTimeApp<'a>{
 
         self.disk_available = 0;
         self.disk_total = 0;
-
         for d in self.system.get_disks().iter(){
             self.disk_available += d.get_available_space();
             self.disk_total += d.get_total_space();
