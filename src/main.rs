@@ -320,7 +320,7 @@ impl<'a> CPUTimeApp<'a>{
         self.cpu_utilization = (usage * 100.0) as u64;
         self.overview[0] = ("CPU", self.cpu_utilization);
         self.cpu_usage_histogram.push((usage * 100.0) as u64);
-        if self.cpu_usage_histogram.len() > width as usize{
+        if self.cpu_usage_histogram.len() > (width -2) as usize{
             self.cpu_usage_histogram.remove(0);
         }
 
@@ -335,7 +335,7 @@ impl<'a> CPUTimeApp<'a>{
 
         self.overview[1] = ("MEM", mem);
         self.mem_usage_histogram.push(mem);
-        if self.mem_usage_histogram.len() > width as usize{
+        if self.mem_usage_histogram.len() > (width - 2) as usize{
             self.mem_usage_histogram.remove(0);
         }
 
@@ -367,10 +367,10 @@ impl<'a> CPUTimeApp<'a>{
         self.net_out = net.get_outcome();
         self.net_in_histogram.push(self.net_in);
         self.net_out_histogram.push(self.net_out);
-        while self.net_in_histogram.len() > (width) as usize{
+        while self.net_in_histogram.len() > (width - 2) as usize{
             self.net_in_histogram.remove(0);
         }
-        while self.net_out_histogram.len() > (width) as usize{
+        while self.net_out_histogram.len() > (width - 2) as usize{
             self.net_out_histogram.remove(0);
         }
         self.update_process_list();
