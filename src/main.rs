@@ -389,9 +389,11 @@ fn mem_title(app: &CPUTimeApp) -> String {
         swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
     }
     format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
-            Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
+            Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap()
+                .get_appropriate_unit(false).to_string().replace(" ", ""),
             mem,
-            Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap().get_appropriate_unit(false).to_string().replace(" ", ""),
+            Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap()
+                .get_appropriate_unit(false).to_string().replace(" ", ""),
             swp
     )
 }
