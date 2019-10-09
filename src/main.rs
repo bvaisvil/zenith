@@ -27,7 +27,7 @@ use sys_info;
 use std::sync::{mpsc, Arc};
 use std::thread;
 use std::task::{Poll};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use std::collections::{HashMap, HashSet};
 
 use std::panic::{PanicInfo};
@@ -40,6 +40,8 @@ use rand::distributions::{Distribution, Uniform};
 use rand::rngs::ThreadRng;
 use std::io::{Write, Stdout};
 use sysinfo::Signal::Continue;
+
+const DEFAULT_TICK: u64 = 2000; //ms
 
 pub struct TabsState<'a> {
     pub titles: Vec<&'a str>,
@@ -87,7 +89,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             exit_key: Key::Char('q'),
-            tick_rate: Duration::from_millis(1000),
+            tick_rate: Duration::from_millis(DEFAULT_TICK),
         }
     }
 }
@@ -154,7 +156,21 @@ struct ZProcess{
     name: String,
     priority: i32,
     virtual_memory: u64,
-    threads_total: u64
+    threads_total: u64,
+    read_bytes: u64,
+    write_bytes: u64,
+    prev_read_bytes: u64,
+    prev_write_bytes: u64,
+    last_updated: SystemTime
+}
+
+impl ZProcess{
+    fn get_read_bytes_sec(&self) -> f64 {
+        (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
+    }
+    fn get_write_bytes_sec(&self) -> f64 {
+        (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
+    }
 }
 
 struct CPUTimeApp<'a> {
@@ -213,7 +229,7 @@ impl<'a> CPUTimeApp<'a>{
             cum_cpu_process: Option::from(0),
             frequency: 0,
             highlighted_row: 0,
-            threads_total: 0
+            threads_total: 0,
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -255,6 +271,11 @@ impl<'a> CPUTimeApp<'a>{
                     top_pid = zp.pid;
                     top_cum_cpu_usage = zp.cum_cpu_usage;
                 }
+                zp.prev_read_bytes = zp.read_bytes;
+                zp.prev_write_bytes = zp.write_bytes;
+                zp.read_bytes = process.read_bytes;
+                zp.write_bytes = process.write_bytes;
+                zp.last_updated = SystemTime::now();
             }
             else{
                 let user_name = match self.user_cache.get_user_by_uid(process.uid){
@@ -275,6 +296,11 @@ impl<'a> CPUTimeApp<'a>{
                     priority: process.priority,
                     virtual_memory: process.virtual_memory,
                     threads_total: process.threads_total,
+                    read_bytes: process.read_bytes,
+                    write_bytes: process.write_bytes,
+                    prev_read_bytes: process.read_bytes,
+                    prev_write_bytes: process.write_bytes,
+                    last_updated: SystemTime::now()
                 };
                 self.threads_total += zprocess.threads_total as usize;
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage{
@@ -495,10 +521,12 @@ fn render_process_table<'a>(
             format!("{:>5.1}", p.cpu_usage),
             format!("{:>5.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
             format!("{:>8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
+                .unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
             format!("{: >8}", Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
-                .unwrap().get_appropriate_unit(false)).replace(" ", "").replace("B", ""),
+                .unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
             format!("{:1}", p.status.to_single_char()),
+            format!("{:>8}", Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
+            format!("{:>8}", Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
             format!("{} - ", p.name) + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" ")
         ]
     }).collect();
@@ -509,8 +537,10 @@ fn render_process_table<'a>(
         "CPU%  ",
         "MEM%  ",
         "MEM     ",
-        "VIRT    ",
-        "S "
+        "VIRT     ",
+        "S ",
+        "READ/s   ",
+        "WRITE/s  "
     ];
     let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
     let s: u16 = widths.iter().sum();
