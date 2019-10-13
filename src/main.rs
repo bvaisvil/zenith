@@ -183,6 +183,10 @@ struct CPUTimeApp<'a> {
     swap_total: u64,
     disk_total: u64,
     disk_available: u64,
+    disk_write: u64,
+    disk_read: u64,
+    disk_read_histogram: Vec<u64>,
+    disk_write_histogram: Vec<u64>,
     cpus: Vec<(String, u64)>,
     system: System,
     overview: Vec<(&'a str, u64)>,
@@ -230,6 +234,10 @@ impl<'a> CPUTimeApp<'a>{
             frequency: 0,
             highlighted_row: 0,
             threads_total: 0,
+            disk_read: 0,
+            disk_write: 0,
+            disk_read_histogram: Vec::with_capacity(60),
+            disk_write_histogram: Vec::with_capacity(60),
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -330,6 +338,21 @@ impl<'a> CPUTimeApp<'a>{
         self.frequency = sys_info::cpu_speed().unwrap_or(0);
     }
 
+    fn update_disk(&mut self, width: u16){
+        self.disk_read = self.process_map.iter().map(|(pid, p)| p.get_read_bytes_sec() as u64).sum();
+        self.disk_write = self.process_map.iter().map(|(pid, p)| p.get_write_bytes_sec() as u64).sum();
+
+        self.disk_read_histogram.push(self.disk_read);
+        if self.disk_read_histogram.len() > (width - 2) as usize{
+            self.disk_read_histogram.remove(0);
+        }
+
+        self.disk_write_histogram.push(self.disk_write);
+        if self.disk_write_histogram.len() > (width - 2) as usize{
+            self.disk_write_histogram.remove(0);
+        }
+    }
+
     fn update(&mut self, width: u16) {
         self.system.refresh_all();
         let procs = self.system.get_processor_list();
@@ -400,6 +423,7 @@ impl<'a> CPUTimeApp<'a>{
         }
         self.update_process_list();
         self.update_frequency();
+        self.update_disk(width);
     }
 }
 
@@ -683,6 +707,37 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
         .render(f, area[1]);
 }
 
+fn render_disk(app: &CPUTimeApp, area: Vec<Rect>,
+              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+    let read_max: u64 = match app.disk_read_histogram.iter().max(){
+        Some(x) => x.clone(),
+        None => 1
+    };
+    let read_max_bytes =  Byte::from_unit(read_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+
+    let read_up = Byte::from_unit(app.disk_read as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    Sparkline::default()
+        .block(Block::default().title(format!("R [{:^10}] Max [{:^10}]", read_up.to_string(), read_max_bytes.to_string()).as_str()))
+        .data(&app.disk_read_histogram)
+        .style(Style::default().fg(Color::LightYellow))
+        .max(read_max)
+        .render(f, area[0]);
+
+
+    let write_max: u64 = match app.disk_write_histogram.iter().max(){
+        Some(x) => x.clone(),
+        None => 1
+    };
+    let write_down = Byte::from_unit(app.disk_write as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let write_max_bytes =  Byte::from_unit(write_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    Sparkline::default()
+        .block(Block::default().title(format!("W [{:^10}] Max [{:^10}]", write_down.to_string(), write_max_bytes.to_string()).as_str()))
+        .data(&app.disk_write_histogram)
+        .style(Style::default().fg(Color::LightMagenta))
+        .max(write_max)
+        .render(f, area[1]);
+}
+
 
 struct TerminalRenderer<'a>{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
@@ -724,6 +779,7 @@ impl<'a> TerminalRenderer<'a> {
                         Constraint::Length(8),
                         Constraint::Length(10),
                         Constraint::Length(10),
+                        Constraint::Length(10),
                         Constraint::Min(8)
                     ].as_ref())
                     .split(f.size());
@@ -752,6 +808,9 @@ impl<'a> TerminalRenderer<'a> {
                     .direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                     .split(v_sections[2]);
+                Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[3]);
+                let disk = Layout::default().margin(1).direction(Direction::Vertical)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(v_sections[3]);
 
 
 
@@ -759,15 +818,16 @@ impl<'a> TerminalRenderer<'a> {
 
                 render_memory_histogram(&app, cpu_mem[1], &mut f);
 
-                render_process_table(&app, width, v_sections[3], *pst,&mut f);
-                if v_sections[3].height > 4{ // account for table border & margins.
-                    process_table_height = v_sections[3].height - 5;
+                render_process_table(&app, width, v_sections[4], *pst,&mut f);
+                if v_sections[4].height > 4{ // account for table border & margins.
+                    process_table_height = v_sections[4].height - 5;
                 }
                 render_cpu_bars(&app, h_sections[1], cpu_width as u16, &mut f);
 
                 render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
 
                 render_net(&app, net, &mut f);
+                render_disk(&app, disk, &mut f);
 
             }).expect("Could not draw frame.");
 
