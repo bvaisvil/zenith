@@ -4,6 +4,9 @@ extern crate sysinfo;
 extern crate hostname;
 #[macro_use] extern crate byte_unit;
 #[macro_use] extern crate maplit;
+extern crate num_traits;
+extern crate num;
+#[macro_use] extern crate num_derive;
 
 use std::io;
 use std::error::{Error};
@@ -172,6 +175,20 @@ impl ZProcess{
         (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
 }
+#[derive(FromPrimitive, PartialEq, Copy, Clone)]
+enum ProcessTableSortBy{
+    Pid = 0,
+    User = 1,
+    Priority = 2,
+    CPU = 3,
+    MemPerc = 4,
+    Mem = 5,
+    Virt = 6,
+    Status = 7,
+    DiskRead = 8,
+    DiskWrite = 9,
+    Cmd = 10
+}
 
 struct CPUTimeApp<'a> {
     cpu_usage_histogram: Vec<u64>,
@@ -201,6 +218,7 @@ struct CPUTimeApp<'a> {
     frequency: u64,
     highlighted_row: usize,
     threads_total: usize,
+    psortby: ProcessTableSortBy
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -238,6 +256,7 @@ impl<'a> CPUTimeApp<'a>{
             disk_write: 0,
             disk_read_histogram: Vec::with_capacity(60),
             disk_write_histogram: Vec::with_capacity(60),
+            psortby: ProcessTableSortBy::DiskRead
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -325,12 +344,26 @@ impl<'a> CPUTimeApp<'a>{
         self.process_map.retain(|&k, _| current_pids.contains(&k));
 
         let pm = &self.process_map;
+        let sortfield = &self.psortby;
         self.processes.sort_by(|a, b| {
             let pa =pm.get(a).unwrap();
             let pb = pm.get(b).unwrap();
-            pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap()
+            match sortfield{
+                ProcessTableSortBy::CPU => pb.cpu_usage.partial_cmp(&pa.cpu_usage).unwrap(),
+                ProcessTableSortBy::Mem=> pb.memory.partial_cmp(&pa.memory).unwrap(),
+                ProcessTableSortBy::MemPerc=> pb.memory.partial_cmp(&pa.memory).unwrap(),
+                ProcessTableSortBy::User => pa.user_name.partial_cmp(&pb.user_name).unwrap(),
+                ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap(),
+                ProcessTableSortBy::Status => pa.status.to_single_char().partial_cmp(pb.status.to_single_char()).unwrap(),
+                ProcessTableSortBy::Priority => pa.priority.partial_cmp(&pb.priority).unwrap(),
+                ProcessTableSortBy::Virt=> pb.virtual_memory.partial_cmp(&pa.virtual_memory).unwrap(),
+                ProcessTableSortBy::Cmd => pb.name.partial_cmp(&pa.name).unwrap(),
+                ProcessTableSortBy::DiskRead => pb.get_read_bytes_sec().partial_cmp(&pa.get_read_bytes_sec()).unwrap(),
+                ProcessTableSortBy::DiskWrite => pb.get_write_bytes_sec().partial_cmp(&pa.get_write_bytes_sec()).unwrap()
+            }
+
         });
-        self.processes.reverse();
+        //self.processes.reverse();
         self.cum_cpu_process = Option::from(top_pid);
     }
 
@@ -555,16 +588,16 @@ fn render_process_table<'a>(
         ]
     }).collect();
     let mut header = vec![
-        "PID   ",
-        "USER       ",
-        "P   ",
-        "CPU%  ",
-        "MEM%  ",
-        "MEM     ",
-        "VIRT     ",
-        "S ",
-        "READ/s   ",
-        "WRITE/s  "
+        String::from("PID   "),
+        String::from("USER       "),
+        String::from("P   "),
+        String::from("CPU%  "),
+        String::from("MEM%  "),
+        String::from("MEM     "),
+        String::from("VIRT     "),
+        String::from("S "),
+        String::from("READ/s   "),
+        String::from("WRITE/s  ")
     ];
     let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
     let s: u16 = widths.iter().sum();
@@ -577,8 +610,10 @@ fn render_process_table<'a>(
     for i in 3..cmd_width {
         cmd_header.push(' ');
     }
-    header.push(cmd_header.as_str());
-    widths.push(cmd_header.len() as u16);
+    header.push(cmd_header);
+    widths.push(header.last().unwrap().len() as u16);
+    header[app.psortby as usize].pop();
+    header[app.psortby as usize].insert(0,'*');
     let rows = rows.iter().enumerate().filter_map(|(i, r)| {
         if i >= process_table_start && i < end{
             if app.highlighted_row == i{
@@ -847,6 +882,22 @@ impl<'a> TerminalRenderer<'a> {
                         if self.process_table_row_start < self.app.process_map.len() &&
                             self.app.highlighted_row > (self.process_table_row_start + process_table_height as usize){
                             self.process_table_row_start += 1;
+                        }
+                    }
+                    else if input == Key::Char('.'){
+                        if self.app.psortby == ProcessTableSortBy::Cmd{
+                            self.app.psortby = ProcessTableSortBy::Pid;
+                        }
+                        else{
+                            self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 + 1).unwrap();
+                        }
+                    }
+                    else if input == Key::Char(','){
+                        if self.app.psortby == ProcessTableSortBy::Pid{
+                            self.app.psortby = ProcessTableSortBy::Cmd;
+                        }
+                        else{
+                            self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).unwrap();
                         }
                     }
                 },
