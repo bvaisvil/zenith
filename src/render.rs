@@ -404,6 +404,7 @@ impl<'a> TerminalRenderer<'a> {
                         else{
                             self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 + 1).unwrap();
                         }
+                        self.app.sort_process_table();
                     }
                     else if input == Key::Char(','){
                         if self.app.psortby == ProcessTableSortBy::Pid{
@@ -412,7 +413,9 @@ impl<'a> TerminalRenderer<'a> {
                         else{
                             self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).unwrap();
                         }
+                        self.app.sort_process_table();
                     }
+                    
                 },
                 Event::Tick => {
                     self.app.update(width);

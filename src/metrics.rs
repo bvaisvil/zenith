@@ -175,6 +175,12 @@ impl<'a> CPUTimeApp<'a>{
         // remove pids that are gone
         self.process_map.retain(|&k, _| current_pids.contains(&k));
 
+        
+        self.sort_process_table();
+        self.cum_cpu_process = Option::from(top_pid);
+    }
+
+    pub fn sort_process_table(&mut self){
         let pm = &self.process_map;
         let sortfield = &self.psortby;
         self.processes.sort_by(|a, b| {
@@ -195,8 +201,6 @@ impl<'a> CPUTimeApp<'a>{
             }
 
         });
-        //self.processes.reverse();
-        self.cum_cpu_process = Option::from(top_pid);
     }
 
     fn update_frequency(&mut self){
