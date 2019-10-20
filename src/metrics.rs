@@ -1,3 +1,6 @@
+/**
+ * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
+ */
 use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process, ProcessStatus};
 use crate::zprocess::*;
 use std::collections::{HashMap, HashSet};

@@ -1,3 +1,6 @@
+/**
+ * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
+ */
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text, Table, Row};

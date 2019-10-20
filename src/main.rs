@@ -3,8 +3,6 @@
  */
 extern crate sysinfo;
 extern crate hostname;
-#[macro_use] extern crate byte_unit;
-#[macro_use] extern crate maplit;
 extern crate num_traits;
 extern crate num;
 #[macro_use] extern crate num_derive;
@@ -15,33 +13,16 @@ mod zprocess;
 mod metrics;
 mod render;
 
-use crate::constants::*;
-use crate::util::*;
-use crate::zprocess::*;
-use crate::metrics::*;
-use crate::render::*;
+use crate::render::TerminalRenderer;
 use std::io;
-use std::time::{Duration, SystemTime};
 use std::error::{Error};
-use termion::event::Key;
 use termion::input::MouseTerminal;
-use termion::raw::{IntoRawMode, RawTerminal};
+use termion::raw::{IntoRawMode,};
 use termion::screen::AlternateScreen;
-use std::fmt::Display;
 use tui::backend::TermionBackend;
-
 use tui::Terminal;
-use tui::Frame;
-use sysinfo::{NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process, ProcessStatus};
-
-
-
-use sys_info;
-
 use std::panic::{PanicInfo};
 use std::panic;
-use std::io::{Write, Stdout};
-use sysinfo::Signal::Continue;
 
 
 

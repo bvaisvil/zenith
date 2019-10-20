@@ -1,3 +1,6 @@
+/**
+ * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
+ */
 use sysinfo::ProcessStatus;
 use crate::constants::DEFAULT_TICK;
 use std::time::SystemTime;
