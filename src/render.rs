@@ -3,7 +3,9 @@
  */
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text, Table, Row};
+use sysinfo::{DiskExt};
+use tui::layout::Corner;
+use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text, Table, Row, List};
 use byte_unit::{Byte, ByteUnit};
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -18,6 +20,8 @@ use std::io;
 use crate::util::*;
 use crate::metrics::*;
 use crate::zprocess::*;
+use std::ffi::{OsStr, OsString};
+use std::borrow::Cow;
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
@@ -255,8 +259,10 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
         .render(f, area[1]);
 }
 
-fn render_disk(app: &CPUTimeApp, area: Vec<Rect>,
+fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
               f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+    let area = Layout::default().margin(1).direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(disk_layout[1]);
     let read_max: u64 = match app.disk_read_histogram.iter().max(){
         Some(x) => x.clone(),
         None => 1
@@ -284,6 +290,13 @@ fn render_disk(app: &CPUTimeApp, area: Vec<Rect>,
         .style(Style::default().fg(Color::LightMagenta))
         .max(write_max)
         .render(f, area[1]);
+    let disks = app.disks.iter().map(|d| {
+        Text::Styled(
+            Cow::Owned(format!("{}: {:.2}%", d.get_mount_point().display(), d.get_perc_free_space())),
+            Style::default().fg(Color::Green)
+        )
+    });
+    List::new(disks).block(Block::default().title("Disks").borders(Borders::ALL)).render(f, disk_layout[0]);
 }
 
 
@@ -357,8 +370,9 @@ impl<'a> TerminalRenderer<'a> {
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                     .split(v_sections[2]);
                 Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[3]);
-                let disk = Layout::default().margin(1).direction(Direction::Vertical)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(v_sections[3]);
+                let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
+                .constraints([Constraint::Length(20), Constraint::Min(10)].as_ref()).split(v_sections[3]);
+
 
 
 
@@ -375,7 +389,7 @@ impl<'a> TerminalRenderer<'a> {
                 render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
 
                 render_net(&app, net, &mut f);
-                render_disk(&app, disk, &mut f);
+                render_disk(&app, disk_layout, &mut f);
 
             }).expect("Could not draw frame.");
 
