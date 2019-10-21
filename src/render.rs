@@ -291,10 +291,17 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
         .max(write_max)
         .render(f, area[1]);
     let disks = app.disks.iter().map(|d| {
+        if d.get_perc_free_space() < 10.0{
+                Text::Styled(
+            Cow::Owned(format!("{:.2}%(!): {}", d.get_perc_free_space(),d.get_mount_point().display())),
+            Style::default().fg(Color::Red).modifier(Modifier::BOLD))
+        }
+        else{
         Text::Styled(
-            Cow::Owned(format!("{}: {:.2}%", d.get_mount_point().display(), d.get_perc_free_space())),
-            Style::default().fg(Color::Green)
-        )
+            Cow::Owned(format!("{:.2}%: {}", d.get_perc_free_space(), d.get_mount_point().display())),
+            Style::default().fg(Color::Green))
+        }
+
     });
     List::new(disks).block(Block::default().title("Disks").borders(Borders::ALL)).render(f, disk_layout[0]);
 }
