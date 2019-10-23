@@ -70,8 +70,8 @@ pub struct CPUTimeApp<'a> {
 impl<'a> CPUTimeApp<'a>{
     pub fn new () -> CPUTimeApp<'a>{
         let mut s = CPUTimeApp{
-            cpu_usage_histogram: Vec::with_capacity(60),
-            mem_usage_histogram: Vec::with_capacity(60),
+            cpu_usage_histogram: vec![0; 1200],
+            mem_usage_histogram: vec![0; 1200],
             cpus: vec![],
             system: System::new(),
             cpu_utilization: 0,
@@ -89,9 +89,9 @@ impl<'a> CPUTimeApp<'a>{
                 ("DSK", 0)
             ],
             net_in: 0,
-            net_in_histogram: Vec::with_capacity(60),
+            net_in_histogram: vec![0; 1200],
             net_out: 0,
-            net_out_histogram: Vec::with_capacity(60),
+            net_out_histogram: vec![0; 1200],
             processes: Vec::with_capacity(400),
             process_map: HashMap::with_capacity(400),
             user_cache: UsersCache::new(),
@@ -101,8 +101,8 @@ impl<'a> CPUTimeApp<'a>{
             threads_total: 0,
             disk_read: 0,
             disk_write: 0,
-            disk_read_histogram: Vec::with_capacity(60),
-            disk_write_histogram: Vec::with_capacity(60),
+            disk_read_histogram: vec![0; 1200],
+            disk_write_histogram: vec![0; 1200],
             psortby: ProcessTableSortBy::DiskRead
         };
         s.system.refresh_all();
@@ -264,9 +264,7 @@ impl<'a> CPUTimeApp<'a>{
         self.cpu_utilization = (usage * 100.0) as u64;
         self.overview[0] = ("CPU", self.cpu_utilization);
         self.cpu_usage_histogram.push((usage * 100.0) as u64);
-        if self.cpu_usage_histogram.len() > (width -2) as usize{
-            self.cpu_usage_histogram.remove(0);
-        }
+        self.cpu_usage_histogram.remove(0);
 
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
@@ -279,9 +277,7 @@ impl<'a> CPUTimeApp<'a>{
 
         self.overview[1] = ("MEM", mem);
         self.mem_usage_histogram.push(mem);
-        if self.mem_usage_histogram.len() > (width - 2) as usize{
-            self.mem_usage_histogram.remove(0);
-        }
+        self.mem_usage_histogram.remove(0);
 
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
@@ -300,13 +296,9 @@ impl<'a> CPUTimeApp<'a>{
         self.net_in = net.get_income();
         self.net_out = net.get_outcome();
         self.net_in_histogram.push(self.net_in);
+        self.net_in_histogram.remove(0);
         self.net_out_histogram.push(self.net_out);
-        while self.net_in_histogram.len() > (width - 2) as usize{
-            self.net_in_histogram.remove(0);
-        }
-        while self.net_out_histogram.len() > (width - 2) as usize{
-            self.net_out_histogram.remove(0);
-        }
+        self.net_out_histogram.remove(0);
         self.update_process_list();
         self.update_frequency();
         self.update_disk(width);

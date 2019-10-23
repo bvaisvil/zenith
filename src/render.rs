@@ -154,12 +154,20 @@ fn render_process_table<'a>(
 
 }
 
-fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, 
+f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
     let title = cpu_title(&app);
+    let start_at = if app.cpu_usage_histogram.len() > area.width as usize
+    {
+        app.cpu_usage_histogram.len() - area.width as usize
+    }
+    else{
+        0
+    };
     Sparkline::default()
         .block(
             Block::default().title(title.as_str()))
-        .data(&app.cpu_usage_histogram)
+        .data(&app.cpu_usage_histogram[start_at..])
         .style(Style::default().fg(Color::Blue))
         .max(100)
         .render(f, area);
@@ -167,10 +175,17 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBacke
 
 fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
     let title2 = mem_title(&app);
+    let start_at = if app.mem_usage_histogram.len() > area.width as usize
+    {
+        app.mem_usage_histogram.len() - area.width as usize
+    }
+    else{
+        0
+    };
     Sparkline::default()
         .block(
             Block::default().title(title2.as_str()))
-        .data(&app.mem_usage_histogram)
+        .data(&app.mem_usage_histogram[start_at..])
         .style(Style::default().fg(Color::Cyan))
         .max(100)
         .render(f, area);
@@ -237,9 +252,16 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     let up_max_bytes =  Byte::from_unit(up_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
 
     let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let start_at = if app.net_out_histogram.len() > area[0].width as usize
+    {
+        app.net_out_histogram.len() - area[0].width as usize
+    }
+    else{
+        0
+    };
     Sparkline::default()
         .block(Block::default().title(format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(), up_max_bytes.to_string()).as_str()))
-        .data(&app.net_out_histogram)
+        .data(&app.net_out_histogram[start_at..])
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
         .render(f, area[0]);
@@ -251,9 +273,16 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     };
     let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     let down_max_bytes =  Byte::from_unit(down_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let start_at = if app.net_in_histogram.len() > area[1].width as usize
+    {
+        app.net_in_histogram.len() - area[1].width as usize
+    }
+    else{
+        0
+    };
     Sparkline::default()
         .block(Block::default().title(format!("↓ [{:^10}] Max [{:^10}]", net_down.to_string(), down_max_bytes.to_string()).as_str()))
-        .data(&app.net_in_histogram)
+        .data(&app.net_in_histogram[start_at..])
         .style(Style::default().fg(Color::LightMagenta))
         .max(down_max)
         .render(f, area[1]);
@@ -270,9 +299,16 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
     let read_max_bytes =  Byte::from_unit(read_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
 
     let read_up = Byte::from_unit(app.disk_read as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let start_at = if app.disk_read_histogram.len() > area[0].width as usize
+    {
+        app.disk_read_histogram.len() - area[0].width as usize
+    }
+    else{
+        0
+    };
     Sparkline::default()
         .block(Block::default().title(format!("R [{:^10}] Max [{:^10}]", read_up.to_string(), read_max_bytes.to_string()).as_str()))
-        .data(&app.disk_read_histogram)
+        .data(&app.disk_read_histogram[start_at..])
         .style(Style::default().fg(Color::LightYellow))
         .max(read_max)
         .render(f, area[0]);
@@ -284,9 +320,16 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
     };
     let write_down = Byte::from_unit(app.disk_write as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     let write_max_bytes =  Byte::from_unit(write_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let start_at = if app.disk_write_histogram.len() > area[1].width as usize
+    {
+        app.disk_write_histogram.len() - area[1].width as usize
+    }
+    else{
+        0
+    };
     Sparkline::default()
         .block(Block::default().title(format!("W [{:^10}] Max [{:^10}]", write_down.to_string(), write_max_bytes.to_string()).as_str()))
-        .data(&app.disk_write_histogram)
+        .data(&app.disk_write_histogram[start_at..])
         .style(Style::default().fg(Color::LightMagenta))
         .max(write_max)
         .render(f, area[1]);
