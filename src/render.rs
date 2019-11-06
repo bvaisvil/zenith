@@ -130,7 +130,11 @@ fn render_process_table<'a>(
     header.push(cmd_header);
     widths.push(header.last().unwrap().len() as u16);
     header[app.psortby as usize].pop();
-    header[app.psortby as usize].insert(0,'*');
+    let sort_ind = match app.psortorder{
+        ProcessTableSortOrder::Ascending => '↑',
+        ProcessTableSortOrder::Descending => '↓'
+    };
+    header[app.psortby as usize].insert(0,sort_ind); //sort column indicator
     let rows = rows.iter().enumerate().filter_map(|(i, r)| {
         if i >= process_table_start && i < end{
             if app.highlighted_row == i{
@@ -461,7 +465,7 @@ impl<'a> TerminalRenderer<'a> {
                             self.process_table_row_start += 1;
                         }
                     }
-                    else if input == Key::Char('.'){
+                    else if input == Key::Char('.') || input == Key::Char('>'){
                         if self.app.psortby == ProcessTableSortBy::Cmd{
                             self.app.psortby = ProcessTableSortBy::Pid;
                         }
@@ -470,12 +474,19 @@ impl<'a> TerminalRenderer<'a> {
                         }
                         self.app.sort_process_table();
                     }
-                    else if input == Key::Char(','){
+                    else if input == Key::Char(',')  || input == Key::Char('<'){
                         if self.app.psortby == ProcessTableSortBy::Pid{
                             self.app.psortby = ProcessTableSortBy::Cmd;
                         }
                         else{
                             self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).unwrap();
+                        }
+                        self.app.sort_process_table();
+                    }
+                    else if input == Key::Char('/'){
+                        match self.app.psortorder{
+                            ProcessTableSortOrder::Ascending => self.app.psortorder = ProcessTableSortOrder::Descending,
+                            ProcessTableSortOrder::Descending => self.app.psortorder = ProcessTableSortOrder::Ascending
                         }
                         self.app.sort_process_table();
                     }

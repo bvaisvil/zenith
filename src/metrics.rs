@@ -6,6 +6,7 @@ use crate::zprocess::*;
 use std::collections::{HashMap, HashSet};
 use users::{User, UsersCache, Users, Groups};
 use std::time::SystemTime;
+use std::mem::swap;
 
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
@@ -20,6 +21,12 @@ pub enum ProcessTableSortBy{
     DiskRead = 8,
     DiskWrite = 9,
     Cmd = 10
+}
+
+#[derive(PartialEq, Eq)]
+pub enum ProcessTableSortOrder{
+    Ascending = 0,
+    Descending = 1
 }
 
 pub trait DiskFreeSpaceExt{
@@ -64,7 +71,8 @@ pub struct CPUTimeApp<'a> {
     pub frequency: u64,
     pub highlighted_row: usize,
     pub threads_total: usize,
-    pub psortby: ProcessTableSortBy
+    pub psortby: ProcessTableSortBy,
+    pub psortorder: ProcessTableSortOrder
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -103,7 +111,8 @@ impl<'a> CPUTimeApp<'a>{
             disk_write: 0,
             disk_read_histogram: vec![0; 1200],
             disk_write_histogram: vec![0; 1200],
-            psortby: ProcessTableSortBy::DiskRead
+            psortby: ProcessTableSortBy::CPU,
+            psortorder: ProcessTableSortOrder::Descending
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -198,21 +207,30 @@ impl<'a> CPUTimeApp<'a>{
     pub fn sort_process_table(&mut self){
         let pm = &self.process_map;
         let sortfield = &self.psortby;
+        let sortorder = &self.psortorder;
         self.processes.sort_by(|a, b| {
-            let pa =pm.get(a).unwrap();
-            let pb = pm.get(b).unwrap();
+            let mut pa = pm.get(a).unwrap();
+            let mut pb = pm.get(b).unwrap();
+            match sortorder{
+                ProcessTableSortOrder::Ascending => {
+                    //do nothing
+                },
+                ProcessTableSortOrder::Descending => {
+                    swap(&mut pa, &mut pb);
+                }
+            }
             match sortfield{
-                ProcessTableSortBy::CPU => pb.cpu_usage.partial_cmp(&pa.cpu_usage).unwrap(),
-                ProcessTableSortBy::Mem=> pb.memory.partial_cmp(&pa.memory).unwrap(),
-                ProcessTableSortBy::MemPerc=> pb.memory.partial_cmp(&pa.memory).unwrap(),
+                ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap(),
+                ProcessTableSortBy::Mem=> pa.memory.partial_cmp(&pb.memory).unwrap(),
+                ProcessTableSortBy::MemPerc=> pa.memory.partial_cmp(&pb.memory).unwrap(),
                 ProcessTableSortBy::User => pa.user_name.partial_cmp(&pb.user_name).unwrap(),
                 ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap(),
                 ProcessTableSortBy::Status => pa.status.to_single_char().partial_cmp(pb.status.to_single_char()).unwrap(),
                 ProcessTableSortBy::Priority => pa.priority.partial_cmp(&pb.priority).unwrap(),
-                ProcessTableSortBy::Virt=> pb.virtual_memory.partial_cmp(&pa.virtual_memory).unwrap(),
-                ProcessTableSortBy::Cmd => pb.name.partial_cmp(&pa.name).unwrap(),
-                ProcessTableSortBy::DiskRead => pb.get_read_bytes_sec().partial_cmp(&pa.get_read_bytes_sec()).unwrap(),
-                ProcessTableSortBy::DiskWrite => pb.get_write_bytes_sec().partial_cmp(&pa.get_write_bytes_sec()).unwrap()
+                ProcessTableSortBy::Virt=> pa.virtual_memory.partial_cmp(&pb.virtual_memory).unwrap(),
+                ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap(),
+                ProcessTableSortBy::DiskRead => pa.get_read_bytes_sec().partial_cmp(&pb.get_read_bytes_sec()).unwrap(),
+                ProcessTableSortBy::DiskWrite => pa.get_write_bytes_sec().partial_cmp(&pb.get_write_bytes_sec()).unwrap()
             }
 
         });
