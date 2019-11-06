@@ -391,7 +391,7 @@ impl<'a> TerminalRenderer<'a> {
                     .direction(Direction::Vertical)
                     .margin(0)
                     .constraints([
-                        Constraint::Length(8),
+                        //Constraint::Length(8),
                         Constraint::Length(10),
                         Constraint::Length(10),
                         Constraint::Length(10),
@@ -406,26 +406,28 @@ impl<'a> TerminalRenderer<'a> {
                     cpu_width = 1;
                 }
 
-                Block::default().title("CPU & Memory").borders(Borders::ALL).render(&mut f, v_sections[1]);
+                Block::default().title(hostname.as_str()).borders(Borders::ALL).render(&mut f, v_sections[0]);
+                let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
+                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[0]);
                 let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(v_sections[1]);
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(cpu_layout[1]);
 
                 // secondary layout
-                let h_sections = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints([Constraint::Length(overview_width),
-                        Constraint::Min(cpu_width as u16)].as_ref())
-                    .split(v_sections[0]);
-                Block::default().title("Network").borders(Borders::ALL).render(&mut f, v_sections[2]);
+//                let h_sections = Layout::default()
+//                    .direction(Direction::Horizontal)
+//                    .constraints([Constraint::Length(overview_width),
+//                        Constraint::Min(cpu_width as u16)].as_ref())
+//                    .split(v_sections[0]);
+                Block::default().title("Network").borders(Borders::ALL).render(&mut f, v_sections[1]);
                 let net =
                     Layout::default()
                         .margin(1)
                     .direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                    .split(v_sections[2]);
-                Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[3]);
+                    .split(v_sections[1]);
+                Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[2]);
                 let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
-                .constraints([Constraint::Length(20), Constraint::Min(10)].as_ref()).split(v_sections[3]);
+                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[2]);
 
 
 
@@ -434,13 +436,13 @@ impl<'a> TerminalRenderer<'a> {
 
                 render_memory_histogram(&app, cpu_mem[1], &mut f);
 
-                render_process_table(&app, width, v_sections[4], *pst,&mut f);
-                if v_sections[4].height > 4{ // account for table border & margins.
-                    process_table_height = v_sections[4].height - 5;
+                render_process_table(&app, width, v_sections[3], *pst,&mut f);
+                if v_sections[3].height > 4{ // account for table border & margins.
+                    process_table_height = v_sections[3].height - 5;
                 }
-                render_cpu_bars(&app, h_sections[1], cpu_width as u16, &mut f);
-
-                render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
+                render_cpu_bars(&app, cpu_layout[0], 1, &mut f);
+//
+//                render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
 
                 render_net(&app, net, &mut f);
                 render_disk(&app, disk_layout, &mut f);
