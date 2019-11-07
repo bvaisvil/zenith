@@ -440,7 +440,7 @@ impl<'a> TerminalRenderer<'a> {
                 if v_sections[3].height > 4{ // account for table border & margins.
                     process_table_height = v_sections[3].height - 5;
                 }
-                render_cpu_bars(&app, cpu_layout[0], 1, &mut f);
+                render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
 //
 //                render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
 
