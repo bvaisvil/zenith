@@ -224,7 +224,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
 
     // Bar chart for current CPU usage.
     BarChart::default()
-        .block(Block::default().title(format!("CPU(S) [{}] Freq [{} MHz]", np, app.frequency).as_str()).borders(Borders::ALL))
+        .block(Block::default().title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str()).borders(Borders::ALL))
         .data(bars.as_slice())
         .bar_width(cpu_bw)
         .bar_gap(bar_gap)
@@ -234,18 +234,6 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
         .render(f, area);
 }
 
-fn render_overview(app: &CPUTimeApp, area: Rect,  hostname: &str, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
-    BarChart::default()
-        .block(Block::default().title(hostname).title_style(Style::default().modifier(Modifier::BOLD)).borders(Borders::ALL).border_style(Style::default().fg(Color::Red)))
-        .data(&app.overview)
-        .style(Style::default().fg(Color::Red))
-        .bar_width(3)
-        .bar_gap(1)
-        .max(100)
-        .value_style(Style::default().bg(Color::Red))
-        .label_style(Style::default().fg(Color::Cyan).modifier(Modifier::ITALIC))
-        .render(f, area);
-}
 
 fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
               f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
@@ -406,18 +394,12 @@ impl<'a> TerminalRenderer<'a> {
                     cpu_width = 1;
                 }
 
-                Block::default().title(hostname.as_str()).borders(Borders::ALL).render(&mut f, v_sections[0]);
+                Block::default().title(format!("{: >width$}", hostname, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[0]);
                 let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(cpu_layout[1]);
 
-                // secondary layout
-//                let h_sections = Layout::default()
-//                    .direction(Direction::Horizontal)
-//                    .constraints([Constraint::Length(overview_width),
-//                        Constraint::Min(cpu_width as u16)].as_ref())
-//                    .split(v_sections[0]);
                 Block::default().title("Network").borders(Borders::ALL).render(&mut f, v_sections[1]);
                 let net =
                     Layout::default()
@@ -441,8 +423,6 @@ impl<'a> TerminalRenderer<'a> {
                     process_table_height = v_sections[3].height - 5;
                 }
                 render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
-//
-//                render_overview(&app, h_sections[0], hostname.as_str(), &mut f);
 
                 render_net(&app, net, &mut f);
                 render_disk(&app, disk_layout, &mut f);
