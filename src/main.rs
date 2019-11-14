@@ -2,7 +2,6 @@
  * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
  */
 extern crate sysinfo;
-extern crate hostname;
 extern crate num_traits;
 extern crate num;
 #[macro_use] extern crate num_derive;

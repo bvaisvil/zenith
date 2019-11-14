@@ -15,7 +15,6 @@ use tui::backend::TermionBackend;
 use tui::Terminal;
 use std::io::{Write, Stdout};
 use tui::Frame;
-use hostname::get_hostname;
 use std::io;
 use crate::util::*;
 use crate::metrics::*;
@@ -346,7 +345,6 @@ pub struct TerminalRenderer<'a>{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
     app: CPUTimeApp<'a>,
     events: Events,
-    hostname: String,
     process_table_row_start: usize
 }
 
@@ -360,7 +358,6 @@ impl<'a> TerminalRenderer<'a> {
             terminal: Terminal::new(backend).unwrap(),
             app: CPUTimeApp::new(),
             events: Events::new(),
-            hostname: get_hostname().unwrap_or(String::from("")),
             process_table_row_start: 0
         }
     }
@@ -368,7 +365,7 @@ impl<'a> TerminalRenderer<'a> {
     pub async fn start(&mut self) {
         loop {
             let mut app = &self.app;
-            let hostname = &self.hostname;
+            let hostname = self.app.hostname.as_str();
             let os = self.app.osname.as_str();
             let arch = self.app.arch.as_str();
             let pst = &self.process_table_row_start;
