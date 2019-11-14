@@ -23,6 +23,7 @@ use tui::backend::TermionBackend;
 use tui::Terminal;
 use std::panic::{PanicInfo};
 use std::panic;
+use futures::executor::block_on;
 
 
 
@@ -54,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         panic_hook(info);
     }));
     let mut r = TerminalRenderer::new();
-    r.start();
+    block_on(r.start());
 
 
 

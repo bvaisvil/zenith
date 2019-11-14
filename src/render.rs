@@ -365,10 +365,11 @@ impl<'a> TerminalRenderer<'a> {
         }
     }
 
-    pub fn start(&mut self) {
+    pub async fn start(&mut self) {
         loop {
             let mut app = &self.app;
             let hostname = &self.hostname;
+            let os = self.app.osname;
             let pst = &self.process_table_row_start;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
@@ -394,7 +395,7 @@ impl<'a> TerminalRenderer<'a> {
                     cpu_width = 1;
                 }
 
-                Block::default().title(format!("{: >width$}", hostname, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
+                Block::default().title(format!("{: >width$} - {:}", hostname, os, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[0]);
                 let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
@@ -475,7 +476,7 @@ impl<'a> TerminalRenderer<'a> {
                     
                 },
                 Event::Tick => {
-                    self.app.update(width);
+                    self.app.update(width).await;
                 }
             }
         }

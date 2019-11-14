@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use users::{User, UsersCache, Users, Groups};
 use std::time::SystemTime;
 use std::mem::swap;
-
+use heim::host;
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
     Pid = 0,
@@ -72,7 +72,12 @@ pub struct CPUTimeApp<'a> {
     pub highlighted_row: usize,
     pub threads_total: usize,
     pub psortby: ProcessTableSortBy,
-    pub psortorder: ProcessTableSortOrder
+    pub psortorder: ProcessTableSortOrder,
+    pub osname: &'a str,
+    pub release: &'a str,
+    pub version: &'a str,
+    pub arch: &'a str
+
 }
 
 impl<'a> CPUTimeApp<'a>{
@@ -112,11 +117,20 @@ impl<'a> CPUTimeApp<'a>{
             disk_read_histogram: vec![0; 1200],
             disk_write_histogram: vec![0; 1200],
             psortby: ProcessTableSortBy::CPU,
-            psortorder: ProcessTableSortOrder::Descending
+            psortorder: ProcessTableSortOrder::Descending,
+            osname: "",
+            release: "",
+            version: "",
+            arch: ""
         };
         s.system.refresh_all();
         s.system.refresh_all();
         return s
+    }
+
+    async fn get_platform(&mut self){
+        let platform = host::platform().await.unwrap();
+        //self.osname = platform.system().to_owned().as_str();
     }
 
     pub fn highlight_up(&mut self){
@@ -266,7 +280,7 @@ impl<'a> CPUTimeApp<'a>{
         }
     }
 
-    pub fn update(&mut self, width: u16) {
+    pub async fn update(&mut self, width: u16) {
         self.system.refresh_all();
         let procs = self.system.get_processor_list();
         let mut num_procs = 1;
@@ -320,5 +334,6 @@ impl<'a> CPUTimeApp<'a>{
         self.update_process_list();
         self.update_frequency();
         self.update_disk(width);
+        self.get_platform().await;
     }
 }
