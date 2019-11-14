@@ -369,7 +369,8 @@ impl<'a> TerminalRenderer<'a> {
         loop {
             let mut app = &self.app;
             let hostname = &self.hostname;
-            let os = self.app.osname;
+            let os = self.app.osname.as_str();
+            let arch = self.app.arch.as_str();
             let pst = &self.process_table_row_start;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
@@ -395,7 +396,7 @@ impl<'a> TerminalRenderer<'a> {
                     cpu_width = 1;
                 }
 
-                Block::default().title(format!("{: >width$} - {:}", hostname, os, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
+                Block::default().title(format!("{: >width$} [{:} {:}]", hostname, os, arch, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[0]);
                 let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)

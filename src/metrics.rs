@@ -73,10 +73,11 @@ pub struct CPUTimeApp<'a> {
     pub threads_total: usize,
     pub psortby: ProcessTableSortBy,
     pub psortorder: ProcessTableSortOrder,
-    pub osname: &'a str,
-    pub release: &'a str,
-    pub version: &'a str,
-    pub arch: &'a str
+    pub osname: String,
+    pub release: String,
+    pub version: String,
+    pub arch: String,
+    pub hostname: String
 
 }
 
@@ -118,10 +119,11 @@ impl<'a> CPUTimeApp<'a>{
             disk_write_histogram: vec![0; 1200],
             psortby: ProcessTableSortBy::CPU,
             psortorder: ProcessTableSortOrder::Descending,
-            osname: "",
-            release: "",
-            version: "",
-            arch: ""
+            osname: String::from(""),
+            release: String::from(""),
+            version: String::from(""),
+            arch: String::from(""),
+            hostname: String::from("")
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -130,7 +132,11 @@ impl<'a> CPUTimeApp<'a>{
 
     async fn get_platform(&mut self){
         let platform = host::platform().await.unwrap();
-        //self.osname = platform.system().to_owned().as_str();
+        self.osname = platform.system().to_owned();
+        self.arch = platform.architecture().as_str().to_owned();
+        self.hostname = platform.hostname().to_owned();
+        self.version = platform.version().to_owned();
+        self.release = platform.release().to_owned();
     }
 
     pub fn highlight_up(&mut self){
