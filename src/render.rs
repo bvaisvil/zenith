@@ -21,6 +21,7 @@ use crate::metrics::*;
 use crate::zprocess::*;
 use std::ffi::{OsStr, OsString};
 use std::borrow::Cow;
+use itertools::Itertools;
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
@@ -398,8 +399,8 @@ impl<'a> TerminalRenderer<'a> {
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[0]);
                 let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(cpu_layout[1]);
-
-                Block::default().title("Network").borders(Borders::ALL).render(&mut f, v_sections[1]);
+                let ips = app.network_interfaces.iter().map(|n| format!("{}:{}", n.name, n.ip) ).collect_vec().join(", ");
+                Block::default().title(format!("Network {}", ips).as_str()).borders(Borders::ALL).render(&mut f, v_sections[1]);
                 let net =
                     Layout::default()
                         .margin(1)

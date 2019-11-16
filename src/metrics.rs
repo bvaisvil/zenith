@@ -8,6 +8,10 @@ use users::{User, UsersCache, Users, Groups};
 use std::time::SystemTime;
 use std::mem::swap;
 use heim::host;
+use heim::net;
+use heim::net::{Address, Nic};
+use futures::StreamExt;
+use std::net::SocketAddr;
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
     Pid = 0,
@@ -40,6 +44,12 @@ impl DiskFreeSpaceExt for Disk{
         }
         ((self.get_available_space() as f64) / (self.get_total_space() as f64)) * 100.00
     }
+}
+
+pub struct NetworkInterface{
+    pub name: String,
+    pub ip: String,
+    pub dest: String
 }
 
 pub struct CPUTimeApp<'a> {
@@ -77,7 +87,8 @@ pub struct CPUTimeApp<'a> {
     pub release: String,
     pub version: String,
     pub arch: String,
-    pub hostname: String
+    pub hostname: String,
+    pub network_interfaces: Vec<NetworkInterface>
 
 }
 
@@ -123,7 +134,8 @@ impl<'a> CPUTimeApp<'a>{
             release: String::from(""),
             version: String::from(""),
             arch: String::from(""),
-            hostname: String::from("")
+            hostname: String::from(""),
+            network_interfaces: vec![]
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -137,6 +149,38 @@ impl<'a> CPUTimeApp<'a>{
         self.hostname = platform.hostname().to_owned();
         self.version = platform.version().to_owned();
         self.release = platform.release().to_owned();
+    }
+
+    async fn get_nics(&mut self){
+        self.network_interfaces.clear();
+        let mut nics = net::nic();
+        while let Some(n) = nics.next().await{
+            let n = n.unwrap();
+            if !n.is_up() || n.is_loopback(){
+                continue;
+            }
+            if n.name().starts_with("utun") || n.name().starts_with("awd") || n.name().starts_with("ham"){
+                continue;
+            }
+            let ip = match n.address(){
+                Address::Inet(n) => n.to_string(),
+                _ => format!("")
+            }.trim_right_matches(":0").to_string();
+            if ip.len() == 0{
+                continue;
+            }
+            let dest = match n.destination(){
+                Some(d) => match d{
+                    Address::Inet(d) => d.to_string(),
+                    _ => format!("")
+                }
+                None => format!("")
+            };
+            self.network_interfaces.push(NetworkInterface{
+                name: n.name().to_owned(),
+                ip: ip,
+                dest: dest})
+        }
     }
 
     pub fn highlight_up(&mut self){
@@ -341,5 +385,6 @@ impl<'a> CPUTimeApp<'a>{
         self.update_frequency();
         self.update_disk(width);
         self.get_platform().await;
+        self.get_nics().await;
     }
 }
