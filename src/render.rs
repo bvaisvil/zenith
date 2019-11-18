@@ -249,9 +249,9 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     let up_max_bytes =  Byte::from_unit(up_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
 
     let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let start_at = if app.net_out_histogram.len() > area[0].width as usize
+    let start_at = if app.net_out_histogram.len() > net[0].width as usize
     {
-        app.net_out_histogram.len() - area[0].width as usize
+        app.net_out_histogram.len() - net[0].width as usize
     }
     else{
         0
@@ -271,9 +271,9 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     };
     let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     let down_max_bytes =  Byte::from_unit(down_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let start_at = if app.net_in_histogram.len() > area[1].width as usize
+    let start_at = if app.net_in_histogram.len() > net[1].width as usize
     {
-        app.net_in_histogram.len() - area[1].width as usize
+        app.net_in_histogram.len() - net[1].width as usize
     }
     else{
         0
