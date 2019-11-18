@@ -21,6 +21,7 @@ use crate::metrics::*;
 use crate::zprocess::*;
 use std::ffi::{OsStr, OsString};
 use std::borrow::Cow;
+use itertools::Itertools;
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
@@ -236,6 +237,11 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
 
 fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
               f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+    let net = Layout::default()
+                .margin(1)
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                .split(area[1]);
     let up_max: u64 = match app.net_out_histogram.iter().max(){
         Some(x) => x.clone(),
         None => 1
@@ -251,11 +257,12 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
         0
     };
     Sparkline::default()
-        .block(Block::default().title(format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(), up_max_bytes.to_string()).as_str()))
+        .block(Block::default().title(format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(),
+         up_max_bytes.to_string()).as_str()))
         .data(&app.net_out_histogram[start_at..])
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
-        .render(f, area[0]);
+        .render(f, net[0]);
 
 
     let down_max: u64 = match app.net_in_histogram.iter().max(){
@@ -276,7 +283,11 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
         .data(&app.net_in_histogram[start_at..])
         .style(Style::default().fg(Color::LightMagenta))
         .max(down_max)
-        .render(f, area[1]);
+        .render(f, net[1]);
+
+    let ips = app.network_interfaces.iter()
+    .map(|n| Text::Styled(Cow::Owned(format!("{:<8.8} : {}", n.name, n.ip)), Style::default().fg(Color::Green) ));
+    List::new(ips).block(Block::default().title("Network").borders(Borders::ALL)).render(f, area[0]);
 }
 
 fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
@@ -393,19 +404,19 @@ impl<'a> TerminalRenderer<'a> {
                     cpu_width = 1;
                 }
 
-                Block::default().title(format!("{: >width$} [{:} {:}]", hostname, os, release, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
+                Block::default().title(format!("{: >width$} [{:}, {:}]", hostname, os, release, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[0]);
-                let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(cpu_layout[1]);
 
-                Block::default().title("Network").borders(Borders::ALL).render(&mut f, v_sections[1]);
-                let net =
-                    Layout::default()
-                        .margin(1)
-                    .direction(Direction::Vertical)
+                let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                    .split(v_sections[1]);
+                    .split(cpu_layout[1]);
+
+                Block::default().title("Network").borders(Borders::ALL)
+                .render(&mut f, v_sections[1]);
+                let network_layout = Layout::default().margin(0).direction(Direction::Horizontal)
+                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[1]);
+                
                 Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[2]);
                 let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[2]);
@@ -423,7 +434,7 @@ impl<'a> TerminalRenderer<'a> {
                 }
                 render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
 
-                render_net(&app, net, &mut f);
+                render_net(&app, network_layout, &mut f);
                 render_disk(&app, disk_layout, &mut f);
 
             }).expect("Could not draw frame.");
