@@ -352,15 +352,15 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
 }
 
 
-pub struct TerminalRenderer<'a>{
+pub struct TerminalRenderer{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
-    app: CPUTimeApp<'a>,
+    app: CPUTimeApp,
     events: Events,
     process_table_row_start: usize
 }
 
-impl<'a> TerminalRenderer<'a> {
-    pub fn new() -> TerminalRenderer<'a> {
+impl<'a> TerminalRenderer {
+    pub fn new() -> TerminalRenderer {
         let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);

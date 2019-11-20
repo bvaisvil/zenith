@@ -52,7 +52,7 @@ pub struct NetworkInterface{
     pub dest: String
 }
 
-pub struct CPUTimeApp<'a> {
+pub struct CPUTimeApp {
     pub cpu_usage_histogram: Vec<u64>,
     pub cpu_utilization: u64,
     pub mem_utilization: u64,
@@ -69,7 +69,6 @@ pub struct CPUTimeApp<'a> {
     pub disk_write_histogram: Vec<u64>,
     pub cpus: Vec<(String, u64)>,
     pub system: System,
-    pub overview: Vec<(&'a str, u64)>,
     pub net_in: u64,
     pub net_in_histogram: Vec<u64>,
     pub net_out_histogram: Vec<u64>,
@@ -92,8 +91,8 @@ pub struct CPUTimeApp<'a> {
 
 }
 
-impl<'a> CPUTimeApp<'a>{
-    pub fn new () -> CPUTimeApp<'a>{
+impl CPUTimeApp{
+    pub fn new () -> CPUTimeApp{
         let mut s = CPUTimeApp{
             cpu_usage_histogram: vec![0; 1200],
             mem_usage_histogram: vec![0; 1200],
@@ -107,12 +106,6 @@ impl<'a> CPUTimeApp<'a>{
             disks: vec![],
             disk_available: 0,
             disk_total: 0,
-            overview: vec![
-                ("CPU", 0),
-                ("MEM", 0),
-                ("SWP", 0),
-                ("DSK", 0)
-            ],
             net_in: 0,
             net_in_histogram: vec![0; 1200],
             net_out: 0,
@@ -315,7 +308,6 @@ impl<'a> CPUTimeApp<'a>{
         }
 
         let du = self.disk_total - self.disk_available;
-        self.overview[3] = ("DSK", ((du as f32 / self.disk_total as f32) * 100.0) as u64);
         self.disk_read = self.process_map.iter().map(|(pid, p)| p.get_read_bytes_sec() as u64).sum();
         self.disk_write = self.process_map.iter().map(|(pid, p)| p.get_write_bytes_sec() as u64).sum();
 
@@ -344,7 +336,6 @@ impl<'a> CPUTimeApp<'a>{
         }
         let usage = usage / num_procs as f32;
         self.cpu_utilization = (usage * 100.0) as u64;
-        self.overview[0] = ("CPU", self.cpu_utilization);
         self.cpu_usage_histogram.push((usage * 100.0) as u64);
         self.cpu_usage_histogram.remove(0);
 
@@ -356,8 +347,6 @@ impl<'a> CPUTimeApp<'a>{
             mem = ((self.mem_utilization as f64/ self.mem_total as f64) * 100.0) as u64;
         }
 
-
-        self.overview[1] = ("MEM", mem);
         self.mem_usage_histogram.push(mem);
         self.mem_usage_histogram.remove(0);
 
@@ -369,7 +358,6 @@ impl<'a> CPUTimeApp<'a>{
         if self.swap_total > 0 && self.swap_utilization > 0{
             swp = ((self.swap_utilization as f64/ self.swap_total as f64) * 100.0) as u64;
         }
-        self.overview[2] = ("SWP", swp);
 
 
 
