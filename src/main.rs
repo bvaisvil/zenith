@@ -23,6 +23,7 @@ use tui::Terminal;
 use std::panic::{PanicInfo};
 use std::panic;
 use futures::executor::block_on;
+use clap::{Arg, App, SubCommand};
 
 
 
@@ -38,25 +39,47 @@ fn panic_hook(info: &PanicInfo<'_>) {
 	println!("{}thread '<unnamed>' panicked at '{}', {}\r", termion::screen::ToMainScreen, msg, location);
 }
 
-
-fn main() -> Result<(), Box<dyn Error>> {
-
+fn start_zenith(rate: u64) -> Result<(), Box<dyn Error>> {
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
-    //terminal.what_is_this();
     terminal.hide_cursor().expect("Hiding cursor failed.");
 
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
-    let mut r = TerminalRenderer::new();
-    block_on(r.start());
+    let mut r = TerminalRenderer::new(rate);
+    Ok(block_on(r.start()))
+}
 
+fn validate_refresh_rate(arg: String) -> Result<(), String>{
+    let val = arg.parse::<u64>().unwrap_or(0);
+    if val >= 500{
+        Ok(())
+    }
+    else{
+        Err(format!("{} Enter a refresh rate greater than 500 ms", &*arg))
+    }
+}
 
+fn main() -> Result<(), Box<dyn Error>> {
 
-    Ok(())
+    let matches = App::new("zenith")
+                            .version(env!("CARGO_PKG_VERSION"))
+                            .author("Benjamin Vaisvil <ben@neuon.com>")
+                            .about("Like htop but with histograms.")
+                            .arg(Arg::with_name("refresh_rate")
+                                .short("r")
+                                .long("refresh-rate")
+                                .value_name("INT")
+                                .default_value("2000")
+                                .validator(validate_refresh_rate)
+                                .help(format!("Refresh rate in milliseconds. Default is {}", constants::DEFAULT_TICK).as_str())
+                                .takes_value(true))
+                            .get_matches();
+
+    start_zenith(matches.value_of("refresh_rate").unwrap().parse::<u64>().unwrap())
 }

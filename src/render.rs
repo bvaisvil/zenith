@@ -360,7 +360,7 @@ pub struct TerminalRenderer{
 }
 
 impl<'a> TerminalRenderer {
-    pub fn new() -> TerminalRenderer {
+    pub fn new(tick_rate: u64) -> TerminalRenderer {
         let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
@@ -368,7 +368,7 @@ impl<'a> TerminalRenderer {
         TerminalRenderer {
             terminal: Terminal::new(backend).unwrap(),
             app: CPUTimeApp::new(),
-            events: Events::new(),
+            events: Events::new(tick_rate),
             process_table_row_start: 0
         }
     }
