@@ -4,8 +4,7 @@
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use sysinfo::{DiskExt};
-use tui::layout::Corner;
-use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Paragraph, Text, Table, Row, List};
+use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Text, Table, Row, List};
 use byte_unit::{Byte, ByteUnit};
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -13,15 +12,13 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::Terminal;
-use std::io::{Write, Stdout};
+use std::io::{Stdout};
 use tui::Frame;
 use std::io;
 use crate::util::*;
 use crate::metrics::*;
 use crate::zprocess::*;
-use std::ffi::{OsStr, OsString};
 use std::borrow::Cow;
-use itertools::Itertools;
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
@@ -86,7 +83,7 @@ fn render_process_table<'a>(
     //panic!("{}", area.height);
     let end = process_table_start + display_height;
 
-    let rows: Vec<Vec<String>> = app.processes.iter().map(|(pid)| {
+    let rows: Vec<Vec<String>> = app.processes.iter().map(|pid| {
         let p = app.process_map.get(pid).unwrap();
         vec![
             format!("{: >5}", p.pid),
@@ -124,7 +121,7 @@ fn render_process_table<'a>(
     }
     let cmd_width = cmd_width as u16;
     let mut cmd_header = String::from("CMD");
-    for i in 3..cmd_width {
+    for _i in 3..cmd_width {
         cmd_header.push(' ');
     }
     header.push(cmd_header);

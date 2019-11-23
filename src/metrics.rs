@@ -1,17 +1,16 @@
 /**
  * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
  */
-use sysinfo::{Disk, NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Pid, ProcessExt, Process, ProcessStatus};
+use sysinfo::{Disk, NetworkExt, System, SystemExt, ProcessorExt, DiskExt, ProcessExt};
 use crate::zprocess::*;
 use std::collections::{HashMap, HashSet};
-use users::{User, UsersCache, Users, Groups};
+use users::{UsersCache, Users};
 use std::time::SystemTime;
 use std::mem::swap;
 use heim::host;
 use heim::net;
-use heim::net::{Address, Nic};
+use heim::net::{Address};
 use futures::StreamExt;
-use std::net::SocketAddr;
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
     Pid = 0,
@@ -158,7 +157,7 @@ impl CPUTimeApp{
             let ip = match n.address(){
                 Address::Inet(n) => n.to_string(),
                 _ => format!("")
-            }.trim_right_matches(":0").to_string();
+            }.trim_end_matches(":0").to_string();
             if ip.len() == 0{
                 continue;
             }
@@ -307,8 +306,8 @@ impl CPUTimeApp{
             self.disks.push(d.clone());
         }
 
-        self.disk_read = self.process_map.iter().map(|(pid, p)| p.get_read_bytes_sec() as u64).sum();
-        self.disk_write = self.process_map.iter().map(|(pid, p)| p.get_write_bytes_sec() as u64).sum();
+        self.disk_read = self.process_map.iter().map(|(_pid, p)| p.get_read_bytes_sec() as u64).sum();
+        self.disk_write = self.process_map.iter().map(|(_pid, p)| p.get_write_bytes_sec() as u64).sum();
 
         self.disk_read_histogram.push(self.disk_read);
         if self.disk_read_histogram.len() > (width - 2) as usize{
