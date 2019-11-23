@@ -1,7 +1,7 @@
 /**
  * 
  */
-
+#[allow(dead_code)]
 use crate::constants::DEFAULT_TICK;
 use std::sync::{mpsc, Arc};
 use std::thread;

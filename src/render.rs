@@ -86,7 +86,7 @@ fn render_process_table<'a>(
     //panic!("{}", area.height);
     let end = process_table_start + display_height;
 
-    let mut rows: Vec<Vec<String>> = app.processes.iter().map(|(pid)| {
+    let rows: Vec<Vec<String>> = app.processes.iter().map(|(pid)| {
         let p = app.process_map.get(pid).unwrap();
         vec![
             format!("{: >5}", p.pid),
@@ -415,7 +415,7 @@ impl<'a> TerminalRenderer {
 
     pub async fn start(&mut self) {
         loop {
-            let mut app = &self.app;
+            let app = &self.app;
             let hostname = self.app.hostname.as_str();
             let os = self.app.osname.as_str();
             let release = self.app.release.as_str();
@@ -436,13 +436,6 @@ impl<'a> TerminalRenderer {
                         Constraint::Min(8)
                     ].as_ref())
                     .split(f.size());
-
-
-                let overview_width: u16 = 18;
-                let mut cpu_width: i16 = width as i16 - overview_width as i16;
-                if cpu_width < 1 {
-                    cpu_width = 1;
-                }
 
                 Block::default().title(format!("{: >width$} [{:}, {:}]", hostname, os, release, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)

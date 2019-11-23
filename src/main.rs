@@ -23,7 +23,7 @@ use tui::Terminal;
 use std::panic::{PanicInfo};
 use std::panic;
 use futures::executor::block_on;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App};
 
 
 

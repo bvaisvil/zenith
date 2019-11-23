@@ -307,7 +307,6 @@ impl CPUTimeApp{
             self.disks.push(d.clone());
         }
 
-        let du = self.disk_total - self.disk_available;
         self.disk_read = self.process_map.iter().map(|(pid, p)| p.get_read_bytes_sec() as u64).sum();
         self.disk_write = self.process_map.iter().map(|(pid, p)| p.get_write_bytes_sec() as u64).sum();
 
@@ -352,14 +351,6 @@ impl CPUTimeApp{
 
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
-
-
-        let mut swp: u64 = 0;
-        if self.swap_total > 0 && self.swap_utilization > 0{
-            swp = ((self.swap_utilization as f64/ self.swap_total as f64) * 100.0) as u64;
-        }
-
-
 
         let net = self.system.get_network();
 
