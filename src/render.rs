@@ -206,10 +206,23 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
     if np == 0 {
         np = 1;
     }
-    if width > 2 && (np * 2) >= width - 2{
+    
+    let mut constraints: Vec<Constraint> = vec![];
+    let mut half: usize = np as usize;
+    if np > width - 2{
+        constraints.push(Constraint::Percentage(50));
+        constraints.push(Constraint::Percentage(50));
+        half = np as usize / 2;
+    }
+    else{
+        constraints.push(Constraint::Percentage(100));
+    }
+    //compute bar width and gutter/gap
+
+    if width > 2 && (half * 2) >= (width - 2) as usize{
         bar_gap = 0;
     }
-    let mut cpu_bw = ((width as f32 - (np * bar_gap) as f32) / np as f32) as i16;
+    let mut cpu_bw = ((width as f32 - (half as u16 * bar_gap) as f32) / half as f32) as i16;
     if cpu_bw < 1 {
         cpu_bw = 1;
     }
@@ -222,16 +235,43 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
         bars.push((p.as_str(), u.clone()));
     }
 
-    // Bar chart for current CPU usage.
-    BarChart::default()
-        .block(Block::default().title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str()).borders(Borders::ALL))
+    Block::default().title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str())
+                    .borders(Borders::ALL)
+                    .render(f, area);
+    let cpu_bar_layout = Layout::default().margin(1)
+                                          .direction(Direction::Vertical)
+                                          .constraints(constraints.as_ref())
+                                          .split(area);
+    
+    if np > 28{
+        BarChart::default()
+        .data(&bars[0..half])
+        .bar_width(cpu_bw)
+        .bar_gap(bar_gap)
+        .max(100)
+        .style(Style::default().fg(Color::Green))
+        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+        .render(f, cpu_bar_layout[0]);
+        BarChart::default()
+        .data(&bars[half..])
+        .bar_width(cpu_bw)
+        .bar_gap(bar_gap)
+        .max(100)
+        .style(Style::default().fg(Color::Green))
+        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+        .render(f, cpu_bar_layout[1]);
+    }
+    else{
+        BarChart::default()
         .data(bars.as_slice())
         .bar_width(cpu_bw)
         .bar_gap(bar_gap)
         .max(100)
         .style(Style::default().fg(Color::Green))
         .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
-        .render(f, area);
+        .render(f, cpu_bar_layout[0]);
+    }
+    
 }
 
 
