@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 .value_name("INT")
                                 .default_value("2000")
                                 .validator(validate_refresh_rate)
-                                .help(format!("Refresh rate in milliseconds. Default is {}", constants::DEFAULT_TICK).as_str())
+                                .help(format!("Refresh rate in milliseconds.").as_str())
                                 .takes_value(true))
                             .get_matches();
 
