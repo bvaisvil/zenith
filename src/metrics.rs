@@ -323,19 +323,32 @@ impl CPUTimeApp{
 
     pub async fn update_cpu(&mut self){
         let procs = self.system.get_processor_list();
-        let mut num_procs = 1;
+        let mut num_procs = 0;
         let mut usage: f32 = 0.0;
         self.cpus.clear();
+        let mut usagev: Vec<f32> = vec![];
         for p in procs.iter().skip(1){
-            let u = p.get_cpu_usage();
-            self.cpus.push((format!("{}", num_procs), (u * 100.0) as u64));
+            let mut u = p.get_cpu_usage();
+            if u.is_nan(){
+                u = 0.0;
+            }
+            self.cpus.push((format!("{}", num_procs + 1), (u * 100.0) as u64));
             usage += u;
+            usagev.push(u);
             num_procs += 1;
         }
-        let usage = usage / num_procs as f32;
-        self.cpu_utilization = (usage * 100.0) as u64;
-        self.cpu_usage_histogram.push((usage * 100.0) as u64);
-        self.cpu_usage_histogram.remove(0);
+        if num_procs == 0{
+            self.cpu_utilization = 0;
+            self.cpu_usage_histogram.push(0);
+            self.cpu_usage_histogram.remove(0);
+        }
+        else{
+            usage = usage / num_procs as f32;
+            self.cpu_utilization = (usage * 100.0) as u64;
+            self.cpu_usage_histogram.push((usage * 100.0) as u64);
+            self.cpu_usage_histogram.remove(0);
+        }
+        
     }
 
     pub async fn update(&mut self, width: u16) {
