@@ -10,6 +10,7 @@ use std::mem::swap;
 use heim::host;
 use heim::net;
 use heim::net::{Address};
+use heim::cpu::{times, CpuTime};
 use futures::StreamExt;
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
@@ -320,8 +321,7 @@ impl CPUTimeApp{
         }
     }
 
-    pub async fn update(&mut self, width: u16) {
-        self.system.refresh_all();
+    pub async fn update_cpu(&mut self){
         let procs = self.system.get_processor_list();
         let mut num_procs = 1;
         let mut usage: f32 = 0.0;
@@ -336,6 +336,11 @@ impl CPUTimeApp{
         self.cpu_utilization = (usage * 100.0) as u64;
         self.cpu_usage_histogram.push((usage * 100.0) as u64);
         self.cpu_usage_histogram.remove(0);
+    }
+
+    pub async fn update(&mut self, width: u16) {
+        self.system.refresh_all();
+        self.update_cpu().await;
 
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
