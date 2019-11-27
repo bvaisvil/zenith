@@ -55,11 +55,11 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         None => String::from("")
     };
     let top_pid = app.cum_cpu_process.unwrap_or(0);
-    let mean: u64 = match app.cpu_usage_histogram.len(){
-        0 => 0,
-        _ => app.cpu_usage_histogram.iter().sum::<u64>() / app.cpu_usage_histogram.len() as u64,
+    let mean: f32 = match app.cpu_usage_histogram.len(){
+        0 => 0.0,
+        _ => app.cpu_usage_histogram.iter().sum::<u64>() as f32 / app.cpu_usage_histogram.len() as f32,
     };
-    format!("CPU [{: >3}%] MEAN [{: >3}%] TOP [{} - {} - {}]",
+    format!("CPU [{: >3}%] MEAN [{: >3.1}%] TOP [{} - {} - {}]",
             app.cpu_utilization,
             mean,
             top_pid,
