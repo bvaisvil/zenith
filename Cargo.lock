@@ -852,7 +852,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "zenith"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "byte-unit 3.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
