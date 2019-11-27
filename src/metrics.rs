@@ -1,7 +1,7 @@
 /**
  * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
  */
-use sysinfo::{Disk, NetworkExt, System, SystemExt, ProcessorExt, DiskExt, ProcessExt};
+use sysinfo::{Disk, NetworkExt, System, SystemExt, ProcessorExt, DiskExt, ProcessExt, ComponentExt};
 use crate::zprocess::*;
 use std::collections::{HashMap, HashSet};
 use users::{UsersCache, Users};
@@ -10,7 +10,6 @@ use std::mem::swap;
 use heim::host;
 use heim::net;
 use heim::net::{Address};
-use heim::cpu::{times, CpuTime};
 use futures::StreamExt;
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
@@ -52,6 +51,13 @@ pub struct NetworkInterface{
     pub dest: String
 }
 
+pub struct Sensor{
+    pub name: String,
+    pub current_temp: f32,
+    pub critical: f32,
+    pub high: f32
+}
+
 pub struct CPUTimeApp {
     pub cpu_usage_histogram: Vec<u64>,
     pub cpu_utilization: u64,
@@ -87,8 +93,8 @@ pub struct CPUTimeApp {
     pub version: String,
     pub arch: String,
     pub hostname: String,
-    pub network_interfaces: Vec<NetworkInterface>
-
+    pub network_interfaces: Vec<NetworkInterface>,
+    pub sensors: Vec<Sensor>
 }
 
 impl CPUTimeApp{
@@ -128,7 +134,8 @@ impl CPUTimeApp{
             version: String::from(""),
             arch: String::from(""),
             hostname: String::from(""),
-            network_interfaces: vec![]
+            network_interfaces: vec![],
+            sensors: vec![]
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -173,6 +180,26 @@ impl CPUTimeApp{
                 name: n.name().to_owned(),
                 ip: ip,
                 dest: dest})
+        }
+    }
+
+//    async fn update_sensors(&mut self){
+//        let mut sensors = sensors::temperatures();
+//        self.sensors.clear();
+//        while let Some(s) = sensors.next().await{
+//            let s = s.unwrap();
+//            self.sensors.push(Sensor{name: s.label().unwrap_or("").to_owned(),
+//             current_temp: s.current().value, critical: 0.0, high: 0.0})
+//        }
+//    }
+
+    async fn update_sensors(&mut self){
+        self.sensors.clear();
+        for t in self.system.get_components_list(){
+            self.sensors.push(Sensor{name: t.get_label().to_owned(),
+                current_temp: t.get_temperature(),
+                high: t.get_max(),
+                critical: t.get_critical().unwrap_or(0.0)})
         }
     }
 
@@ -354,6 +381,7 @@ impl CPUTimeApp{
     pub async fn update(&mut self, width: u16) {
         self.system.refresh_all();
         self.update_cpu().await;
+        self.update_sensors().await;
 
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();

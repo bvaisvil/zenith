@@ -441,10 +441,11 @@ impl<'a> TerminalRenderer {
                         Constraint::Min(8) // PROC table
                     ].as_ref())
                     .split(f.size());
-
+                let temps: Vec<String> = app.sensors.iter().map(|s| {format!("{:}:{:3.2}℃", s.name, s.current_temp)}).collect();
+                let temps = temps.join(", ");
                 Block::default()
-                      .title(format!("{: >width$} [{:}, {:}]", 
-                                     hostname, os, release, width=29 + hostname.len()).as_str())
+                      .title(format!("{: >width$} [{:}, {:}] [{}]",
+                                     hostname, os, release, temps, width=29 + hostname.len()).as_str())
                       .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
                       .borders(Borders::ALL).render(&mut f, v_sections[0]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
