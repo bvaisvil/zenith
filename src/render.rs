@@ -75,12 +75,12 @@ fn render_process_table<'a>(
     area: Rect,
     process_table_start: usize,
     f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
-    // process table
+
     if area.height < 5{
-        return;
+        return; // not enough space to draw anything
     }
     let display_height = area.height as usize - 4; // 4 for the margins and table header
-    //panic!("{}", area.height);
+
     let end = process_table_start + display_height;
 
     let rows: Vec<Vec<String>> = app.processes.iter().map(|pid| {
@@ -90,7 +90,7 @@ fn render_process_table<'a>(
             format!("{: <10}", p.user_name),
             format!("{: <3}", p.priority),
             format!("{:>5.1}", p.cpu_usage),
-            format!("{:>5.1}", (p.memory as f64 / app.mem_utilization as f64) * 100.0),
+            format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
             format!("{:>8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
                 .unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
             format!("{: >8}", Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
@@ -101,6 +101,7 @@ fn render_process_table<'a>(
             format!("{} - ", p.name) + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" ")
         ]
     }).collect();
+
     let mut header = vec![
         String::from("PID   "),
         String::from("USER       "),
@@ -113,6 +114,7 @@ fn render_process_table<'a>(
         String::from("READ/s   "),
         String::from("WRITE/s  ")
     ];
+    //figure column widths
     let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
     let s: u16 = widths.iter().sum();
     let mut cmd_width = width as i16 - s as i16 - 3;
@@ -148,11 +150,10 @@ fn render_process_table<'a>(
 
     Table::new(header.into_iter(), rows)
         .block(Block::default().borders(Borders::ALL)
-            .title(format!("Tasks [{}] Threads [{}]", app.processes.len(), app.threads_total).as_str()))
+               .title(format!("Tasks [{}] Threads [{}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]", app.processes.len(), app.threads_total).as_str()))
         .widths(widths.as_slice())
         .column_spacing(0)
         .header_style(Style::default().bg(Color::DarkGray)).render(f, area);
-
 }
 
 fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, 
@@ -174,7 +175,9 @@ f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>
         .render(f, area);
 }
 
-fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
+fn render_memory_histogram(app: &CPUTimeApp, area: Rect, 
+    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
+
     let title2 = mem_title(&app);
     let start_at = if app.mem_usage_histogram.len() > area.width as usize
     {
@@ -192,12 +195,12 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<TermionBa
         .render(f, area);
 }
 
-fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, 
+    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
 
     let mut cpus = app.cpus.to_owned();
     let mut bars: Vec<(&str, u64)> = vec![];
     let mut bar_gap: u16 = 1;
-
 
     let mut np = app.cpus.len() as u16;
     if np == 0 {
@@ -240,7 +243,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<Termi
                                           .constraints(constraints.as_ref())
                                           .split(area);
     
-    if np > 28{
+    if np > width - 2{
         BarChart::default()
         .data(&bars[0..half])
         .bar_width(cpu_bw)
@@ -303,8 +306,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
         .max(up_max)
         .render(f, net[0]);
 
-
-    
+  
     let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     
     let start_at = if app.net_in_histogram.len() > net[1].width as usize
@@ -433,17 +435,21 @@ impl<'a> TerminalRenderer {
                     .direction(Direction::Vertical)
                     .margin(0)
                     .constraints([
-                        //Constraint::Length(8),
-                        Constraint::Length(10),
-                        Constraint::Length(10),
-                        Constraint::Length(10),
-                        Constraint::Min(8)
+                        Constraint::Length(10), // CPU
+                        Constraint::Length(10), // MEM
+                        Constraint::Length(10), // NET
+                        Constraint::Min(8) // PROC table
                     ].as_ref())
                     .split(f.size());
 
-                Block::default().title(format!("{: >width$} [{:}, {:}]", hostname, os, release, width=29 + hostname.len()).as_str()).title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red)).borders(Borders::ALL).render(&mut f, v_sections[0]);
+                Block::default()
+                      .title(format!("{: >width$} [{:}, {:}]", 
+                                     hostname, os, release, width=29 + hostname.len()).as_str())
+                      .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
+                      .borders(Borders::ALL).render(&mut f, v_sections[0]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
-                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[0]);
+                                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+                                        .split(v_sections[0]);
 
                 let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
@@ -457,9 +463,6 @@ impl<'a> TerminalRenderer {
                 Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[2]);
                 let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[2]);
-
-
-
 
                 render_cpu_histogram(&app, cpu_mem[0], &mut f);
 
