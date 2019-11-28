@@ -402,11 +402,15 @@ pub struct TerminalRenderer{
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
     app: CPUTimeApp,
     events: Events,
-    process_table_row_start: usize
+    process_table_row_start: usize,
+    cpu_height: u16,
+    net_height: u16,
+    disk_height: u16,
+    process_height: u16
 }
 
 impl<'a> TerminalRenderer {
-    pub fn new(tick_rate: u64) -> TerminalRenderer {
+    pub fn new(tick_rate: u64, cpu_height: u16, net_height: u16, disk_height: u16, process_height: u16) -> TerminalRenderer {
         let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
@@ -415,7 +419,11 @@ impl<'a> TerminalRenderer {
             terminal: Terminal::new(backend).unwrap(),
             app: CPUTimeApp::new(),
             events: Events::new(tick_rate),
-            process_table_row_start: 0
+            process_table_row_start: 0,
+            cpu_height,
+            net_height,
+            disk_height,
+            process_height
         }
     }
 
@@ -426,20 +434,25 @@ impl<'a> TerminalRenderer {
             let os = self.app.osname.as_str();
             let release = self.app.release.as_str();
             let pst = &self.process_table_row_start;
+            let cpu_height = &self.cpu_height;
+            let net_height = &self.net_height;
+            let disk_height = &self.disk_height;
+            let process_height = &self.process_height;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
             self.terminal.draw( |mut f| {
                 width = f.size().width;
                 // primary layout division.
+                let mut constraints = vec![Constraint::Length(*cpu_height),
+                                                      Constraint::Length(*net_height),
+                                                      Constraint::Length(*disk_height)];
+                if *process_height > 0{
+                    constraints.push(Constraint::Min(*process_height));
+                }
                 let v_sections = Layout::default()
                     .direction(Direction::Vertical)
                     .margin(0)
-                    .constraints([
-                        Constraint::Length(10), // CPU
-                        Constraint::Length(10), // MEM
-                        Constraint::Length(10), // NET
-                        Constraint::Min(8) // PROC table
-                    ].as_ref())
+                    .constraints(constraints.as_ref())
                     .split(f.size());
                 let temps: Vec<String> = app.sensors.iter().map(|s| {format!("{:}:{:3.2}℃", s.name, s.current_temp)}).collect();
                 let temps = temps.join(", ");
@@ -469,10 +482,13 @@ impl<'a> TerminalRenderer {
 
                 render_memory_histogram(&app, cpu_mem[1], &mut f);
 
-                render_process_table(&app, width, v_sections[3], *pst,&mut f);
-                if v_sections[3].height > 4{ // account for table border & margins.
-                    process_table_height = v_sections[3].height - 5;
+                if *process_height > 0{
+                    render_process_table(&app, width, v_sections[3], *pst,&mut f);
+                    if v_sections[3].height > 4{ // account for table border & margins.
+                        process_table_height = v_sections[3].height - 5;
+                    }
                 }
+
                 render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
 
                 render_net(&app, network_layout, &mut f);
