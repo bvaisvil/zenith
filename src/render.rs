@@ -202,7 +202,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16,
     let mut bars: Vec<(&str, u64)> = vec![];
     let mut bar_gap: u16 = 1;
 
-    let mut np = app.cpus.len() as u16;
+    let mut np = cpus.len() as u16;
     if np == 0 {
         np = 1;
     }
@@ -222,6 +222,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16,
     if width > 2 && (half * 2) >= (width - 2) as usize{
         bar_gap = 0;
     }
+    let width = width - 2;
     let mut cpu_bw = ((width as f32 - (half as u16 * bar_gap) as f32) / half as f32) as i16;
     if cpu_bw < 1 {
         cpu_bw = 1;
@@ -243,7 +244,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16,
                                           .constraints(constraints.as_ref())
                                           .split(area);
     
-    if np > width - 2{
+    if np > width{
         BarChart::default()
         .data(&bars[0..half])
         .bar_width(cpu_bw)
