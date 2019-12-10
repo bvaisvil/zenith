@@ -56,9 +56,13 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         None => String::from("")
     };
     let top_pid = app.cum_cpu_process.unwrap_or(0);
-    let mean: f32 = match app.cpu_usage_histogram.len(){
+    let h = match app.histogram_map.get("cpu_usage_histogram"){
+        Some(h) => &h.data,
+        None => return String::from("")
+    };
+    let mean: f32 = match h.len(){
         0 => 0.0,
-        _ => app.cpu_usage_histogram.iter().sum::<u64>() as f32 / app.cpu_usage_histogram.len() as f32,
+        _ => h.iter().sum::<u64>() as f32 / h.len() as f32,
     };
     format!("CPU [{: >3}%] MEAN [{: >3.1}%] TOP [{} - {} - {}]",
             app.cpu_utilization,
@@ -182,11 +186,14 @@ f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>
 
 fn render_memory_histogram(app: &CPUTimeApp, area: Rect, 
     f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
-
+    let h = match app.histogram_map.get("mem_utilization"){
+        Some(h) => &h.data,
+        None => return
+    };
     let title2 = mem_title(&app);
-    let start_at = if app.mem_usage_histogram.len() > area.width as usize
+    let start_at = if h.len() > area.width as usize
     {
-        app.mem_usage_histogram.len() - area.width as usize
+        h.len() - area.width as usize
     }
     else{
         0
@@ -194,7 +201,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect,
     Sparkline::default()
         .block(
             Block::default().title(title2.as_str()))
-        .data(&app.mem_usage_histogram[start_at..])
+        .data(&h[start_at..])
         .style(Style::default().fg(Color::Cyan))
         .max(100)
         .render(f, area);
@@ -290,15 +297,19 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
                 .split(area[1]);
     
     let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let start_at = if app.net_out_histogram.len() > net[0].width as usize
+    let h_out = match app.histogram_map.get("net_out"){
+        Some(h) => &h.data,
+        None => return
+    };
+    let start_at = if h_out.len() > net[0].width as usize
     {
-        app.net_out_histogram.len() - net[0].width as usize
+        h_out.len() - net[0].width as usize
     }
     else{
         0
     };
 
-    let up_max: u64 = match app.net_out_histogram[start_at..].iter().max(){
+    let up_max: u64 = match h_out[start_at..].iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
@@ -307,29 +318,32 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     Sparkline::default()
         .block(Block::default().title(format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(),
          up_max_bytes.to_string()).as_str()))
-        .data(&app.net_out_histogram[start_at..])
+        .data(&h_out[start_at..])
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
         .render(f, net[0]);
 
   
     let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    
-    let start_at = if app.net_in_histogram.len() > net[1].width as usize
+    let h_in = match app.histogram_map.get("net_in"){
+        Some(h) => &h.data,
+        None => return
+    };
+    let start_at = if h_in.len() > net[1].width as usize
     {
-        app.net_in_histogram.len() - net[1].width as usize
+        h_in.len() - net[1].width as usize
     }
     else{
         0
     };
-    let down_max: u64 = match app.net_in_histogram[start_at..].iter().max(){
+    let down_max: u64 = match h_in[start_at..].iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
     let down_max_bytes =  Byte::from_unit(down_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
         .block(Block::default().title(format!("↓ [{:^10}] Max [{:^10}]", net_down.to_string(), down_max_bytes.to_string()).as_str()))
-        .data(&app.net_in_histogram[start_at..])
+        .data(&h_in[start_at..])
         .style(Style::default().fg(Color::LightMagenta))
         .max(down_max)
         .render(f, net[1]);
@@ -346,21 +360,25 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
     
 
     let read_up = Byte::from_unit(app.disk_read as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let start_at = if app.disk_read_histogram.len() > area[0].width as usize
+    let h_read = match app.histogram_map.get("disk_read"){
+        Some(h) => &h.data,
+        None => return
+    };
+    let start_at = if h_read.len() > area[0].width as usize
     {
-        app.disk_read_histogram.len() - area[0].width as usize
+        h_read.len() - area[0].width as usize
     }
     else{
         0
     };
-    let read_max: u64 = match app.disk_read_histogram[start_at..].iter().max(){
+    let read_max: u64 = match h_read[start_at..].iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
     let read_max_bytes =  Byte::from_unit(read_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
         .block(Block::default().title(format!("R [{:^10}] Max [{:^10}]", read_up.to_string(), read_max_bytes.to_string()).as_str()))
-        .data(&app.disk_read_histogram[start_at..])
+        .data(&h_read[start_at..])
         .style(Style::default().fg(Color::LightYellow))
         .max(read_max)
         .render(f, area[0]);
@@ -368,22 +386,25 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
 
     
     let write_down = Byte::from_unit(app.disk_write as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    
-    let start_at = if app.disk_write_histogram.len() > area[1].width as usize
+    let h_write = match app.histogram_map.get("disk_write"){
+        Some(h) => &h.data,
+        None => return
+    };
+    let start_at = if h_write.len() > area[1].width as usize
     {
-        app.disk_write_histogram.len() - area[1].width as usize
+        h_write.len() - area[1].width as usize
     }
     else{
         0
     };
-    let write_max: u64 = match app.disk_write_histogram[start_at..].iter().max(){
+    let write_max: u64 = match h_write[start_at..].iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
     let write_max_bytes =  Byte::from_unit(write_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
         .block(Block::default().title(format!("W [{:^10}] Max [{:^10}]", write_down.to_string(), write_max_bytes.to_string()).as_str()))
-        .data(&app.disk_write_histogram[start_at..])
+        .data(&h_write[start_at..])
         .style(Style::default().fg(Color::LightMagenta))
         .max(write_max)
         .render(f, area[1]);

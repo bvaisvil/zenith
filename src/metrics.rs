@@ -110,11 +110,9 @@ impl HistogramMap {
 
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
-    pub cpu_usage_histogram: Vec<u64>,
     pub cpu_utilization: u64,
     pub mem_utilization: u64,
     pub mem_total: u64,
-    pub mem_usage_histogram: Vec<u64>,
     pub swap_utilization: u64,
     pub swap_total: u64,
     pub disks: Vec<Disk>,
@@ -122,13 +120,9 @@ pub struct CPUTimeApp {
     pub disk_available: u64,
     pub disk_write: u64,
     pub disk_read: u64,
-    pub disk_read_histogram: Vec<u64>,
-    pub disk_write_histogram: Vec<u64>,
     pub cpus: Vec<(String, u64)>,
     pub system: System,
     pub net_in: u64,
-    pub net_in_histogram: Vec<u64>,
-    pub net_out_histogram: Vec<u64>,
     pub net_out: u64,
     pub processes: Vec<i32>,
     pub process_map: HashMap<i32, ZProcess>,
@@ -154,8 +148,6 @@ impl CPUTimeApp{
         let mut s = CPUTimeApp{
             histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick),
             tick,
-            cpu_usage_histogram: vec![0; 1200],
-            mem_usage_histogram: vec![0; 1200],
             cpus: vec![],
             system: System::new(),
             cpu_utilization: 0,
@@ -167,9 +159,7 @@ impl CPUTimeApp{
             disk_available: 0,
             disk_total: 0,
             net_in: 0,
-            net_in_histogram: vec![0; 1200],
             net_out: 0,
-            net_out_histogram: vec![0; 1200],
             processes: Vec::with_capacity(400),
             process_map: HashMap::with_capacity(400),
             user_cache: UsersCache::new(),
@@ -179,8 +169,6 @@ impl CPUTimeApp{
             threads_total: 0,
             disk_read: 0,
             disk_write: 0,
-            disk_read_histogram: vec![0; 1200],
-            disk_write_histogram: vec![0; 1200],
             psortby: ProcessTableSortBy::CPU,
             psortorder: ProcessTableSortOrder::Descending,
             osname: String::from(""),
@@ -391,15 +379,8 @@ impl CPUTimeApp{
         self.disk_read = self.process_map.iter().map(|(_pid, p)| p.get_read_bytes_sec() as u64).sum();
         self.disk_write = self.process_map.iter().map(|(_pid, p)| p.get_write_bytes_sec() as u64).sum();
 
-        self.disk_read_histogram.push(self.disk_read);
-        if self.disk_read_histogram.len() > (width - 2) as usize{
-            self.disk_read_histogram.remove(0);
-        }
-
-        self.disk_write_histogram.push(self.disk_write);
-        if self.disk_write_histogram.len() > (width - 2) as usize{
-            self.disk_write_histogram.remove(0);
-        }
+        self.histogram_map.add_value_to("disk_read", self.disk_read);
+        self.histogram_map.add_value_to("disk_write", self.disk_write);
     }
 
     pub async fn update_cpu(&mut self){
@@ -420,17 +401,12 @@ impl CPUTimeApp{
         }
         if num_procs == 0{
             self.cpu_utilization = 0;
-            self.cpu_usage_histogram.push(0);
-            self.cpu_usage_histogram.remove(0);
-            self.histogram_map.add_value_to("cpu_usage_histogram", 0);
         }
         else{
             usage = usage / num_procs as f32;
             self.cpu_utilization = (usage * 100.0) as u64;
-            self.cpu_usage_histogram.push((usage * 100.0) as u64);
-            self.cpu_usage_histogram.remove(0);
-            self.histogram_map.add_value_to("cpu_usage_histogram", (usage * 100.0) as u64);
         }
+         self.histogram_map.add_value_to("cpu_usage_histogram", self.cpu_utilization);
         
     }
 
@@ -447,8 +423,7 @@ impl CPUTimeApp{
             mem = ((self.mem_utilization as f64/ self.mem_total as f64) * 100.0) as u64;
         }
 
-        self.mem_usage_histogram.push(mem);
-        self.mem_usage_histogram.remove(0);
+        self.histogram_map.add_value_to("mem_utilization", mem);
 
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
@@ -457,10 +432,8 @@ impl CPUTimeApp{
 
         self.net_in = net.get_income();
         self.net_out = net.get_outcome();
-        self.net_in_histogram.push(self.net_in);
-        self.net_in_histogram.remove(0);
-        self.net_out_histogram.push(self.net_out);
-        self.net_out_histogram.remove(0);
+        self.histogram_map.add_value_to("net_in", self.net_in);
+        self.histogram_map.add_value_to("net_out", self.net_out);
         self.update_process_list();
         self.update_frequency();
         self.update_disk(width);
