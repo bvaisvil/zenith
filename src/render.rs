@@ -19,6 +19,7 @@ use crate::util::*;
 use crate::metrics::*;
 use crate::zprocess::*;
 use std::borrow::Cow;
+use std::time::{SystemTime, Duration};
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
@@ -159,9 +160,13 @@ fn render_process_table<'a>(
 fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, 
 f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
     let title = cpu_title(&app);
-    let start_at = if app.cpu_usage_histogram.len() > area.width as usize
+    let h = match app.histogram_map.get("cpu_usage_histogram"){
+        Some(h) => &h.data,
+        None => return
+    };
+    let start_at = if h.len() > area.width as usize
     {
-        app.cpu_usage_histogram.len() - area.width as usize
+        h.len() - area.width as usize
     }
     else{
         0
@@ -169,7 +174,7 @@ f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>
     Sparkline::default()
         .block(
             Block::default().title(title.as_str()))
-        .data(&app.cpu_usage_histogram[start_at..])
+        .data(&h[start_at..])
         .style(Style::default().fg(Color::Blue))
         .max(100)
         .render(f, area);
@@ -418,7 +423,7 @@ impl<'a> TerminalRenderer {
         let backend = TermionBackend::new(stdout);
         TerminalRenderer {
             terminal: Terminal::new(backend).unwrap(),
-            app: CPUTimeApp::new(),
+            app: CPUTimeApp::new(Duration::from_millis(tick_rate)),
             events: Events::new(tick_rate),
             process_table_row_start: 0,
             cpu_height,

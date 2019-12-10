@@ -5,7 +5,7 @@ use sysinfo::{Disk, NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Proces
 use crate::zprocess::*;
 use std::collections::{HashMap, HashSet};
 use users::{UsersCache, Users};
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 use std::mem::swap;
 use heim::host;
 use heim::net;
@@ -58,7 +58,58 @@ pub struct Sensor{
     pub high: f32
 }
 
+pub struct Histogram {
+    pub data: Vec<u64>,
+}
+
+impl Histogram {
+    fn new(size: usize) -> Histogram{
+        Histogram{data: vec![0; size]}
+    }
+}
+
+pub struct HistogramMap {
+    map: HashMap<String, Histogram>,
+    duration: Duration,
+    tick: Duration
+}
+
+impl HistogramMap {
+    fn new(dur: Duration, tick: Duration) -> HistogramMap{
+        HistogramMap{map: HashMap::with_capacity(10), duration: dur, tick}
+    }
+
+    fn add(&mut self, name: &str) -> &mut Histogram{
+        let size = (self.duration.as_secs() / self.tick.as_secs()) as usize;
+        let names = name.to_owned();
+        self.map.insert(names, Histogram::new(size));
+        self.map.get_mut(name).unwrap()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Histogram>{
+        self.map.get(name)
+    }
+
+    fn get_mut(&mut self, name: &str) -> Option<&mut Histogram>{
+        self.map.get_mut(name)
+    }
+
+    fn has(&self, name: &str) -> bool{
+        self.map.contains_key(name)
+    }
+
+    fn add_value_to(&mut self, name: &str, val: u64){
+        let h: &mut Histogram = match self.has(name){
+            true => self.get_mut(name).unwrap(),
+            false => self.add(name)
+        };
+        h.data.push(val);
+        h.data.remove(0);
+    }
+}
+
 pub struct CPUTimeApp {
+    pub histogram_map: HistogramMap,
     pub cpu_usage_histogram: Vec<u64>,
     pub cpu_utilization: u64,
     pub mem_utilization: u64,
@@ -94,12 +145,15 @@ pub struct CPUTimeApp {
     pub arch: String,
     pub hostname: String,
     pub network_interfaces: Vec<NetworkInterface>,
-    pub sensors: Vec<Sensor>
+    pub sensors: Vec<Sensor>,
+    pub tick: Duration
 }
 
 impl CPUTimeApp{
-    pub fn new () -> CPUTimeApp{
+    pub fn new (tick: Duration) -> CPUTimeApp{
         let mut s = CPUTimeApp{
+            histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick),
+            tick,
             cpu_usage_histogram: vec![0; 1200],
             mem_usage_histogram: vec![0; 1200],
             cpus: vec![],
@@ -368,12 +422,14 @@ impl CPUTimeApp{
             self.cpu_utilization = 0;
             self.cpu_usage_histogram.push(0);
             self.cpu_usage_histogram.remove(0);
+            self.histogram_map.add_value_to("cpu_usage_histogram", 0);
         }
         else{
             usage = usage / num_procs as f32;
             self.cpu_utilization = (usage * 100.0) as u64;
             self.cpu_usage_histogram.push((usage * 100.0) as u64);
             self.cpu_usage_histogram.remove(0);
+            self.histogram_map.add_value_to("cpu_usage_histogram", (usage * 100.0) as u64);
         }
         
     }
