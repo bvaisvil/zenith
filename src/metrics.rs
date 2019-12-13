@@ -140,7 +140,8 @@ pub struct CPUTimeApp {
     pub hostname: String,
     pub network_interfaces: Vec<NetworkInterface>,
     pub sensors: Vec<Sensor>,
-    pub tick: Duration
+    pub tick: Duration,
+    pub processor_name: String,
 }
 
 impl CPUTimeApp{
@@ -177,7 +178,8 @@ impl CPUTimeApp{
             arch: String::from(""),
             hostname: String::from(""),
             network_interfaces: vec![],
-            sensors: vec![]
+            sensors: vec![],
+            processor_name: String::from("")
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -389,7 +391,11 @@ impl CPUTimeApp{
         let mut usage: f32 = 0.0;
         self.cpus.clear();
         let mut usagev: Vec<f32> = vec![];
-        for p in procs.iter().skip(1){
+        for (i, p) in procs.iter().enumerate(){
+            if i == 0{
+                self.processor_name = p.get_name().to_owned();
+                continue;
+            }
             let mut u = p.get_cpu_usage();
             if u.is_nan(){
                 u = 0.0;
@@ -406,7 +412,8 @@ impl CPUTimeApp{
             usage = usage / num_procs as f32;
             self.cpu_utilization = (usage * 100.0) as u64;
         }
-         self.histogram_map.add_value_to("cpu_usage_histogram", self.cpu_utilization);
+        self.histogram_map.add_value_to("cpu_usage_histogram", self.cpu_utilization);
+        
         
     }
 

@@ -4,7 +4,7 @@
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use sysinfo::{DiskExt};
-use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Text, Table, Row, List};
+use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Text, Table, Row, List, Paragraph};
 use byte_unit::{Byte, ByteUnit};
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -467,50 +467,61 @@ impl<'a> TerminalRenderer {
             let process_height = &self.process_height;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
+            let pname = self.app.processor_name.as_str();
             self.terminal.draw( |mut f| {
                 width = f.size().width;
                 // primary layout division.
-                let mut constraints = vec![Constraint::Length(*cpu_height),
-                                                      Constraint::Length(*net_height),
-                                                      Constraint::Length(*disk_height)];
+                let mut constraints = vec![
+                    Constraint::Length(1),
+                    Constraint::Length(*cpu_height),
+                    Constraint::Length(*net_height),
+                    Constraint::Length(*disk_height)];
                 if *process_height > 0{
                     constraints.push(Constraint::Min(*process_height));
                 }
+                
                 let v_sections = Layout::default()
                     .direction(Direction::Vertical)
                     .margin(0)
                     .constraints(constraints.as_ref())
                     .split(f.size());
+                let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
+                let line = vec![
+                    Text::styled(format!(" {:}", hostname), default_style.modifier(Modifier::BOLD)),
+                    //Text::styled(format!(" [{:}]", pname), default_style),
+                    Text::styled(format!(" [{:} {:}]", os, release), default_style),
+                    Text::styled(format!("{: >width$}", "", width=width as usize), default_style),
+                ];
+                Paragraph::new(line.iter()).render(&mut f, v_sections[0]);
                 Block::default()
-                      .title(format!("{: >width$} [{:}, {:}]",
-                                     hostname, os, release, width=29 + hostname.len()).as_str())
+                      .title("")
                       .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
-                      .borders(Borders::ALL).render(&mut f, v_sections[0]);
+                      .borders(Borders::ALL).render(&mut f, v_sections[1]);
                 let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                                         .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-                                        .split(v_sections[0]);
+                                        .split(v_sections[1]);
 
                 let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                     .split(cpu_layout[1]);
 
                 Block::default().title("Network").borders(Borders::ALL)
-                .render(&mut f, v_sections[1]);
+                .render(&mut f, v_sections[2]);
                 let network_layout = Layout::default().margin(0).direction(Direction::Horizontal)
-                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[1]);
-                
-                Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[2]);
-                let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[2]);
+                
+                Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[3]);
+                let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
+                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[3]);
 
                 render_cpu_histogram(&app, cpu_mem[0], &mut f);
 
                 render_memory_histogram(&app, cpu_mem[1], &mut f);
 
                 if *process_height > 0{
-                    render_process_table(&app, width, v_sections[3], *pst,&mut f);
-                    if v_sections[3].height > 4{ // account for table border & margins.
-                        process_table_height = v_sections[3].height - 5;
+                    render_process_table(&app, width, v_sections[4], *pst,&mut f);
+                    if v_sections[4].height > 4{ // account for table border & margins.
+                        process_table_height = v_sections[4].height - 5;
                     }
                 }
 
