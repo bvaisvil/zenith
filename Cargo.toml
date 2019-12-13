@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.5.4"
+version = "0.5.5"
 authors = ["Benjamin Vaisvil <benjamini@gmail.com>"]
 edition = "2018"
 

@@ -460,6 +460,8 @@ impl<'a> TerminalRenderer {
             let hostname = self.app.hostname.as_str();
             let os = self.app.osname.as_str();
             let release = self.app.release.as_str();
+            let arch = self.app.arch.as_str();
+            let version = self.app.version.as_str();
             let pst = &self.process_table_row_start;
             let cpu_height = &self.cpu_height;
             let net_height = &self.net_height;
