@@ -11,6 +11,7 @@ use heim::host;
 use heim::net;
 use heim::net::{Address};
 use futures::StreamExt;
+use chrono;
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
     Pid = 0,
@@ -105,6 +106,10 @@ impl HistogramMap {
         };
         h.data.push(val);
         h.data.remove(0);
+    }
+
+    pub fn hist_duration(&self, width: usize) -> chrono::Duration{
+        chrono::Duration::from_std(Duration::from_secs_f64(self.tick.as_secs_f64() * width as f64)).unwrap()
     }
 }
 

@@ -20,6 +20,7 @@ use crate::metrics::*;
 use crate::zprocess::*;
 use std::borrow::Cow;
 use std::time::{SystemTime, Duration};
+use chrono;
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
@@ -472,6 +473,7 @@ impl<'a> TerminalRenderer {
             let pname = self.app.processor_name.as_str();
             self.terminal.draw( |mut f| {
                 width = f.size().width;
+                let hist_duration = app.histogram_map.hist_duration(width as usize);
                 // primary layout division.
                 let mut constraints = vec![
                     Constraint::Length(1),
@@ -492,6 +494,9 @@ impl<'a> TerminalRenderer {
                     Text::styled(format!(" {:}", hostname), default_style.modifier(Modifier::BOLD)),
                     //Text::styled(format!(" [{:}]", pname), default_style),
                     Text::styled(format!(" [{:} {:}]", os, release), default_style),
+                    Text::styled("[Showing Last: ", default_style),
+                    Text::styled(format!("{:} mins", hist_duration.num_minutes()), default_style.fg(Color::Green)),
+                    Text::styled("]", default_style),
                     Text::styled(" (q)uit", default_style),
                     Text::styled(format!("{: >width$}", "", width=width as usize), default_style),
                 ];
