@@ -147,6 +147,7 @@ pub struct CPUTimeApp {
     pub sensors: Vec<Sensor>,
     pub tick: Duration,
     pub processor_name: String,
+    pub started: chrono::DateTime<chrono::Local>
 }
 
 impl CPUTimeApp{
@@ -184,7 +185,8 @@ impl CPUTimeApp{
             hostname: String::from(""),
             network_interfaces: vec![],
             sensors: vec![],
-            processor_name: String::from("")
+            processor_name: String::from(""),
+            started: chrono::Local::now()
         };
         s.system.refresh_all();
         s.system.refresh_all();

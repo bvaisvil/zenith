@@ -492,7 +492,6 @@ impl<'a> TerminalRenderer {
                 let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
                 let line = vec![
                     Text::styled(format!(" {:}", hostname), default_style.modifier(Modifier::BOLD)),
-                    //Text::styled(format!(" [{:}]", pname), default_style),
                     Text::styled(format!(" [{:} {:}]", os, release), default_style),
                     Text::styled("[Showing Last: ", default_style),
                     Text::styled(format!("{:} mins", hist_duration.num_minutes()), default_style.fg(Color::Green)),
