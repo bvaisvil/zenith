@@ -40,6 +40,11 @@ https://github.com/bvaisvil/sysinfo
 
 The Cargo.toml current requires that sysinfo be a sibling directory to zenith, unless you change the path.
 
+```
+cd zenith
+cargo build --release
+```
+
 ## Usage
 
 Running with no arguments starts zenith with the default visualizations for CPU, Disk, and Netowrk and a refresh rate of 2000 ms (2 seconds). These can be changed with command line parameters:
