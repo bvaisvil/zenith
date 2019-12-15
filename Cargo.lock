@@ -71,16 +71,16 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.6.4"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "core-foundation-sys 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation-sys 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "core-foundation-sys"
-version = "0.6.2"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -234,33 +234,35 @@ dependencies = [
 
 [[package]]
 name = "heim"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "heim-common 0.0.8",
- "heim-cpu 0.0.8",
- "heim-derive 0.0.8",
- "heim-disk 0.0.8",
- "heim-host 0.0.8",
- "heim-memory 0.0.8",
- "heim-net 0.0.8",
- "heim-process 0.0.8",
- "heim-runtime 0.0.4",
- "heim-sensors 0.0.3",
- "heim-virt 0.0.8",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-cpu 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-disk 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-host 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-memory 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-net 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-process 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-sensors 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-virt 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "heim-common"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-core 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-util 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "nix 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nix 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pin-utils 0.1.0-alpha.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "uom 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -268,12 +270,13 @@ dependencies = [
 
 [[package]]
 name = "heim-cpu"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-derive 0.0.8",
- "heim-runtime 0.0.4",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -282,7 +285,8 @@ dependencies = [
 
 [[package]]
 name = "heim-derive"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -291,14 +295,15 @@ dependencies = [
 
 [[package]]
 name = "heim-disk"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-derive 0.0.8",
- "heim-runtime 0.0.4",
+ "core-foundation 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "widestring 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -307,12 +312,13 @@ dependencies = [
 
 [[package]]
 name = "heim-host"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-derive 0.0.8",
- "heim-runtime 0.0.4",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -322,12 +328,13 @@ dependencies = [
 
 [[package]]
 name = "heim-memory"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-derive 0.0.8",
- "heim-runtime 0.0.4",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -336,31 +343,33 @@ dependencies = [
 
 [[package]]
 name = "heim-net"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-derive 0.0.8",
- "heim-runtime 0.0.4",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "macaddr 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "nix 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nix 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "heim-process"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "darwin-libproc 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-cpu 0.0.8",
- "heim-derive 0.0.8",
- "heim-host 0.0.8",
- "heim-net 0.0.8",
- "heim-runtime 0.0.4",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-cpu 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-host 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-net 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -372,32 +381,35 @@ dependencies = [
 
 [[package]]
 name = "heim-runtime"
-version = "0.0.4"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-channel 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "threadpool 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "heim-sensors"
-version = "0.0.3"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-derive 0.0.8",
- "heim-runtime 0.0.4",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "heim-virt"
-version = "0.0.8"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.8",
- "heim-runtime 0.0.4",
+ "heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "raw-cpuid 7.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -460,7 +472,7 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -857,7 +869,7 @@ dependencies = [
  "byte-unit 3.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim 0.0.8",
+ "heim 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-derive 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -879,8 +891,8 @@ dependencies = [
 "checksum cc 1.0.45 (registry+https://github.com/rust-lang/crates.io-index)" = "4fc9a35e1f4290eb9e5fc54ba6cf40671ed2a2514c3eeb2b2a908dda2ea5a1be"
 "checksum cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "b486ce3ccf7ffd79fdeb678eac06a9e6c09fc88d33836340becb8fffe87c5e33"
 "checksum clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f0f16b89cbb9ee36d87483dc939fe9f1e13c05898d56d7b230a0d4dff033a536"
-"checksum core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "25b9e03f145fd4f2bf705e07b900cd41fc636598fe5dc452fd0db1441c3f496d"
-"checksum core-foundation-sys 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e7ca8a5221364ef15ce201e8ed2f609fc312682a8f4e0e3d4aa5879764e0fa3b"
+"checksum core-foundation 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "57d24c7a13c43e870e37c1556b74555437870a04514f7685f5b354e090567171"
+"checksum core-foundation-sys 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 "checksum crossbeam-deque 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b18cd2e169ad86297e6bc0ad9aa679aee9daa4f19e8163860faf7c164e4f5a71"
 "checksum crossbeam-epoch 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)" = "fedcd6772e37f3da2a9af9bf12ebe046c0dfe657992377b4df982a2b54cd37a9"
 "checksum crossbeam-queue 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7c979cd6cfe72335896575c6b5688da489e420d36a27a0b9eb0c73db574b4a4b"
@@ -898,6 +910,18 @@ dependencies = [
 "checksum futures-sink 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "171be33efae63c2d59e6dbba34186fe0d6394fb378069a76dfd80fdcffd43c16"
 "checksum futures-task 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0bae52d6b29cf440e298856fec3965ee6fa71b06aa7495178615953fd669e5f9"
 "checksum futures-util 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c0d66274fb76985d3c62c886d1da7ac4c0903a8c9f754e8fe0f35a6a6cc39e76"
+"checksum heim 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "28f11cfed41a4703f8f56ccbe411073c52bd3996d92e3ccac90d36bd0e86e0eb"
+"checksum heim-common 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "f97d185137ab6437750cb22a115d4c64027620d48c57893d31720abcba42c388"
+"checksum heim-cpu 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "328091d34621a28af550523e1c139749fa4bc4590a8ea91b160a0f4b82dd8b06"
+"checksum heim-derive 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "dc97d9bf8ca9af8a02a533acea548756f23d4759474a1df8e79eb2b57f3cf7ac"
+"checksum heim-disk 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "82179359c7b215ae46fe8ac0f9015b8e5dfd6368cd0d113f261b28cb8993713f"
+"checksum heim-host 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "64b9c8c5f7d1479102a503e3f233241bfb819bf916f02b15e10ba5fbfee7a7f3"
+"checksum heim-memory 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "d04e9e068b57049062622cf4a182a45f320459e266c39dfc52ca65fc8c178e3a"
+"checksum heim-net 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "4c6323430ecae9b74378b37d0078768989c98b570daacec1d899737d90d72a5b"
+"checksum heim-process 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "b20a58b335dc9837088b2c9290822b55c661071cb542f0002e62ed18e8464379"
+"checksum heim-runtime 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "f87591c7b202868445a7da04b3d8f987b0672dd68c3d66e24fe8f759171dd612"
+"checksum heim-sensors 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "6f663425e6ed38a6356ee5751a2ebae421f7449fd0507b7e698c7e1e9fabee0c"
+"checksum heim-virt 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "7dd975e9ca42170c0f65102b867e69c3d060027f9bb02fb29cc554f7a0e5680b"
 "checksum hex 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "023b39be39e3a2da62a94feb433e91e8bcd37676fbc8bea371daf52b7a769a3e"
 "checksum itertools 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
@@ -907,7 +931,7 @@ dependencies = [
 "checksum mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b823e83b2affd8f40a9ee8c29dbc56404c1e34cd2710921f2801e2cf29527afa"
 "checksum memchr 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "88579771288728879b57485cc7d6b07d648c9f0141eb955f8ab7f9d45394468e"
 "checksum memoffset 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ce6075db033bbbb7ee5a0bbd3a3186bbae616f57fb001c485c7ff77955f8177f"
-"checksum nix 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3b2e0b4f3320ed72aaedb9a5ac838690a8047c7b275da22711fddff4f8a14229"
+"checksum nix 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "19a8300bf427d432716764070ff70d5b2b7801c958b9049686e6cbd8b06fad92"
 "checksum nodrop 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "2f9667ddcc6cc8a43afc9b7917599d7216aa09c463919ea32c59ed6cac8bc945"
 "checksum ntapi 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "f26e041cd983acbc087e30fcba770380cfa352d0e392e175b2344ebaf7ea0602"
 "checksum num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cf4825417e1e1406b3782a8ce92f4d53f26ec055e3622e1881ca8e9f5f9e08db"

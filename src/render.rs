@@ -492,6 +492,7 @@ impl<'a> TerminalRenderer {
                     Text::styled(format!(" {:}", hostname), default_style.modifier(Modifier::BOLD)),
                     //Text::styled(format!(" [{:}]", pname), default_style),
                     Text::styled(format!(" [{:} {:}]", os, release), default_style),
+                    Text::styled(" (q)uit", default_style),
                     Text::styled(format!("{: >width$}", "", width=width as usize), default_style),
                 ];
                 Paragraph::new(line.iter()).render(&mut f, v_sections[0]);
