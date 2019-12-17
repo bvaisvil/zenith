@@ -61,7 +61,8 @@ OPTIONS:
     -d, --disk-height <INT>       Height of Disk visualization. [default: 10]
     -n, --net-height <INT>        Height of Network visualization. [default: 10]
     -p, --process-height <INT>    Min Height of Process Table. [default: 8]
-    -r, --refresh-rate <INT>      Refresh rate in milliseconds. [default: 2000]```
+    -r, --refresh-rate <INT>      Refresh rate in milliseconds. [default: 2000]
+```
 
 
 Don't want a section? Remove it by setting the height to 0. 
