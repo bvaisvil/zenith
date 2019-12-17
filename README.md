@@ -33,13 +33,6 @@ Download one of the compiled releases.
 
 This builds under rustc version 1.39.0.
 
-Presently you'll also need to clone this repository and these other ones:
-
-My fork of sysinfo:
-https://github.com/bvaisvil/sysinfo
-
-The Cargo.toml current requires that sysinfo be a sibling directory to zenith, unless you change the path.
-
 ```
 cd zenith
 cargo build --release
