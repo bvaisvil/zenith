@@ -163,46 +163,32 @@ fn render_process_table<'a>(
 }
 
 fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, 
-f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>, zf: &u32){
     let title = cpu_title(&app);
-    let h = match app.histogram_map.get("cpu_usage_histogram"){
-        Some(h) => &h.data,
+    let h = match app.histogram_map.get_zoomed("cpu_usage_histogram", *zf, area.width as usize){
+        Some(h) => h.data,
         None => return
-    };
-    let start_at = if h.len() > area.width as usize
-    {
-        h.len() - area.width as usize
-    }
-    else{
-        0
     };
     Sparkline::default()
         .block(
             Block::default().title(title.as_str()))
-        .data(&h[start_at..])
+        .data(&h)
         .style(Style::default().fg(Color::Blue))
         .max(100)
         .render(f, area);
 }
 
 fn render_memory_histogram(app: &CPUTimeApp, area: Rect, 
-    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
-    let h = match app.histogram_map.get("mem_utilization"){
-        Some(h) => &h.data,
+    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>, zf: &u32) {
+    let h = match app.histogram_map.get_zoomed("mem_utilization", *zf, area.width as usize){
+        Some(h) => h.data,
         None => return
     };
     let title2 = mem_title(&app);
-    let start_at = if h.len() > area.width as usize
-    {
-        h.len() - area.width as usize
-    }
-    else{
-        0
-    };
     Sparkline::default()
         .block(
             Block::default().title(title2.as_str()))
-        .data(&h[start_at..])
+        .data(&h)
         .style(Style::default().fg(Color::Cyan))
         .max(100)
         .render(f, area);
@@ -290,7 +276,8 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16,
 
 
 fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
-              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
+              zf: &u32){
     let net = Layout::default()
                 .margin(1)
                 .direction(Direction::Vertical)
@@ -298,19 +285,12 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
                 .split(area[1]);
     
     let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_out = match app.histogram_map.get("net_out"){
-        Some(h) => &h.data,
+    let h_out = match app.histogram_map.get_zoomed("net_out", *zf, net[0].width as usize){
+        Some(h) => h.data,
         None => return
     };
-    let start_at = if h_out.len() > net[0].width as usize
-    {
-        h_out.len() - net[0].width as usize
-    }
-    else{
-        0
-    };
 
-    let up_max: u64 = match h_out[start_at..].iter().max(){
+    let up_max: u64 = match h_out.iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
@@ -319,32 +299,26 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     Sparkline::default()
         .block(Block::default().title(format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(),
          up_max_bytes.to_string()).as_str()))
-        .data(&h_out[start_at..])
+        .data(&h_out)
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
         .render(f, net[0]);
 
   
     let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_in = match app.histogram_map.get("net_in"){
-        Some(h) => &h.data,
+    let h_in = match app.histogram_map.get_zoomed("net_in", *zf, net[1].width as usize){
+        Some(h) => h.data,
         None => return
     };
-    let start_at = if h_in.len() > net[1].width as usize
-    {
-        h_in.len() - net[1].width as usize
-    }
-    else{
-        0
-    };
-    let down_max: u64 = match h_in[start_at..].iter().max(){
+
+    let down_max: u64 = match h_in.iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
     let down_max_bytes =  Byte::from_unit(down_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
         .block(Block::default().title(format!("↓ [{:^10}] Max [{:^10}]", net_down.to_string(), down_max_bytes.to_string()).as_str()))
-        .data(&h_in[start_at..])
+        .data(&h_in)
         .style(Style::default().fg(Color::LightMagenta))
         .max(down_max)
         .render(f, net[1]);
@@ -355,31 +329,26 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
 }
 
 fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
-              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
+              zf: &u32){
     let area = Layout::default().margin(1).direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(disk_layout[1]);
     
 
     let read_up = Byte::from_unit(app.disk_read as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_read = match app.histogram_map.get("disk_read"){
-        Some(h) => &h.data,
+    let h_read = match app.histogram_map.get_zoomed("disk_read", *zf, area[0].width as usize){
+        Some(h) => h.data,
         None => return
     };
-    let start_at = if h_read.len() > area[0].width as usize
-    {
-        h_read.len() - area[0].width as usize
-    }
-    else{
-        0
-    };
-    let read_max: u64 = match h_read[start_at..].iter().max(){
+
+    let read_max: u64 = match h_read.iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
     let read_max_bytes =  Byte::from_unit(read_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
         .block(Block::default().title(format!("R [{:^10}] Max [{:^10}]", read_up.to_string(), read_max_bytes.to_string()).as_str()))
-        .data(&h_read[start_at..])
+        .data(&h_read)
         .style(Style::default().fg(Color::LightYellow))
         .max(read_max)
         .render(f, area[0]);
@@ -387,25 +356,19 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
 
     
     let write_down = Byte::from_unit(app.disk_write as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_write = match app.histogram_map.get("disk_write"){
-        Some(h) => &h.data,
+    let h_write = match app.histogram_map.get_zoomed("disk_write", *zf, area[1].width as usize){
+        Some(h) => h.data,
         None => return
     };
-    let start_at = if h_write.len() > area[1].width as usize
-    {
-        h_write.len() - area[1].width as usize
-    }
-    else{
-        0
-    };
-    let write_max: u64 = match h_write[start_at..].iter().max(){
+
+    let write_max: u64 = match h_write.iter().max(){
         Some(x) => x.clone(),
         None => 1
     };
     let write_max_bytes =  Byte::from_unit(write_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
     Sparkline::default()
         .block(Block::default().title(format!("W [{:^10}] Max [{:^10}]", write_down.to_string(), write_max_bytes.to_string()).as_str()))
-        .data(&h_write[start_at..])
+        .data(&h_write)
         .style(Style::default().fg(Color::LightMagenta))
         .max(write_max)
         .render(f, area[1]);
@@ -434,7 +397,8 @@ pub struct TerminalRenderer{
     cpu_height: u16,
     net_height: u16,
     disk_height: u16,
-    process_height: u16
+    process_height: u16,
+    zoom_factor: u32
 }
 
 impl<'a> TerminalRenderer {
@@ -451,7 +415,8 @@ impl<'a> TerminalRenderer {
             cpu_height,
             net_height,
             disk_height,
-            process_height
+            process_height,
+            zoom_factor: 1
         }
     }
 
@@ -471,9 +436,10 @@ impl<'a> TerminalRenderer {
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
             let pname = self.app.processor_name.as_str();
+            let zf = &self.zoom_factor;
             self.terminal.draw( |mut f| {
                 width = f.size().width;
-                let hist_duration = app.histogram_map.hist_duration(width as usize);
+                let hist_duration = app.histogram_map.hist_duration(width as usize, *zf);
                 // primary layout division.
                 let mut constraints = vec![
                     Constraint::Length(1),
@@ -521,9 +487,9 @@ impl<'a> TerminalRenderer {
                 let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
                 .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[3]);
 
-                render_cpu_histogram(&app, cpu_mem[0], &mut f);
+                render_cpu_histogram(&app, cpu_mem[0], &mut f, zf);
 
-                render_memory_histogram(&app, cpu_mem[1], &mut f);
+                render_memory_histogram(&app, cpu_mem[1], &mut f, zf);
 
                 if *process_height > 0{
                     render_process_table(&app, width, v_sections[4], *pst,&mut f);
@@ -534,8 +500,8 @@ impl<'a> TerminalRenderer {
 
                 render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
 
-                render_net(&app, network_layout, &mut f);
-                render_disk(&app, disk_layout, &mut f);
+                render_net(&app, network_layout, &mut f, zf);
+                render_disk(&app, disk_layout, &mut f, zf);
 
             }).expect("Could not draw frame.");
 
@@ -581,6 +547,16 @@ impl<'a> TerminalRenderer {
                             ProcessTableSortOrder::Descending => self.app.psortorder = ProcessTableSortOrder::Ascending
                         }
                         self.app.sort_process_table();
+                    }
+                    else if input == Key::Char('+') || input == Key::Char('='){
+                        if self.zoom_factor > 1{
+                            self.zoom_factor -= 1;
+                        }
+                    }
+                    else if input == Key::Char('-'){
+                        if self.zoom_factor < 10{
+                            self.zoom_factor += 1;
+                        }
                     }
                     
                 },

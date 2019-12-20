@@ -12,6 +12,9 @@ use heim::net;
 use heim::net::{Address};
 use futures::StreamExt;
 use chrono;
+use std::fs::{OpenOptions};
+use std::io::prelude::*;
+
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
     Pid = 0,
@@ -87,6 +90,39 @@ impl HistogramMap {
         self.map.get_mut(name).unwrap()
     }
 
+    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize) -> Option<Histogram> {
+        let mut f = OpenOptions::new().append(true).create(true).open("log.txt").unwrap();
+        match self.map.get(name) {
+            Some(h) => {
+                let mut nh = Histogram::new(width);
+                let start = if h.data.len() >= (width * zoom_factor as usize) {
+                    h.data.len() - (width * zoom_factor as usize)
+                } else {
+                    0
+                };
+                let mut j: usize = 0;
+                let last_index = h.data.len();
+                let nh_len = nh.data.len();
+                let mut si: usize = last_index;
+                for index in (0..nh_len).rev(){
+                    let offset = nh_len - index;
+                    if si < zoom_factor as usize{ break; }
+                    for i in si - zoom_factor as usize..si{
+                        if i >= 0{
+                            nh.data[index] += h.data[i];
+                        }
+                    }
+
+                    si -= zoom_factor as usize;
+                }
+
+                nh.data = nh.data.iter().map(|d| d/zoom_factor as u64).collect();
+                Some(nh)
+            },
+            None => None
+        }
+    }
+
     pub fn get(&self, name: &str) -> Option<&Histogram>{
         self.map.get(name)
     }
@@ -108,8 +144,8 @@ impl HistogramMap {
         h.data.remove(0);
     }
 
-    pub fn hist_duration(&self, width: usize) -> chrono::Duration{
-        chrono::Duration::from_std(Duration::from_secs_f64(self.tick.as_secs_f64() * width as f64)).unwrap()
+    pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration{
+        chrono::Duration::from_std(Duration::from_secs_f64(self.tick.as_secs_f64() * width as f64 * zoom_factor as f64)).unwrap()
     }
 }
 
