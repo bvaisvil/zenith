@@ -91,7 +91,7 @@ impl HistogramMap {
     }
 
     pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize) -> Option<Histogram> {
-        let mut f = OpenOptions::new().append(true).create(true).open("log.txt").unwrap();
+        //let mut f = OpenOptions::new().append(true).create(true).open("log.txt").unwrap();
         match self.map.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
