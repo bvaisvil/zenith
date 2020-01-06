@@ -183,7 +183,8 @@ pub struct CPUTimeApp {
     pub sensors: Vec<Sensor>,
     pub tick: Duration,
     pub processor_name: String,
-    pub started: chrono::DateTime<chrono::Local>
+    pub started: chrono::DateTime<chrono::Local>,
+    pub selected_process: Option<ZProcess>
 }
 
 impl CPUTimeApp{
@@ -222,7 +223,8 @@ impl CPUTimeApp{
             network_interfaces: vec![],
             sensors: vec![],
             processor_name: String::from(""),
-            started: chrono::Local::now()
+            started: chrono::Local::now(),
+            selected_process: None
         };
         s.system.refresh_all();
         s.system.refresh_all();
@@ -299,6 +301,16 @@ impl CPUTimeApp{
     pub fn highlight_down(&mut self){
         if self.highlighted_row < self.process_map.len(){
             self.highlighted_row += 1;
+        }
+    }
+
+    pub fn select_process(&mut self){
+        let p = match self.processes.get(self.highlighted_row){
+            Some(p) => self.process_map.get(p),
+            None => None
+        };
+        if p.is_some(){
+            self.selected_process = Some(p.unwrap().clone());
         }
     }
 

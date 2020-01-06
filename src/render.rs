@@ -22,6 +22,8 @@ use std::borrow::Cow;
 use std::time::{SystemTime, Duration};
 use chrono;
 
+//type ZFrame = Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
+
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
     if app.mem_utilization > 0 && app.mem_total > 0 {
@@ -328,6 +330,17 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     List::new(ips).block(Block::default().title("Network").borders(Borders::ALL)).render(f, area[0]);
 }
 
+fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+     match &app.selected_process{
+        Some(p) => {
+            Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
+
+        },
+        None => return
+    };
+
+}
+
 fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
               f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
               zf: &u32){
@@ -491,11 +504,14 @@ impl<'a> TerminalRenderer {
 
                 render_memory_histogram(&app, cpu_mem[1], &mut f, zf);
 
-                if *process_height > 0{
+                if *process_height > 0 && app.selected_process.is_none(){
                     render_process_table(&app, width, v_sections[4], *pst,&mut f);
                     if v_sections[4].height > 4{ // account for table border & margins.
                         process_table_height = v_sections[4].height - 5;
                     }
+                }
+                else if app.selected_process.is_some(){
+                    render_process(&app, v_sections[4], &mut f);
                 }
 
                 render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
@@ -557,6 +573,12 @@ impl<'a> TerminalRenderer {
                         if self.zoom_factor < 10{
                             self.zoom_factor += 1;
                         }
+                    }
+                    else if input == Key::Char('\n'){
+                        self.app.select_process();
+                    }
+                    else if input == Key::Esc{
+                        self.app.selected_process = None;
                     }
                     
                 },
