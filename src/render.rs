@@ -334,7 +334,45 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<A
      match &app.selected_process{
         Some(p) => {
             Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
-
+            let text = [
+                Text::raw("Process Name:          "),
+                Text::styled(&p.name, Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Command     :          "),
+                Text::styled(p.command.join(" "), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("User:                  "),
+                Text::styled(&p.user_name, Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("CPU Usage:             "),
+                Text::styled(format!("{:>8.2}%", &p.cpu_usage), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Threads  :             "),
+                Text::styled(format!("{:>8.2}%", &p.threads_total), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Status:                "),
+                Text::styled(format!("{:}", p.status), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Priority:              "),
+                Text::styled(format!("{:}", p.priority), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("MEM Usage:             "),
+                Text::styled(format!("{:>8.2}%", (p.memory as f64 / app.mem_total as f64) * 100.0), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Total Memory:          "),
+                Text::styled(format!("{:>10}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                .unwrap().get_appropriate_unit(false).to_string()), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Disk Read:             "),
+                Text::styled(format!("{:>10}", Byte::from_unit(p.read_bytes as f64, ByteUnit::B)
+                .unwrap().get_appropriate_unit(false).to_string()), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Disk Write             "),
+                Text::styled(format!("{:>10}", Byte::from_unit(p.write_bytes as f64, ByteUnit::B)
+                .unwrap().get_appropriate_unit(false).to_string()), Style::default().fg(Color::Green)),
+                Text::raw("\n")
+            ];
+            Paragraph::new(text.iter()).block(Block::default().borders(Borders::ALL)).wrap(true).render(f, layout);
         },
         None => return
     };

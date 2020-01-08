@@ -366,7 +366,8 @@ impl CPUTimeApp{
                     write_bytes: process.write_bytes,
                     prev_read_bytes: process.read_bytes,
                     prev_write_bytes: process.write_bytes,
-                    last_updated: SystemTime::now()
+                    last_updated: SystemTime::now(),
+                    defunct: false
                 };
                 self.threads_total += zprocess.threads_total as usize;
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage{
@@ -381,7 +382,17 @@ impl CPUTimeApp{
 
         // remove pids that are gone
         self.process_map.retain(|&k, _| current_pids.contains(&k));
+        // update selected process
+        if self.selected_process.is_some(){
+            let pid = &self.selected_process.as_ref().unwrap().pid;
+            if self.process_map.contains_key(pid){
+                self.selected_process = Some(self.process_map[pid].clone());
+            }
+            else{
+                self.selected_process.as_mut().unwrap().defunct = true;
+            }
 
+        }
         
         self.sort_process_table();
         self.cum_cpu_process = Option::from(top_pid);
