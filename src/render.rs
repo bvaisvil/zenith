@@ -21,6 +21,7 @@ use crate::zprocess::*;
 use std::borrow::Cow;
 use std::time::{SystemTime, Duration};
 use chrono;
+use std::fmt::Debug;
 
 //type ZFrame = Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
 
@@ -333,10 +334,18 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
 fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
      match &app.selected_process{
         Some(p) => {
+            let alive = if p.defunct{
+                "dead"
+            } else {
+                "alive"
+            };
             Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
             let text = [
                 Text::raw("Process Name:          "),
-                Text::styled(&p.name, Style::default().fg(Color::Green)),
+                Text::styled(format!("{:} ({:})", &p.name, alive), Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("PID:                   "),
+                Text::styled(format!("{}", &p.pid), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Command     :          "),
                 Text::styled(p.command.join(" "), Style::default().fg(Color::Green)),
@@ -348,7 +357,7 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<A
                 Text::styled(format!("{:>8.2}%", &p.cpu_usage), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Threads  :             "),
-                Text::styled(format!("{:>8.2}%", &p.threads_total), Style::default().fg(Color::Green)),
+                Text::styled(format!("{:>8}", &p.threads_total), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Status:                "),
                 Text::styled(format!("{:}", p.status), Style::default().fg(Color::Green)),
@@ -364,12 +373,16 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<A
                 .unwrap().get_appropriate_unit(false).to_string()), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Disk Read:             "),
-                Text::styled(format!("{:>10}", Byte::from_unit(p.read_bytes as f64, ByteUnit::B)
-                .unwrap().get_appropriate_unit(false).to_string()), Style::default().fg(Color::Green)),
+                Text::styled(format!("{:>10} {:}/s",
+                                     Byte::from_unit(p.read_bytes as f64, ByteUnit::B).unwrap().get_appropriate_unit(false).to_string(),
+                                     Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string()
+                                    ), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Disk Write             "),
-                Text::styled(format!("{:>10}", Byte::from_unit(p.write_bytes as f64, ByteUnit::B)
-                .unwrap().get_appropriate_unit(false).to_string()), Style::default().fg(Color::Green)),
+                Text::styled(format!("{:>10} {:}/s",
+                                     Byte::from_unit(p.write_bytes as f64, ByteUnit::B).unwrap().get_appropriate_unit(false).to_string(),
+                                     Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")
+                                    ), Style::default().fg(Color::Green)),
                 Text::raw("\n")
             ];
             Paragraph::new(text.iter()).block(Block::default().borders(Borders::ALL)).wrap(true).render(f, layout);
