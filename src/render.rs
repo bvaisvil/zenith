@@ -23,7 +23,8 @@ use std::time::{SystemTime, Duration};
 use chrono;
 use std::fmt::Debug;
 
-//type ZFrame = Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
+type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
+//type ZFrame = Frame<'_, TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
 
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
@@ -83,7 +84,7 @@ fn render_process_table<'a>(
     width: u16,
     area: Rect,
     process_table_start: usize,
-    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>) {
+    f: &mut Frame<ZBackend>) {
 
     if area.height < 5{
         return; // not enough space to draw anything
@@ -166,7 +167,7 @@ fn render_process_table<'a>(
 }
 
 fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, 
-f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>, zf: &u32){
+f: &mut Frame<ZBackend>, zf: &u32){
     let title = cpu_title(&app);
     let h = match app.histogram_map.get_zoomed("cpu_usage_histogram", *zf, area.width as usize){
         Some(h) => h.data,
@@ -182,7 +183,7 @@ f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>
 }
 
 fn render_memory_histogram(app: &CPUTimeApp, area: Rect, 
-    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>, zf: &u32) {
+    f: &mut Frame<ZBackend>, zf: &u32) {
     let h = match app.histogram_map.get_zoomed("mem_utilization", *zf, area.width as usize){
         Some(h) => h.data,
         None => return
@@ -198,7 +199,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect,
 }
 
 fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, 
-    f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+    f: &mut Frame<ZBackend>){
 
     let mut cpus = app.cpus.to_owned();
     let mut bars: Vec<(&str, u64)> = vec![];
@@ -279,7 +280,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16,
 
 
 fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
-              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
+              f: &mut Frame<ZBackend>,
               zf: &u32){
     let net = Layout::default()
                 .margin(1)
@@ -331,7 +332,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     List::new(ips).block(Block::default().title("Network").borders(Borders::ALL)).render(f, area[0]);
 }
 
-fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>){
+fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>){
      match &app.selected_process{
         Some(p) => {
             let alive = if p.defunct{
@@ -345,28 +346,28 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<A
                 Text::styled(format!("{:} ({:})", &p.name, alive), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("PID:                   "),
-                Text::styled(format!("{}", &p.pid), Style::default().fg(Color::Green)),
+                Text::styled(format!("{:>7}", &p.pid), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
-                Text::raw("Command     :          "),
+                Text::raw("Command:               "),
                 Text::styled(p.command.join(" "), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("User:                  "),
                 Text::styled(&p.user_name, Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("CPU Usage:             "),
-                Text::styled(format!("{:>8.2}%", &p.cpu_usage), Style::default().fg(Color::Green)),
+                Text::styled(format!("{:>7.2} %", &p.cpu_usage), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
-                Text::raw("Threads  :             "),
-                Text::styled(format!("{:>8}", &p.threads_total), Style::default().fg(Color::Green)),
+                Text::raw("Threads:               "),
+                Text::styled(format!("{:>7}", &p.threads_total), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Status:                "),
                 Text::styled(format!("{:}", p.status), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Priority:              "),
-                Text::styled(format!("{:}", p.priority), Style::default().fg(Color::Green)),
+                Text::styled(format!("{:>7}", p.priority), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("MEM Usage:             "),
-                Text::styled(format!("{:>8.2}%", (p.memory as f64 / app.mem_total as f64) * 100.0), Style::default().fg(Color::Green)),
+                Text::styled(format!("{:>7.2} %", (p.memory as f64 / app.mem_total as f64) * 100.0), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("Total Memory:          "),
                 Text::styled(format!("{:>10}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
@@ -378,10 +379,10 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<A
                                      Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string()
                                     ), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
-                Text::raw("Disk Write             "),
+                Text::raw("Disk Write:            "),
                 Text::styled(format!("{:>10} {:}/s",
                                      Byte::from_unit(p.write_bytes as f64, ByteUnit::B).unwrap().get_appropriate_unit(false).to_string(),
-                                     Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")
+                                     Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string()
                                     ), Style::default().fg(Color::Green)),
                 Text::raw("\n")
             ];
@@ -393,7 +394,7 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<TermionBackend<A
 }
 
 fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
-              f: &mut Frame<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
+              f: &mut Frame<ZBackend>,
               zf: &u32){
     let area = Layout::default().margin(1).direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(disk_layout[1]);
