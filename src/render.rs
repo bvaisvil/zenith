@@ -341,6 +341,11 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>){
             } else {
                 "alive"
             };
+            let start_time = DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
+            let now = Local::now();
+            let d = now - start_time;
+            let d = format!("{:0>2}:{:0>2}", d.num_hours(), d.num_minutes() % 60);
+            
             Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
             let text = [
                 Text::raw("Process Name:          "),
@@ -355,8 +360,8 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>){
                 Text::raw("User:                  "),
                 Text::styled(&p.user_name, Style::default().fg(Color::Green)),
                 Text::raw("\n"),
-                Text::raw("Start Time             "),
-                Text::styled(format!("{:}", DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time))), Style::default().fg(Color::Green)),
+                Text::raw("Start Time:            "),
+                Text::styled(format!("{:} ({:})", start_time, d), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("CPU Usage:             "),
                 Text::styled(format!("{:>7.2} %", &p.cpu_usage), Style::default().fg(Color::Green)),

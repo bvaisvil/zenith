@@ -227,7 +227,7 @@ impl CPUTimeApp{
             selected_process: None
         };
         s.system.refresh_all();
-        s.system.refresh_all();
+        s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.
         return s
     }
 
