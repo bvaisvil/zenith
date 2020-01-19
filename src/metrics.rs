@@ -367,7 +367,8 @@ impl CPUTimeApp{
                     prev_read_bytes: process.read_bytes,
                     prev_write_bytes: process.write_bytes,
                     last_updated: SystemTime::now(),
-                    defunct: false
+                    defunct: false,
+                    start_time: process.start_time()
                 };
                 self.threads_total += zprocess.threads_total as usize;
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage{

@@ -19,8 +19,9 @@ use crate::util::*;
 use crate::metrics::*;
 use crate::zprocess::*;
 use std::borrow::Cow;
-use std::time::{SystemTime, Duration};
-use chrono;
+use std::time::{SystemTime, Duration, UNIX_EPOCH};
+use chrono::prelude::{DateTime};
+use chrono::Local;
 use std::fmt::Debug;
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
@@ -353,6 +354,9 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>){
                 Text::raw("\n"),
                 Text::raw("User:                  "),
                 Text::styled(&p.user_name, Style::default().fg(Color::Green)),
+                Text::raw("\n"),
+                Text::raw("Start Time             "),
+                Text::styled(format!("{:}", DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time))), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
                 Text::raw("CPU Usage:             "),
                 Text::styled(format!("{:>7.2} %", &p.cpu_usage), Style::default().fg(Color::Green)),
