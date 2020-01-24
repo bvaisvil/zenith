@@ -382,10 +382,14 @@ impl CPUTimeApp{
                 self.selected_process = Some(self.process_map[pid].clone());
             }
             else{
-                self.selected_process.as_mut().unwrap().end_time = match SystemTime::now().duration_since(UNIX_EPOCH){
-                    Ok(t) => Some(t.as_secs()),
-                    Err(_) => panic!("System time before unix epoch??") 
-                };
+                let p = self.selected_process.as_mut().unwrap();
+                if p.end_time.is_none(){
+                    p.end_time = match SystemTime::now().duration_since(UNIX_EPOCH){
+                        Ok(t) => Some(t.as_secs()),
+                        Err(_) => panic!("System time before unix epoch??") 
+                    };
+                }
+                
             }
 
         }
