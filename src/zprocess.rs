@@ -4,6 +4,7 @@
 use sysinfo::ProcessStatus;
 use crate::constants::DEFAULT_TICK;
 use std::time::SystemTime;
+use heim::process;
 
 #[derive(Clone)]
 pub struct ZProcess{
@@ -35,6 +36,35 @@ impl ZProcess{
     }
     pub fn get_write_bytes_sec(&self) -> f64 {
         (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
+    }
+
+    pub async fn suspend(&self){
+        let p = process::get(self.pid).await.ok();
+        
+        if p.is_some(){
+            p.unwrap().suspend().await.ok();
+        }
+    }
+
+    pub async fn resume(&self){
+        let p = process::get(self.pid).await.ok();
+        if p.is_some(){
+            p.unwrap().resume().await.ok();
+        }
+    }
+
+    pub async fn kill(&self){
+        let p = process::get(self.pid).await.ok();
+        if p.is_some(){
+            p.unwrap().kill().await.ok();
+        }
+    }
+
+    pub async fn terminate(&self){
+        let p = process::get(self.pid).await.ok();
+        if p.is_some(){
+            p.unwrap().terminate().await.ok();
+        }
     }
 }
 

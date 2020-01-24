@@ -333,7 +333,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     List::new(ips).block(Block::default().title("Network").borders(Borders::ALL)).render(f, area[0]);
 }
 
-fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>){
+fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16){
      match &app.selected_process{
         Some(p) => {
             let alive = if p.defunct{
@@ -348,6 +348,7 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>){
             
             Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
             let text = [
+                Text::styled(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {: >width$}", "", width=layout.width as usize), Style::default().bg(Color::DarkGray).fg(Color::White)),
                 Text::raw("Process Name:          "),
                 Text::styled(format!("{:} ({:})", &p.name, alive), Style::default().fg(Color::Green)),
                 Text::raw("\n"),
@@ -572,7 +573,7 @@ impl<'a> TerminalRenderer {
                     }
                 }
                 else if app.selected_process.is_some(){
-                    render_process(&app, v_sections[4], &mut f);
+                    render_process(&app, v_sections[4], &mut f, width);
                 }
 
                 render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
@@ -638,8 +639,32 @@ impl<'a> TerminalRenderer {
                     else if input == Key::Char('\n'){
                         self.app.select_process();
                     }
-                    else if input == Key::Esc{
+                    else if input == Key::Esc || input == Key::Char('b'){
                         self.app.selected_process = None;
+                    }
+                    else if input == Key::Char('s'){
+                        match &self.app.selected_process{
+                            Some(p) => p.suspend().await,
+                            None => (),
+                        }
+                    }
+                    else if input == Key::Char('r'){
+                        match &self.app.selected_process{
+                            Some(p) => p.resume().await,
+                            None => (),
+                        }
+                    }
+                    else if input == Key::Char('k'){
+                        match &self.app.selected_process{
+                            Some(p) => p.kill().await,
+                            None => (),
+                        }
+                    }
+                    else if input == Key::Char('t'){
+                        match &self.app.selected_process{
+                            Some(p) => p.terminate().await,
+                            None => (),
+                        }
                     }
                     
                 },
