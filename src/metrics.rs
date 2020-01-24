@@ -5,15 +5,15 @@ use sysinfo::{Disk, NetworkExt, System, SystemExt, ProcessorExt, DiskExt, Proces
 use crate::zprocess::*;
 use std::collections::{HashMap, HashSet};
 use users::{UsersCache, Users};
-use std::time::{SystemTime, Duration};
+use std::time::{SystemTime, Duration, UNIX_EPOCH};
 use std::mem::swap;
 use heim::host;
 use heim::net;
 use heim::net::{Address};
 use futures::StreamExt;
 use chrono;
-use std::fs::{OpenOptions};
-use std::io::prelude::*;
+
+
 
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy{
@@ -91,21 +91,13 @@ impl HistogramMap {
     }
 
     pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize) -> Option<Histogram> {
-        //let mut f = OpenOptions::new().append(true).create(true).open("log.txt").unwrap();
         match self.map.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
-                let start = if h.data.len() >= (width * zoom_factor as usize) {
-                    h.data.len() - (width * zoom_factor as usize)
-                } else {
-                    0
-                };
-                let mut j: usize = 0;
                 let last_index = h.data.len();
                 let nh_len = nh.data.len();
                 let mut si: usize = last_index;
                 for index in (0..nh_len).rev(){
-                    let offset = nh_len - index;
                     if si < zoom_factor as usize{ break; }
                     for i in si - zoom_factor as usize..si{
                         if i >= 0{
@@ -367,7 +359,7 @@ impl CPUTimeApp{
                     prev_read_bytes: process.read_bytes,
                     prev_write_bytes: process.write_bytes,
                     last_updated: SystemTime::now(),
-                    defunct: false,
+                    end_time: None,
                     start_time: process.start_time()
                 };
                 self.threads_total += zprocess.threads_total as usize;
@@ -390,7 +382,10 @@ impl CPUTimeApp{
                 self.selected_process = Some(self.process_map[pid].clone());
             }
             else{
-                self.selected_process.as_mut().unwrap().defunct = true;
+                self.selected_process.as_mut().unwrap().end_time = match SystemTime::now().duration_since(UNIX_EPOCH){
+                    Ok(t) => Some(t.as_secs()),
+                    Err(_) => panic!("System time before unix epoch??") 
+                };
             }
 
         }

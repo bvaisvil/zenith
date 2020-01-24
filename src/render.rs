@@ -336,14 +336,17 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
 fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16){
      match &app.selected_process{
         Some(p) => {
-            let alive = if p.defunct{
-                "dead"
+            let alive = if p.end_time.is_some(){
+                format!("dead since {:}", DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.end_time.unwrap())))
             } else {
-                "alive"
+                format!("alive")
             };
             let start_time = DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
-            let now = Local::now();
-            let d = now - start_time;
+            let et = match p.end_time{
+                Some(t) => DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(t)),
+                None => Local::now()
+            };
+            let d = et - start_time;
             let d = format!("{:0>2}:{:0>2}", d.num_hours(), d.num_minutes() % 60);
             
             Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
@@ -501,8 +504,6 @@ impl<'a> TerminalRenderer {
             let hostname = self.app.hostname.as_str();
             let os = self.app.osname.as_str();
             let release = self.app.release.as_str();
-            let arch = self.app.arch.as_str();
-            let version = self.app.version.as_str();
             let pst = &self.process_table_row_start;
             let cpu_height = &self.cpu_height;
             let net_height = &self.net_height;
@@ -510,7 +511,6 @@ impl<'a> TerminalRenderer {
             let process_height = &self.process_height;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
-            let pname = self.app.processor_name.as_str();
             let zf = &self.zoom_factor;
             self.terminal.draw( |mut f| {
                 width = f.size().width;

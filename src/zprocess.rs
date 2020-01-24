@@ -26,7 +26,7 @@ pub struct ZProcess{
     pub prev_read_bytes: u64,
     pub prev_write_bytes: u64,
     pub last_updated: SystemTime,
-    pub defunct: bool,
+    pub end_time: Option<u64>,
     pub start_time: u64
 }
 
