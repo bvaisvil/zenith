@@ -322,7 +322,7 @@ impl CPUTimeApp{
                 zp.cum_cpu_usage += zp.cpu_usage as f64;
                 zp.status = process.status();
                 zp.priority = process.priority;
-                zp.virtual_memory = process.virtual_memory;
+                zp.virtual_memory = process.virtual_memory();
                 zp.threads_total = process.threads_total;
                 self.threads_total += zp.threads_total as usize;
                 if zp.cum_cpu_usage > top_cum_cpu_usage{
@@ -352,7 +352,7 @@ impl CPUTimeApp{
                     name: process.name().to_string(),
                     cum_cpu_usage: process.cpu_usage() as f64,
                     priority: process.priority,
-                    virtual_memory: process.virtual_memory,
+                    virtual_memory: process.virtual_memory(),
                     threads_total: process.threads_total,
                     read_bytes: process.read_bytes,
                     write_bytes: process.write_bytes,
