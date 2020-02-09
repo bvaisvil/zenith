@@ -333,27 +333,44 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
     List::new(ips).block(Block::default().title("Network").borders(Borders::ALL)).render(f, area[0]);
 }
 
-fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16){
-     match &app.selected_process{
+fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16) {
+    match &app.selected_process {
         Some(p) => {
-            let alive = if p.end_time.is_some(){
+            Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
+            let v_sections = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(1)
+                .constraints([Constraint::Length(2), Constraint::Min(1)].as_ref())
+                .split(layout);
+            let h_sections = Layout::default()
+                .direction(Direction::Horizontal)
+                .margin(0)
+                .constraints([Constraint::Percentage(50), Constraint::Length(1), Constraint::Percentage(50)].as_ref())
+                .split(v_sections[1]);
+
+            Block::default()
+                .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {: >width$}", "", width = layout.width as usize).as_str())
+                .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
+
+            //Block::default().borders(Borders::LEFT).render(f, h_sections[1]);
+
+            let alive = if p.end_time.is_some() {
                 format!("dead since {:}", DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.end_time.unwrap())))
             } else {
                 format!("alive")
             };
             let start_time = DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
-            let et = match p.end_time{
+            let et = match p.end_time {
                 Some(t) => DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(t)),
                 None => Local::now()
             };
             let d = et - start_time;
-            let d = format!("{:0>2}:{:0>2}", d.num_hours(), d.num_minutes() % 60);
-            
-            Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
+            let d = format!("{:0>2}:{:0>2}:{:0>2}", d.num_hours(), d.num_minutes() % 60, d.num_seconds() % 60);
+
+
             let rhs_style = Style::default().fg(Color::Green);
-            let text = [
-                Text::styled(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {: >width$}", "", width=layout.width as usize), Style::default().bg(Color::DarkGray).fg(Color::White)),
-                Text::raw("Process Name:          "),
+            let text = vec![
+                Text::raw("Name:                  "),
                 Text::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
                 Text::raw("\n"),
                 Text::raw("PID:                   "),
@@ -366,7 +383,10 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
                 Text::styled(&p.user_name, rhs_style),
                 Text::raw("\n"),
                 Text::raw("Start Time:            "),
-                Text::styled(format!("{:} ({:})", start_time, d), rhs_style),
+                Text::styled(format!("{:}", start_time), rhs_style),
+                Text::raw("\n"),
+                Text::raw("Total Run Time:        "),
+                Text::styled(format!("{:}", d), rhs_style),
                 Text::raw("\n"),
                 Text::raw("CPU Usage:             "),
                 Text::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
@@ -385,26 +405,35 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
                 Text::raw("\n"),
                 Text::raw("Total Memory:          "),
                 Text::styled(format!("{:>10}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                .unwrap().get_appropriate_unit(false).to_string()), rhs_style),
+                    .unwrap().get_appropriate_unit(false).to_string()), rhs_style),
                 Text::raw("\n"),
                 Text::raw("Disk Read:             "),
                 Text::styled(format!("{:>10} {:}/s",
                                      Byte::from_unit(p.read_bytes as f64, ByteUnit::B).unwrap().get_appropriate_unit(false).to_string(),
                                      Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string()
-                                    ), rhs_style),
+                ), rhs_style),
                 Text::raw("\n"),
                 Text::raw("Disk Write:            "),
                 Text::styled(format!("{:>10} {:}/s",
                                      Byte::from_unit(p.write_bytes as f64, ByteUnit::B).unwrap().get_appropriate_unit(false).to_string(),
                                      Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string()
-                                    ), rhs_style),
+                ), rhs_style),
                 Text::raw("\n")
             ];
-            Paragraph::new(text.iter()).block(Block::default().borders(Borders::ALL)).wrap(true).render(f, layout);
+
+            if text.len() > h_sections[0].height as usize * 3{
+                Paragraph::new(text[0..h_sections[0].height as usize * 3].iter()).block(Block::default()).wrap(false).render(f, h_sections[0]);
+
+                Paragraph::new(text[h_sections[0].height as usize * 3..].iter()).block(Block::default()).wrap(false).render(f, h_sections[2]);
+            }
+            else{
+                Paragraph::new(text.iter()).block(Block::default()).wrap(false).render(f, h_sections[0]);
+            }
+
+
         },
         None => return
     };
-
 }
 
 fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
@@ -590,16 +619,26 @@ impl<'a> TerminalRenderer {
                         break;
                     }
                     else if input == Key::Up{
-                        self.app.highlight_up();
-                        if self.process_table_row_start > 0 && self.app.highlighted_row < self.process_table_row_start{
-                            self.process_table_row_start -= 1;
+                        if self.app.selected_process.is_some(){
+
+                        }
+                        else {
+                            self.app.highlight_up();
+                            if self.process_table_row_start > 0 && self.app.highlighted_row < self.process_table_row_start {
+                                self.process_table_row_start -= 1;
+                            }
                         }
                     }
                     else if input == Key::Down{
-                        self.app.highlight_down();
-                        if self.process_table_row_start < self.app.process_map.len() &&
-                            self.app.highlighted_row > (self.process_table_row_start + process_table_height as usize){
-                            self.process_table_row_start += 1;
+                        if self.app.selected_process.is_some(){
+
+                        }
+                        else {
+                            self.app.highlight_down();
+                            if self.process_table_row_start < self.app.process_map.len() &&
+                                self.app.highlighted_row > (self.process_table_row_start + process_table_height as usize) {
+                                self.process_table_row_start += 1;
+                            }
                         }
                     }
                     else if input == Key::Char('.') || input == Key::Char('>'){
