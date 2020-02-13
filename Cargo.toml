@@ -19,4 +19,5 @@ heim = "0.0.9"
 futures = "0.3.1"
 clap = "2.31.*"
 chrono = "0.4.*"
-sysinfo = {git = "https://github.com/bvaisvil/sysinfo", branch="zenith_changes"}
+#sysinfo = {git = "https://github.com/bvaisvil/sysinfo", branch="zenith_changes"}
+sysinfo = {path = "../sysinfo"}

@@ -1,13 +1,14 @@
 /**
- * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
+ * Copyright 2019 Benjamin Vaisvil
  */
-use sysinfo::ProcessStatus;
 use crate::constants::DEFAULT_TICK;
-use std::time::SystemTime;
 use heim::process;
+use std::time::SystemTime;
+
+use sysinfo::ProcessStatus;
 
 #[derive(Clone)]
-pub struct ZProcess{
+pub struct ZProcess {
     pub pid: i32,
     pub uid: u32,
     pub user_name: String,
@@ -27,10 +28,10 @@ pub struct ZProcess{
     pub prev_write_bytes: u64,
     pub last_updated: SystemTime,
     pub end_time: Option<u64>,
-    pub start_time: u64
+    pub start_time: u64,
 }
 
-impl ZProcess{
+impl ZProcess {
     pub fn get_read_bytes_sec(&self) -> f64 {
         (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
@@ -38,66 +39,66 @@ impl ZProcess{
         (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
 
-    pub async fn suspend(&self){
+    pub async fn suspend(&self) {
         let p = process::get(self.pid).await.ok();
-        
-        if p.is_some(){
+
+        if p.is_some() {
             p.unwrap().suspend().await.ok();
         }
     }
 
-    pub async fn resume(&self){
+    pub async fn resume(&self) {
         let p = process::get(self.pid).await.ok();
-        if p.is_some(){
+        if p.is_some() {
             p.unwrap().resume().await.ok();
         }
     }
 
-    pub async fn kill(&self){
+    pub async fn kill(&self) {
         let p = process::get(self.pid).await.ok();
-        if p.is_some(){
+        if p.is_some() {
             p.unwrap().kill().await.ok();
         }
     }
 
-    pub async fn terminate(&self){
+    pub async fn terminate(&self) {
         let p = process::get(self.pid).await.ok();
-        if p.is_some(){
+        if p.is_some() {
             p.unwrap().terminate().await.ok();
         }
     }
 }
 
-pub trait ProcessStatusExt{
+pub trait ProcessStatusExt {
     fn to_single_char(&self) -> &str;
 }
 
-impl ProcessStatusExt for ProcessStatus{
+impl ProcessStatusExt for ProcessStatus {
     #[cfg(target_os = "macos")]
-    fn to_single_char(&self) -> &str{
-        match *self{
-            ProcessStatus::Idle       => "I",
-            ProcessStatus::Run        => "R",
-            ProcessStatus::Sleep      => "S",
-            ProcessStatus::Stop       => "T",
-            ProcessStatus::Zombie     => "Z",
+    fn to_single_char(&self) -> &str {
+        match *self {
+            ProcessStatus::Idle => "I",
+            ProcessStatus::Run => "R",
+            ProcessStatus::Sleep => "S",
+            ProcessStatus::Stop => "T",
+            ProcessStatus::Zombie => "Z",
             ProcessStatus::Unknown(_) => "U",
         }
     }
 
     #[cfg(all(any(unix), not(target_os = "macos")))]
-    fn to_single_char(&self) -> &str{
+    fn to_single_char(&self) -> &str {
         match *self {
-            ProcessStatus::Idle       => "I",
-            ProcessStatus::Run        => "R",
-            ProcessStatus::Sleep      => "S",
-            ProcessStatus::Stop       => "T",
-            ProcessStatus::Zombie     => "Z",
-            ProcessStatus::Tracing    => "t",
-            ProcessStatus::Dead       => "x",
-            ProcessStatus::Wakekill   => "K",
-            ProcessStatus::Waking     => "W",
-            ProcessStatus::Parked     => "P",
+            ProcessStatus::Idle => "I",
+            ProcessStatus::Run => "R",
+            ProcessStatus::Sleep => "S",
+            ProcessStatus::Stop => "T",
+            ProcessStatus::Zombie => "Z",
+            ProcessStatus::Tracing => "t",
+            ProcessStatus::Dead => "x",
+            ProcessStatus::Wakekill => "K",
+            ProcessStatus::Waking => "W",
+            ProcessStatus::Parked => "P",
             ProcessStatus::Unknown(_) => "U",
         }
     }

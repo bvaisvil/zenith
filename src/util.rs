@@ -1,15 +1,14 @@
 /**
- * 
+ *
  */
 #[allow(dead_code)]
 use crate::constants::DEFAULT_TICK;
-use std::sync::{mpsc};
-use std::thread;
-use std::time::{Duration};
-use termion::event::Key;
 use std::io;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
+use termion::event::Key;
 use termion::input::TermRead;
-
 
 // pub struct TabsState<'a> {
 //     pub titles: Vec<&'a str>,
@@ -32,7 +31,6 @@ use termion::input::TermRead;
 //         }
 //     }
 // }
-
 
 pub enum Event<I> {
     Input(I),
@@ -64,7 +62,10 @@ impl Default for Config {
 
 impl Events {
     pub fn new(tick_rate: u64) -> Events {
-        Events::with_config(Config{tick_rate: Duration::from_millis(tick_rate), exit_key: Key::Char('q')})
+        Events::with_config(Config {
+            tick_rate: Duration::from_millis(tick_rate),
+            exit_key: Key::Char('q'),
+        })
     }
 
     pub fn with_config(config: Config) -> Events {

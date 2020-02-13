@@ -1,28 +1,31 @@
 /**
- * Copyright 2019 Benjamin Vaisvil (ben@neuon.com)
+ * Copyright 2019 Benjamin Vaisvil
  */
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
-use sysinfo::{DiskExt};
-use tui::widgets::{BarChart, Block, Borders, Widget, Sparkline, Text, Table, Row, List, Paragraph};
+use crate::metrics::*;
+use crate::util::*;
+use crate::zprocess::*;
 use byte_unit::{Byte, ByteUnit};
+use chrono::prelude::DateTime;
+use chrono::Local;
+use std::borrow::Cow;
+use std::fmt::Debug;
+use std::io;
+use std::io::Stdout;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use sysinfo::DiskExt;
 use termion::event::Key;
 use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
-use tui::Terminal;
-use std::io::{Stdout};
+
+use tui::layout::{Constraint, Direction, Layout, Rect};
+use tui::style::{Color, Modifier, Style};
+use tui::widgets::{
+    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget,
+};
 use tui::Frame;
-use std::io;
-use crate::util::*;
-use crate::metrics::*;
-use crate::zprocess::*;
-use std::borrow::Cow;
-use std::time::{SystemTime, Duration, UNIX_EPOCH};
-use chrono::prelude::{DateTime};
-use chrono::Local;
-use std::fmt::Debug;
+use tui::Terminal;
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
 //type ZFrame = Frame<'_, TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
@@ -36,82 +39,120 @@ fn mem_title(app: &CPUTimeApp) -> String {
     if app.swap_utilization > 0 && app.swap_total > 0 {
         swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
     }
-    format!("MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
-            Byte::from_unit(app.mem_total as f64, ByteUnit::KB).unwrap()
-                .get_appropriate_unit(false).to_string().replace(" ", ""),
-            mem,
-            Byte::from_unit(app.swap_total as f64, ByteUnit::KB).unwrap()
-                .get_appropriate_unit(false).to_string().replace(" ", ""),
-            swp
+    format!(
+        "MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
+        Byte::from_unit(app.mem_total as f64, ByteUnit::KB)
+            .unwrap()
+            .get_appropriate_unit(false)
+            .to_string()
+            .replace(" ", ""),
+        mem,
+        Byte::from_unit(app.swap_total as f64, ByteUnit::KB)
+            .unwrap()
+            .get_appropriate_unit(false)
+            .to_string()
+            .replace(" ", ""),
+        swp
     )
 }
 
 fn cpu_title(app: &CPUTimeApp) -> String {
     let top_process_name = match app.cum_cpu_process {
-        Some(pid) => match &app.process_map.get(&pid){
+        Some(pid) => match &app.process_map.get(&pid) {
             Some(zp) => &zp.name,
-            None => ""
-        }
-        None => ""
+            None => "",
+        },
+        None => "",
     };
     let top_process_amt = match app.cum_cpu_process {
-        Some(pid) => match &app.process_map.get(&pid){
+        Some(pid) => match &app.process_map.get(&pid) {
             Some(zp) => zp.user_name.clone(),
-            None => String::from("")
-        }
-        None => String::from("")
+            None => String::from(""),
+        },
+        None => String::from(""),
     };
     let top_pid = app.cum_cpu_process.unwrap_or(0);
-    let h = match app.histogram_map.get("cpu_usage_histogram"){
+    let h = match app.histogram_map.get("cpu_usage_histogram") {
         Some(h) => &h.data,
-        None => return String::from("")
+        None => return String::from(""),
     };
-    let mean: f32 = match h.len(){
+    let mean: f32 = match h.len() {
         0 => 0.0,
         _ => h.iter().sum::<u64>() as f32 / h.len() as f32,
     };
-    format!("CPU [{: >3}%] MEAN [{: >3.1}%] TOP [{} - {} - {}]",
-            app.cpu_utilization,
-            mean,
-            top_pid,
-            top_process_name,
-            top_process_amt
+    format!(
+        "CPU [{: >3}%] MEAN [{: >3.1}%] TOP [{} - {} - {}]",
+        app.cpu_utilization, mean, top_pid, top_process_name, top_process_amt
     )
 }
-
 
 fn render_process_table<'a>(
     app: &CPUTimeApp,
     width: u16,
     area: Rect,
     process_table_start: usize,
-    f: &mut Frame<ZBackend>) {
-
-    if area.height < 5{
+    f: &mut Frame<ZBackend>,
+) {
+    if area.height < 5 {
         return; // not enough space to draw anything
     }
     let display_height = area.height as usize - 4; // 4 for the margins and table header
 
     let end = process_table_start + display_height;
 
-    let rows: Vec<Vec<String>> = app.processes.iter().map(|pid| {
-        let p = app.process_map.get(pid).unwrap();
-        vec![
-            format!("{: >5}", p.pid),
-            format!("{: <10}", p.user_name),
-            format!("{: <3}", p.priority),
-            format!("{:>5.1}", p.cpu_usage),
-            format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
-            format!("{:>8}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                .unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
-            format!("{: >8}", Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
-                .unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
-            format!("{:1}", p.status.to_single_char()),
-            format!("{:>8}", Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
-            format!("{:>8}", Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string().replace(" ", "").replace("B", "")),
-            format!("{} - ", p.name) + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" ")
-        ]
-    }).collect();
+    let rows: Vec<Vec<String>> = app
+        .processes
+        .iter()
+        .map(|pid| {
+            let p = app.process_map.get(pid).unwrap();
+            vec![
+                format!("{: >5}", p.pid),
+                format!("{: <10}", p.user_name),
+                format!("{: <3}", p.priority),
+                format!("{:>5.1}", p.cpu_usage),
+                format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
+                format!(
+                    "{:>8}",
+                    Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                        .unwrap()
+                        .get_appropriate_unit(false)
+                        .to_string()
+                        .replace(" ", "")
+                        .replace("B", "")
+                ),
+                format!(
+                    "{: >8}",
+                    Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
+                        .unwrap()
+                        .get_appropriate_unit(false)
+                        .to_string()
+                        .replace(" ", "")
+                        .replace("B", "")
+                ),
+                format!("{:1}", p.status.to_single_char()),
+                format!(
+                    "{:>8}",
+                    Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B)
+                        .unwrap()
+                        .get_appropriate_unit(false)
+                        .to_string()
+                        .replace(" ", "")
+                        .replace("B", "")
+                ),
+                format!(
+                    "{:>8}",
+                    Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B)
+                        .unwrap()
+                        .get_appropriate_unit(false)
+                        .to_string()
+                        .replace(" ", "")
+                        .replace("B", "")
+                ),
+                format!("{} - ", p.name)
+                    + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" "),
+            ]
+        })
+        .collect();
 
     let mut header = vec![
         String::from("PID   "),
@@ -123,7 +164,7 @@ fn render_process_table<'a>(
         String::from("VIRT     "),
         String::from("S "),
         String::from("READ/s   "),
-        String::from("WRITE/s  ")
+        String::from("WRITE/s  "),
     ];
     //figure column widths
     let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
@@ -140,68 +181,78 @@ fn render_process_table<'a>(
     header.push(cmd_header);
     widths.push(header.last().unwrap().len() as u16);
     header[app.psortby as usize].pop();
-    let sort_ind = match app.psortorder{
+    let sort_ind = match app.psortorder {
         ProcessTableSortOrder::Ascending => '↑',
-        ProcessTableSortOrder::Descending => '↓'
+        ProcessTableSortOrder::Descending => '↓',
     };
-    header[app.psortby as usize].insert(0,sort_ind); //sort column indicator
+    header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
     let rows = rows.iter().enumerate().filter_map(|(i, r)| {
-        if i >= process_table_start && i < end{
-            if app.highlighted_row == i{
-                Some(Row::StyledData(r.into_iter(), Style::default().fg(Color::Magenta).modifier(Modifier::BOLD)))
-            }
-            else{
+        if i >= process_table_start && i < end {
+            if app.highlighted_row == i {
+                Some(Row::StyledData(
+                    r.into_iter(),
+                    Style::default().fg(Color::Magenta).modifier(Modifier::BOLD),
+                ))
+            } else {
                 Some(Row::Data(r.into_iter()))
             }
-        }
-        else{
+        } else {
             None
         }
     });
 
     Table::new(header.into_iter(), rows)
-        .block(Block::default().borders(Borders::ALL)
-               .title(format!("Tasks [{}] Threads [{}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]", app.processes.len(), app.threads_total).as_str()))
+        .block(
+            Block::default().borders(Borders::ALL).title(
+                format!(
+                    "Tasks [{}] Threads [{}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]",
+                    app.processes.len(),
+                    app.threads_total
+                )
+                .as_str(),
+            ),
+        )
         .widths(widths.as_slice())
         .column_spacing(0)
-        .header_style(Style::default().bg(Color::DarkGray)).render(f, area);
+        .header_style(Style::default().bg(Color::DarkGray))
+        .render(f, area);
 }
 
-fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, 
-f: &mut Frame<ZBackend>, zf: &u32){
+fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
     let title = cpu_title(&app);
-    let h = match app.histogram_map.get_zoomed("cpu_usage_histogram", *zf, area.width as usize){
+    let h = match app
+        .histogram_map
+        .get_zoomed("cpu_usage_histogram", *zf, area.width as usize)
+    {
         Some(h) => h.data,
-        None => return
+        None => return,
     };
     Sparkline::default()
-        .block(
-            Block::default().title(title.as_str()))
+        .block(Block::default().title(title.as_str()))
         .data(&h)
         .style(Style::default().fg(Color::Blue))
         .max(100)
         .render(f, area);
 }
 
-fn render_memory_histogram(app: &CPUTimeApp, area: Rect, 
-    f: &mut Frame<ZBackend>, zf: &u32) {
-    let h = match app.histogram_map.get_zoomed("mem_utilization", *zf, area.width as usize){
+fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
+    let h = match app
+        .histogram_map
+        .get_zoomed("mem_utilization", *zf, area.width as usize)
+    {
         Some(h) => h.data,
-        None => return
+        None => return,
     };
     let title2 = mem_title(&app);
     Sparkline::default()
-        .block(
-            Block::default().title(title2.as_str()))
+        .block(Block::default().title(title2.as_str()))
         .data(&h)
         .style(Style::default().fg(Color::Cyan))
         .max(100)
         .render(f, area);
 }
 
-fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, 
-    f: &mut Frame<ZBackend>){
-
+fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBackend>) {
     let mut cpus = app.cpus.to_owned();
     let mut bars: Vec<(&str, u64)> = vec![];
     let mut bar_gap: u16 = 1;
@@ -210,20 +261,19 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16,
     if np == 0 {
         np = 1;
     }
-    
+
     let mut constraints: Vec<Constraint> = vec![];
     let mut half: usize = np as usize;
-    if np > width - 2{
+    if np > width - 2 {
         constraints.push(Constraint::Percentage(50));
         constraints.push(Constraint::Percentage(50));
         half = np as usize / 2;
-    }
-    else{
+    } else {
         constraints.push(Constraint::Percentage(100));
     }
     //compute bar width and gutter/gap
 
-    if width > 2 && (half * 2) >= (width - 2) as usize{
+    if width > 2 && (half * 2) >= (width - 2) as usize {
         bar_gap = 0;
     }
     let width = width - 2;
@@ -233,110 +283,145 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16,
     }
     let cpu_bw = cpu_bw as u16;
     for (i, (p, u)) in cpus.iter_mut().enumerate() {
-
-        if i > 8 && cpu_bw == 1{
+        if i > 8 && cpu_bw == 1 {
             p.remove(0);
         }
         bars.push((p.as_str(), u.clone()));
     }
 
-    Block::default().title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str())
-                    .borders(Borders::ALL)
-                    .render(f, area);
-    let cpu_bar_layout = Layout::default().margin(1)
-                                          .direction(Direction::Vertical)
-                                          .constraints(constraints.as_ref())
-                                          .split(area);
-    
-    if np > width{
+    Block::default()
+        .title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str())
+        .borders(Borders::ALL)
+        .render(f, area);
+    let cpu_bar_layout = Layout::default()
+        .margin(1)
+        .direction(Direction::Vertical)
+        .constraints(constraints.as_ref())
+        .split(area);
+
+    if np > width {
         BarChart::default()
-        .data(&bars[0..half])
-        .bar_width(cpu_bw)
-        .bar_gap(bar_gap)
-        .max(100)
-        .style(Style::default().fg(Color::Green))
-        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
-        .render(f, cpu_bar_layout[0]);
+            .data(&bars[0..half])
+            .bar_width(cpu_bw)
+            .bar_gap(bar_gap)
+            .max(100)
+            .style(Style::default().fg(Color::Green))
+            .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+            .render(f, cpu_bar_layout[0]);
         BarChart::default()
-        .data(&bars[half..])
-        .bar_width(cpu_bw)
-        .bar_gap(bar_gap)
-        .max(100)
-        .style(Style::default().fg(Color::Green))
-        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
-        .render(f, cpu_bar_layout[1]);
+            .data(&bars[half..])
+            .bar_width(cpu_bw)
+            .bar_gap(bar_gap)
+            .max(100)
+            .style(Style::default().fg(Color::Green))
+            .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+            .render(f, cpu_bar_layout[1]);
+    } else {
+        BarChart::default()
+            .data(bars.as_slice())
+            .bar_width(cpu_bw)
+            .bar_gap(bar_gap)
+            .max(100)
+            .style(Style::default().fg(Color::Green))
+            .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+            .render(f, cpu_bar_layout[0]);
     }
-    else{
-        BarChart::default()
-        .data(bars.as_slice())
-        .bar_width(cpu_bw)
-        .bar_gap(bar_gap)
-        .max(100)
-        .style(Style::default().fg(Color::Green))
-        .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
-        .render(f, cpu_bar_layout[0]);
-    }
-    
 }
 
-
-fn render_net(app: &CPUTimeApp, area: Vec<Rect>,
-              f: &mut Frame<ZBackend>,
-              zf: &u32){
+fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u32) {
     let net = Layout::default()
-                .margin(1)
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                .split(area[1]);
-    
-    let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_out = match app.histogram_map.get_zoomed("net_out", *zf, net[0].width as usize){
+        .margin(1)
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(area[1]);
+
+    let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
+    let h_out = match app
+        .histogram_map
+        .get_zoomed("net_out", *zf, net[0].width as usize)
+    {
         Some(h) => h.data,
-        None => return
+        None => return,
     };
 
-    let up_max: u64 = match h_out.iter().max(){
+    let up_max: u64 = match h_out.iter().max() {
         Some(x) => x.clone(),
-        None => 1
+        None => 1,
     };
-    let up_max_bytes =  Byte::from_unit(up_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let up_max_bytes = Byte::from_unit(up_max as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
 
     Sparkline::default()
-        .block(Block::default().title(format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(),
-         up_max_bytes.to_string()).as_str()))
+        .block(
+            Block::default().title(
+                format!(
+                    "↑ [{:^10}] Max [{:^10}]",
+                    net_up.to_string(),
+                    up_max_bytes.to_string()
+                )
+                .as_str(),
+            ),
+        )
         .data(&h_out)
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
         .render(f, net[0]);
 
-  
-    let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_in = match app.histogram_map.get_zoomed("net_in", *zf, net[1].width as usize){
+    let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
+    let h_in = match app
+        .histogram_map
+        .get_zoomed("net_in", *zf, net[1].width as usize)
+    {
         Some(h) => h.data,
-        None => return
+        None => return,
     };
 
-    let down_max: u64 = match h_in.iter().max(){
+    let down_max: u64 = match h_in.iter().max() {
         Some(x) => x.clone(),
-        None => 1
+        None => 1,
     };
-    let down_max_bytes =  Byte::from_unit(down_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let down_max_bytes = Byte::from_unit(down_max as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
     Sparkline::default()
-        .block(Block::default().title(format!("↓ [{:^10}] Max [{:^10}]", net_down.to_string(), down_max_bytes.to_string()).as_str()))
+        .block(
+            Block::default().title(
+                format!(
+                    "↓ [{:^10}] Max [{:^10}]",
+                    net_down.to_string(),
+                    down_max_bytes.to_string()
+                )
+                .as_str(),
+            ),
+        )
         .data(&h_in)
         .style(Style::default().fg(Color::LightMagenta))
         .max(down_max)
         .render(f, net[1]);
 
-    let ips = app.network_interfaces.iter()
-    .map(|n| Text::Styled(Cow::Owned(format!("{:<8.8} : {}", n.name, n.ip)), Style::default().fg(Color::Green) ));
-    List::new(ips).block(Block::default().title("Network").borders(Borders::ALL)).render(f, area[0]);
+    let ips = app.network_interfaces.iter().map(|n| {
+        Text::Styled(
+            Cow::Owned(format!("{:<8.8} : {}", n.name, n.ip)),
+            Style::default().fg(Color::Green),
+        )
+    });
+    List::new(ips)
+        .block(Block::default().title("Network").borders(Borders::ALL))
+        .render(f, area[0]);
 }
 
 fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16) {
     match &app.selected_process {
         Some(p) => {
-            Block::default().title(format!("Process: {0}", p.name).as_str()).borders(Borders::ALL).render(f, layout);
+            Block::default()
+                .title(format!("Process: {0}", p.name).as_str())
+                .borders(Borders::ALL)
+                .render(f, layout);
             let v_sections = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(1)
@@ -345,7 +430,14 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
             let h_sections = Layout::default()
                 .direction(Direction::Horizontal)
                 .margin(0)
-                .constraints([Constraint::Percentage(50), Constraint::Length(1), Constraint::Percentage(50)].as_ref())
+                .constraints(
+                    [
+                        Constraint::Percentage(50),
+                        Constraint::Length(1),
+                        Constraint::Percentage(50),
+                    ]
+                    .as_ref(),
+                )
                 .split(v_sections[1]);
 
             Block::default()
@@ -355,18 +447,26 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
             //Block::default().borders(Borders::LEFT).render(f, h_sections[1]);
 
             let alive = if p.end_time.is_some() {
-                format!("dead since {:}", DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.end_time.unwrap())))
+                format!(
+                    "dead since {:}",
+                    DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.end_time.unwrap()))
+                )
             } else {
                 format!("alive")
             };
-            let start_time = DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
+            let start_time =
+                DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
             let et = match p.end_time {
                 Some(t) => DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(t)),
-                None => Local::now()
+                None => Local::now(),
             };
             let d = et - start_time;
-            let d = format!("{:0>2}:{:0>2}:{:0>2}", d.num_hours(), d.num_minutes() % 60, d.num_seconds() % 60);
-
+            let d = format!(
+                "{:0>2}:{:0>2}:{:0>2}",
+                d.num_hours(),
+                d.num_minutes() % 60,
+                d.num_seconds() % 60
+            );
 
             let rhs_style = Style::default().fg(Color::Green);
             let text = vec![
@@ -401,103 +501,182 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
                 Text::styled(format!("{:>7}", p.priority), rhs_style),
                 Text::raw("\n"),
                 Text::raw("MEM Usage:             "),
-                Text::styled(format!("{:>7.2} %", (p.memory as f64 / app.mem_total as f64) * 100.0), rhs_style),
+                Text::styled(
+                    format!(
+                        "{:>7.2} %",
+                        (p.memory as f64 / app.mem_total as f64) * 100.0
+                    ),
+                    rhs_style,
+                ),
                 Text::raw("\n"),
                 Text::raw("Total Memory:          "),
-                Text::styled(format!("{:>10}", Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                    .unwrap().get_appropriate_unit(false).to_string()), rhs_style),
+                Text::styled(
+                    format!(
+                        "{:>10}",
+                        Byte::from_unit(p.memory as f64, ByteUnit::KB)
+                            .unwrap()
+                            .get_appropriate_unit(false)
+                            .to_string()
+                    ),
+                    rhs_style,
+                ),
                 Text::raw("\n"),
                 Text::raw("Disk Read:             "),
-                Text::styled(format!("{:>10} {:}/s",
-                                     Byte::from_unit(p.read_bytes as f64, ByteUnit::B).unwrap().get_appropriate_unit(false).to_string(),
-                                     Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string()
-                ), rhs_style),
+                Text::styled(
+                    format!(
+                        "{:>10} {:}/s",
+                        Byte::from_unit(p.read_bytes as f64, ByteUnit::B)
+                            .unwrap()
+                            .get_appropriate_unit(false)
+                            .to_string(),
+                        Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B)
+                            .unwrap()
+                            .get_appropriate_unit(false)
+                            .to_string()
+                    ),
+                    rhs_style,
+                ),
                 Text::raw("\n"),
                 Text::raw("Disk Write:            "),
-                Text::styled(format!("{:>10} {:}/s",
-                                     Byte::from_unit(p.write_bytes as f64, ByteUnit::B).unwrap().get_appropriate_unit(false).to_string(),
-                                     Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B).unwrap().get_appropriate_unit(false).to_string()
-                ), rhs_style),
-                Text::raw("\n")
+                Text::styled(
+                    format!(
+                        "{:>10} {:}/s",
+                        Byte::from_unit(p.write_bytes as f64, ByteUnit::B)
+                            .unwrap()
+                            .get_appropriate_unit(false)
+                            .to_string(),
+                        Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B)
+                            .unwrap()
+                            .get_appropriate_unit(false)
+                            .to_string()
+                    ),
+                    rhs_style,
+                ),
+                Text::raw("\n"),
             ];
 
-            if text.len() > h_sections[0].height as usize * 3{
-                Paragraph::new(text[0..h_sections[0].height as usize * 3].iter()).block(Block::default()).wrap(false).render(f, h_sections[0]);
+            if text.len() > h_sections[0].height as usize * 3 {
+                Paragraph::new(text[0..h_sections[0].height as usize * 3].iter())
+                    .block(Block::default())
+                    .wrap(false)
+                    .render(f, h_sections[0]);
 
-                Paragraph::new(text[h_sections[0].height as usize * 3..].iter()).block(Block::default()).wrap(false).render(f, h_sections[2]);
+                Paragraph::new(text[h_sections[0].height as usize * 3..].iter())
+                    .block(Block::default())
+                    .wrap(false)
+                    .render(f, h_sections[2]);
+            } else {
+                Paragraph::new(text.iter())
+                    .block(Block::default())
+                    .wrap(false)
+                    .render(f, h_sections[0]);
             }
-            else{
-                Paragraph::new(text.iter()).block(Block::default()).wrap(false).render(f, h_sections[0]);
-            }
-
-
-        },
-        None => return
+        }
+        None => return,
     };
 }
 
-fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>,
-              f: &mut Frame<ZBackend>,
-              zf: &u32){
-    let area = Layout::default().margin(1).direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()).split(disk_layout[1]);
-    
+fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u32) {
+    let area = Layout::default()
+        .margin(1)
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(disk_layout[1]);
 
-    let read_up = Byte::from_unit(app.disk_read as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_read = match app.histogram_map.get_zoomed("disk_read", *zf, area[0].width as usize){
+    let read_up = Byte::from_unit(app.disk_read as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
+    let h_read = match app
+        .histogram_map
+        .get_zoomed("disk_read", *zf, area[0].width as usize)
+    {
         Some(h) => h.data,
-        None => return
+        None => return,
     };
 
-    let read_max: u64 = match h_read.iter().max(){
+    let read_max: u64 = match h_read.iter().max() {
         Some(x) => x.clone(),
-        None => 1
+        None => 1,
     };
-    let read_max_bytes =  Byte::from_unit(read_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let read_max_bytes = Byte::from_unit(read_max as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
     Sparkline::default()
-        .block(Block::default().title(format!("R [{:^10}] Max [{:^10}]", read_up.to_string(), read_max_bytes.to_string()).as_str()))
+        .block(
+            Block::default().title(
+                format!(
+                    "R [{:^10}] Max [{:^10}]",
+                    read_up.to_string(),
+                    read_max_bytes.to_string()
+                )
+                .as_str(),
+            ),
+        )
         .data(&h_read)
         .style(Style::default().fg(Color::LightYellow))
         .max(read_max)
         .render(f, area[0]);
 
-
-    
-    let write_down = Byte::from_unit(app.disk_write as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
-    let h_write = match app.histogram_map.get_zoomed("disk_write", *zf, area[1].width as usize){
+    let write_down = Byte::from_unit(app.disk_write as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
+    let h_write = match app
+        .histogram_map
+        .get_zoomed("disk_write", *zf, area[1].width as usize)
+    {
         Some(h) => h.data,
-        None => return
+        None => return,
     };
 
-    let write_max: u64 = match h_write.iter().max(){
+    let write_max: u64 = match h_write.iter().max() {
         Some(x) => x.clone(),
-        None => 1
+        None => 1,
     };
-    let write_max_bytes =  Byte::from_unit(write_max as f64, ByteUnit::B).unwrap().get_appropriate_unit(false);
+    let write_max_bytes = Byte::from_unit(write_max as f64, ByteUnit::B)
+        .unwrap()
+        .get_appropriate_unit(false);
     Sparkline::default()
-        .block(Block::default().title(format!("W [{:^10}] Max [{:^10}]", write_down.to_string(), write_max_bytes.to_string()).as_str()))
+        .block(
+            Block::default().title(
+                format!(
+                    "W [{:^10}] Max [{:^10}]",
+                    write_down.to_string(),
+                    write_max_bytes.to_string()
+                )
+                .as_str(),
+            ),
+        )
         .data(&h_write)
         .style(Style::default().fg(Color::LightMagenta))
         .max(write_max)
         .render(f, area[1]);
     let disks = app.disks.iter().map(|d| {
-        if d.get_perc_free_space() < 10.0{
-                Text::Styled(
-            Cow::Owned(format!("{:.2}%(!): {}", d.get_perc_free_space(),d.get_mount_point().display())),
-            Style::default().fg(Color::Red).modifier(Modifier::BOLD))
+        if d.get_perc_free_space() < 10.0 {
+            Text::Styled(
+                Cow::Owned(format!(
+                    "{:.2}%(!): {}",
+                    d.get_perc_free_space(),
+                    d.get_mount_point().display()
+                )),
+                Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+            )
+        } else {
+            Text::Styled(
+                Cow::Owned(format!(
+                    "{:.2}%: {}",
+                    d.get_perc_free_space(),
+                    d.get_mount_point().display()
+                )),
+                Style::default().fg(Color::Green),
+            )
         }
-        else{
-        Text::Styled(
-            Cow::Owned(format!("{:.2}%: {}", d.get_perc_free_space(), d.get_mount_point().display())),
-            Style::default().fg(Color::Green))
-        }
-
     });
-    List::new(disks).block(Block::default().title("Disks").borders(Borders::ALL)).render(f, disk_layout[0]);
+    List::new(disks)
+        .block(Block::default().title("Disks").borders(Borders::ALL))
+        .render(f, disk_layout[0]);
 }
 
-
-pub struct TerminalRenderer{
+pub struct TerminalRenderer {
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
     app: CPUTimeApp,
     events: Events,
@@ -506,12 +685,20 @@ pub struct TerminalRenderer{
     net_height: u16,
     disk_height: u16,
     process_height: u16,
-    zoom_factor: u32
+    zoom_factor: u32,
 }
 
 impl<'a> TerminalRenderer {
-    pub fn new(tick_rate: u64, cpu_height: u16, net_height: u16, disk_height: u16, process_height: u16) -> TerminalRenderer {
-        let stdout = io::stdout().into_raw_mode().expect("Could not bind to STDOUT in raw mode.");
+    pub fn new(
+        tick_rate: u64,
+        cpu_height: u16,
+        net_height: u16,
+        disk_height: u16,
+        process_height: u16,
+    ) -> TerminalRenderer {
+        let stdout = io::stdout()
+            .into_raw_mode()
+            .expect("Could not bind to STDOUT in raw mode.");
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
         let backend = TermionBackend::new(stdout);
@@ -524,7 +711,7 @@ impl<'a> TerminalRenderer {
             net_height,
             disk_height,
             process_height,
-            zoom_factor: 1
+            zoom_factor: 1,
         }
     }
 
@@ -542,172 +729,191 @@ impl<'a> TerminalRenderer {
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
             let zf = &self.zoom_factor;
-            self.terminal.draw( |mut f| {
-                width = f.size().width;
-                let hist_duration = app.histogram_map.hist_duration(width as usize, *zf);
-                // primary layout division.
-                let mut constraints = vec![
-                    Constraint::Length(1),
-                    Constraint::Length(*cpu_height),
-                    Constraint::Length(*net_height),
-                    Constraint::Length(*disk_height)];
-                if *process_height > 0{
-                    constraints.push(Constraint::Min(*process_height));
-                }
-                
-                let v_sections = Layout::default()
-                    .direction(Direction::Vertical)
-                    .margin(0)
-                    .constraints(constraints.as_ref())
-                    .split(f.size());
-                let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
-                let line = vec![
-                    Text::styled(format!(" {:}", hostname), default_style.modifier(Modifier::BOLD)),
-                    Text::styled(format!(" [{:} {:}]", os, release), default_style),
-                    Text::styled("[Showing Last: ", default_style),
-                    Text::styled(format!("{:} mins", hist_duration.num_minutes()), default_style.fg(Color::Green)),
-                    Text::styled("]", default_style),
-                    Text::styled(" (q)uit", default_style),
-                    Text::styled(format!("{: >width$}", "", width=width as usize), default_style),
-                ];
-                Paragraph::new(line.iter()).render(&mut f, v_sections[0]);
-                Block::default()
-                      .title("")
-                      .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
-                      .borders(Borders::ALL).render(&mut f, v_sections[1]);
-                let cpu_layout = Layout::default().margin(0).direction(Direction::Horizontal)
-                                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-                                        .split(v_sections[1]);
-
-                let cpu_mem = Layout::default().margin(1).direction(Direction::Vertical)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                    .split(cpu_layout[1]);
-
-                Block::default().title("Network").borders(Borders::ALL)
-                .render(&mut f, v_sections[2]);
-                let network_layout = Layout::default().margin(0).direction(Direction::Horizontal)
-                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[2]);
-                
-                Block::default().title("Disk").borders(Borders::ALL).render(&mut f, v_sections[3]);
-                let disk_layout = Layout::default().margin(0).direction(Direction::Horizontal)
-                .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref()).split(v_sections[3]);
-
-                render_cpu_histogram(&app, cpu_mem[0], &mut f, zf);
-
-                render_memory_histogram(&app, cpu_mem[1], &mut f, zf);
-
-                if *process_height > 0 && app.selected_process.is_none(){
-                    render_process_table(&app, width, v_sections[4], *pst,&mut f);
-                    if v_sections[4].height > 4{ // account for table border & margins.
-                        process_table_height = v_sections[4].height - 5;
+            self.terminal
+                .draw(|mut f| {
+                    width = f.size().width;
+                    let hist_duration = app.histogram_map.hist_duration(width as usize, *zf);
+                    // primary layout division.
+                    let mut constraints = vec![
+                        Constraint::Length(1),
+                        Constraint::Length(*cpu_height),
+                        Constraint::Length(*net_height),
+                        Constraint::Length(*disk_height),
+                    ];
+                    if *process_height > 0 {
+                        constraints.push(Constraint::Min(*process_height));
                     }
-                }
-                else if app.selected_process.is_some(){
-                    render_process(&app, v_sections[4], &mut f, width);
-                }
 
-                render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
+                    let v_sections = Layout::default()
+                        .direction(Direction::Vertical)
+                        .margin(0)
+                        .constraints(constraints.as_ref())
+                        .split(f.size());
+                    let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
+                    let line = vec![
+                        Text::styled(
+                            format!(" {:}", hostname),
+                            default_style.modifier(Modifier::BOLD),
+                        ),
+                        Text::styled(format!(" [{:} {:}]", os, release), default_style),
+                        Text::styled("[Showing Last: ", default_style),
+                        Text::styled(
+                            format!("{:} mins", hist_duration.num_minutes()),
+                            default_style.fg(Color::Green),
+                        ),
+                        Text::styled("]", default_style),
+                        Text::styled(" (q)uit", default_style),
+                        Text::styled(
+                            format!("{: >width$}", "", width = width as usize),
+                            default_style,
+                        ),
+                    ];
+                    Paragraph::new(line.iter()).render(&mut f, v_sections[0]);
+                    Block::default()
+                        .title("")
+                        .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
+                        .borders(Borders::ALL)
+                        .render(&mut f, v_sections[1]);
+                    let cpu_layout = Layout::default()
+                        .margin(0)
+                        .direction(Direction::Horizontal)
+                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+                        .split(v_sections[1]);
 
-                render_net(&app, network_layout, &mut f, zf);
-                render_disk(&app, disk_layout, &mut f, zf);
+                    let cpu_mem = Layout::default()
+                        .margin(1)
+                        .direction(Direction::Vertical)
+                        .constraints(
+                            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
+                        )
+                        .split(cpu_layout[1]);
 
-            }).expect("Could not draw frame.");
+                    Block::default()
+                        .title("Network")
+                        .borders(Borders::ALL)
+                        .render(&mut f, v_sections[2]);
+                    let network_layout = Layout::default()
+                        .margin(0)
+                        .direction(Direction::Horizontal)
+                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+                        .split(v_sections[2]);
+
+                    Block::default()
+                        .title("Disk")
+                        .borders(Borders::ALL)
+                        .render(&mut f, v_sections[3]);
+                    let disk_layout = Layout::default()
+                        .margin(0)
+                        .direction(Direction::Horizontal)
+                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+                        .split(v_sections[3]);
+
+                    render_cpu_histogram(&app, cpu_mem[0], &mut f, zf);
+
+                    render_memory_histogram(&app, cpu_mem[1], &mut f, zf);
+
+                    if *process_height > 0 && app.selected_process.is_none() {
+                        render_process_table(&app, width, v_sections[4], *pst, &mut f);
+                        if v_sections[4].height > 4 {
+                            // account for table border & margins.
+                            process_table_height = v_sections[4].height - 5;
+                        }
+                    } else if app.selected_process.is_some() {
+                        render_process(&app, v_sections[4], &mut f, width);
+                    }
+
+                    render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
+
+                    render_net(&app, network_layout, &mut f, zf);
+                    render_disk(&app, disk_layout, &mut f, zf);
+                })
+                .expect("Could not draw frame.");
 
             match self.events.next().expect("No new event.") {
                 Event::Input(input) => {
                     if input == Key::Char('q') {
                         break;
-                    }
-                    else if input == Key::Up{
-                        if self.app.selected_process.is_some(){
-
-                        }
-                        else {
+                    } else if input == Key::Up {
+                        if self.app.selected_process.is_some() {
+                        } else {
                             self.app.highlight_up();
-                            if self.process_table_row_start > 0 && self.app.highlighted_row < self.process_table_row_start {
+                            if self.process_table_row_start > 0
+                                && self.app.highlighted_row < self.process_table_row_start
+                            {
                                 self.process_table_row_start -= 1;
                             }
                         }
-                    }
-                    else if input == Key::Down{
-                        if self.app.selected_process.is_some(){
-
-                        }
-                        else {
+                    } else if input == Key::Down {
+                        if self.app.selected_process.is_some() {
+                        } else {
                             self.app.highlight_down();
-                            if self.process_table_row_start < self.app.process_map.len() &&
-                                self.app.highlighted_row > (self.process_table_row_start + process_table_height as usize) {
+                            if self.process_table_row_start < self.app.process_map.len()
+                                && self.app.highlighted_row
+                                    > (self.process_table_row_start + process_table_height as usize)
+                            {
                                 self.process_table_row_start += 1;
                             }
                         }
-                    }
-                    else if input == Key::Char('.') || input == Key::Char('>'){
-                        if self.app.psortby == ProcessTableSortBy::Cmd{
+                    } else if input == Key::Char('.') || input == Key::Char('>') {
+                        if self.app.psortby == ProcessTableSortBy::Cmd {
                             self.app.psortby = ProcessTableSortBy::Pid;
-                        }
-                        else{
-                            self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 + 1).unwrap();
+                        } else {
+                            self.app.psortby =
+                                num::FromPrimitive::from_u32(self.app.psortby as u32 + 1).unwrap();
                         }
                         self.app.sort_process_table();
-                    }
-                    else if input == Key::Char(',')  || input == Key::Char('<'){
-                        if self.app.psortby == ProcessTableSortBy::Pid{
+                    } else if input == Key::Char(',') || input == Key::Char('<') {
+                        if self.app.psortby == ProcessTableSortBy::Pid {
                             self.app.psortby = ProcessTableSortBy::Cmd;
-                        }
-                        else{
-                            self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).unwrap();
-                        }
-                        self.app.sort_process_table();
-                    }
-                    else if input == Key::Char('/'){
-                        match self.app.psortorder{
-                            ProcessTableSortOrder::Ascending => self.app.psortorder = ProcessTableSortOrder::Descending,
-                            ProcessTableSortOrder::Descending => self.app.psortorder = ProcessTableSortOrder::Ascending
+                        } else {
+                            self.app.psortby =
+                                num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).unwrap();
                         }
                         self.app.sort_process_table();
-                    }
-                    else if input == Key::Char('+') || input == Key::Char('='){
-                        if self.zoom_factor > 1{
+                    } else if input == Key::Char('/') {
+                        match self.app.psortorder {
+                            ProcessTableSortOrder::Ascending => {
+                                self.app.psortorder = ProcessTableSortOrder::Descending
+                            }
+                            ProcessTableSortOrder::Descending => {
+                                self.app.psortorder = ProcessTableSortOrder::Ascending
+                            }
+                        }
+                        self.app.sort_process_table();
+                    } else if input == Key::Char('+') || input == Key::Char('=') {
+                        if self.zoom_factor > 1 {
                             self.zoom_factor -= 1;
                         }
-                    }
-                    else if input == Key::Char('-'){
-                        if self.zoom_factor < 10{
+                    } else if input == Key::Char('-') {
+                        if self.zoom_factor < 10 {
                             self.zoom_factor += 1;
                         }
-                    }
-                    else if input == Key::Char('\n'){
+                    } else if input == Key::Char('\n') {
                         self.app.select_process();
-                    }
-                    else if input == Key::Esc || input == Key::Char('b'){
+                    } else if input == Key::Esc || input == Key::Char('b') {
                         self.app.selected_process = None;
-                    }
-                    else if input == Key::Char('s'){
-                        match &self.app.selected_process{
+                    } else if input == Key::Char('s') {
+                        match &self.app.selected_process {
                             Some(p) => p.suspend().await,
                             None => (),
                         }
-                    }
-                    else if input == Key::Char('r'){
-                        match &self.app.selected_process{
+                    } else if input == Key::Char('r') {
+                        match &self.app.selected_process {
                             Some(p) => p.resume().await,
                             None => (),
                         }
-                    }
-                    else if input == Key::Char('k'){
-                        match &self.app.selected_process{
+                    } else if input == Key::Char('k') {
+                        match &self.app.selected_process {
                             Some(p) => p.kill().await,
                             None => (),
                         }
-                    }
-                    else if input == Key::Char('t'){
-                        match &self.app.selected_process{
+                    } else if input == Key::Char('t') {
+                        match &self.app.selected_process {
                             Some(p) => p.terminate().await,
                             None => (),
                         }
                     }
-                    
-                },
+                }
                 Event::Tick => {
                     self.app.update(width).await;
                 }
