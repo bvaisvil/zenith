@@ -30,6 +30,15 @@ use tui::Terminal;
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
 //type ZFrame = Frame<'_, TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
 
+macro_rules! float_to_byte_string{
+    ($x:expr, $unit:expr) =>{
+        match Byte::from_unit($x, $unit){
+            Ok(b) => b.get_appropriate_unit(false).to_string().replace(" ", ""),
+            Err(_) => String::from("")
+        }
+    };
+}
+
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
     if app.mem_utilization > 0 && app.mem_total > 0 {
@@ -39,19 +48,12 @@ fn mem_title(app: &CPUTimeApp) -> String {
     if app.swap_utilization > 0 && app.swap_total > 0 {
         swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
     }
+
     format!(
         "MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
-        Byte::from_unit(app.mem_total as f64, ByteUnit::KB)
-            .unwrap()
-            .get_appropriate_unit(false)
-            .to_string()
-            .replace(" ", ""),
+        float_to_byte_string!(app.mem_total as f64, ByteUnit::KB),
         mem,
-        Byte::from_unit(app.swap_total as f64, ByteUnit::KB)
-            .unwrap()
-            .get_appropriate_unit(false)
-            .to_string()
-            .replace(" ", ""),
+        float_to_byte_string!(app.swap_total as f64, ByteUnit::KB),
         swp
     )
 }
@@ -76,12 +78,12 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         Some(h) => &h.data,
         None => return String::from(""),
     };
-    let mean: f32 = match h.len() {
+    let mean: f64 = match h.len() {
         0 => 0.0,
-        _ => h.iter().sum::<u64>() as f32 / h.len() as f32,
+        _ => h.iter().sum::<u64>() as f64 / h.len() as f64,
     };
     format!(
-        "CPU [{: >3}%] MEAN [{: >3.1}%] TOP [{} - {} - {}]",
+        "CPU [{: >3}%] MEAN [{: >3.2}%] TOP [{} - {} - {}]",
         app.cpu_utilization, mean, top_pid, top_process_name, top_process_amt
     )
 }
@@ -104,52 +106,19 @@ fn render_process_table<'a>(
         .processes
         .iter()
         .map(|pid| {
-            let p = app.process_map.get(pid).unwrap();
+            let p = app.process_map.get(pid).expect("Pid present in processes but not in map.");
             vec![
                 format!("{: >5}", p.pid),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
                 format!("{:>5.1}", p.cpu_usage),
                 format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
-                format!(
-                    "{:>8}",
-                    Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                        .unwrap()
-                        .get_appropriate_unit(false)
-                        .to_string()
-                        .replace(" ", "")
-                        .replace("B", "")
-                ),
-                format!(
-                    "{: >8}",
-                    Byte::from_unit(p.virtual_memory as f64, ByteUnit::KB)
-                        .unwrap()
-                        .get_appropriate_unit(false)
-                        .to_string()
-                        .replace(" ", "")
-                        .replace("B", "")
-                ),
+                format!("{:>8}", float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")),
+                format!("{: >8}", float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace("B", "")),
                 format!("{:1}", p.status.to_single_char()),
-                format!(
-                    "{:>8}",
-                    Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B)
-                        .unwrap()
-                        .get_appropriate_unit(false)
-                        .to_string()
-                        .replace(" ", "")
-                        .replace("B", "")
-                ),
-                format!(
-                    "{:>8}",
-                    Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B)
-                        .unwrap()
-                        .get_appropriate_unit(false)
-                        .to_string()
-                        .replace(" ", "")
-                        .replace("B", "")
-                ),
-                format!("{} - ", p.name)
-                    + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" "),
+                format!("{:>8}", float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B).replace("B", "")),
+                format!("{:>8}", float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B).replace("B", "")),
+                format!("{} - ", p.name) + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" "),
             ]
         })
         .collect();
@@ -335,9 +304,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(area[1]);
 
-    let net_up = Byte::from_unit(app.net_out as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let net_up = float_to_byte_string!(app.net_out as f64, ByteUnit::B);
     let h_out = match app
         .histogram_map
         .get_zoomed("net_out", *zf, net[0].width as usize)
@@ -350,9 +317,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u
         Some(x) => x.clone(),
         None => 1,
     };
-    let up_max_bytes = Byte::from_unit(up_max as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let up_max_bytes = float_to_byte_string!(up_max as f64, ByteUnit::B);
 
     Sparkline::default()
         .block(
@@ -360,7 +325,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u
                 format!(
                     "↑ [{:^10}] Max [{:^10}]",
                     net_up.to_string(),
-                    up_max_bytes.to_string()
+                    up_max_bytes
                 )
                 .as_str(),
             ),
@@ -370,9 +335,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u
         .max(up_max)
         .render(f, net[0]);
 
-    let net_down = Byte::from_unit(app.net_in as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let net_down = float_to_byte_string!(app.net_in as f64, ByteUnit::B);
     let h_in = match app
         .histogram_map
         .get_zoomed("net_in", *zf, net[1].width as usize)
@@ -385,16 +348,14 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u
         Some(x) => x.clone(),
         None => 1,
     };
-    let down_max_bytes = Byte::from_unit(down_max as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let down_max_bytes = float_to_byte_string!(down_max as f64, ByteUnit::B);
     Sparkline::default()
         .block(
             Block::default().title(
                 format!(
                     "↓ [{:^10}] Max [{:^10}]",
-                    net_down.to_string(),
-                    down_max_bytes.to_string()
+                    net_down,
+                    down_max_bytes
                 )
                 .as_str(),
             ),
@@ -513,10 +474,7 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
                 Text::styled(
                     format!(
                         "{:>10}",
-                        Byte::from_unit(p.memory as f64, ByteUnit::KB)
-                            .unwrap()
-                            .get_appropriate_unit(false)
-                            .to_string()
+                        float_to_byte_string!(p.memory as f64, ByteUnit::KB)
                     ),
                     rhs_style,
                 ),
@@ -525,14 +483,8 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
                 Text::styled(
                     format!(
                         "{:>10} {:}/s",
-                        Byte::from_unit(p.read_bytes as f64, ByteUnit::B)
-                            .unwrap()
-                            .get_appropriate_unit(false)
-                            .to_string(),
-                        Byte::from_unit(p.get_read_bytes_sec(), ByteUnit::B)
-                            .unwrap()
-                            .get_appropriate_unit(false)
-                            .to_string()
+                        float_to_byte_string!(p.read_bytes as f64, ByteUnit::B),
+                        float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B)
                     ),
                     rhs_style,
                 ),
@@ -541,14 +493,8 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
                 Text::styled(
                     format!(
                         "{:>10} {:}/s",
-                        Byte::from_unit(p.write_bytes as f64, ByteUnit::B)
-                            .unwrap()
-                            .get_appropriate_unit(false)
-                            .to_string(),
-                        Byte::from_unit(p.get_write_bytes_sec(), ByteUnit::B)
-                            .unwrap()
-                            .get_appropriate_unit(false)
-                            .to_string()
+                        float_to_byte_string!(p.write_bytes as f64, ByteUnit::B),
+                        float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B)
                     ),
                     rhs_style,
                 ),
@@ -583,9 +529,7 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(disk_layout[1]);
 
-    let read_up = Byte::from_unit(app.disk_read as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
     let h_read = match app
         .histogram_map
         .get_zoomed("disk_read", *zf, area[0].width as usize)
@@ -598,16 +542,14 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>
         Some(x) => x.clone(),
         None => 1,
     };
-    let read_max_bytes = Byte::from_unit(read_max as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
     Sparkline::default()
         .block(
             Block::default().title(
                 format!(
                     "R [{:^10}] Max [{:^10}]",
-                    read_up.to_string(),
-                    read_max_bytes.to_string()
+                    read_up,
+                    read_max_bytes
                 )
                 .as_str(),
             ),
@@ -617,9 +559,7 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>
         .max(read_max)
         .render(f, area[0]);
 
-    let write_down = Byte::from_unit(app.disk_write as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
     let h_write = match app
         .histogram_map
         .get_zoomed("disk_write", *zf, area[1].width as usize)
@@ -632,16 +572,14 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>
         Some(x) => x.clone(),
         None => 1,
     };
-    let write_max_bytes = Byte::from_unit(write_max as f64, ByteUnit::B)
-        .unwrap()
-        .get_appropriate_unit(false);
+    let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
     Sparkline::default()
         .block(
             Block::default().title(
                 format!(
                     "W [{:^10}] Max [{:^10}]",
-                    write_down.to_string(),
-                    write_max_bytes.to_string()
+                    write_down,
+                    write_max_bytes
                 )
                 .as_str(),
             ),
@@ -703,7 +641,7 @@ impl<'a> TerminalRenderer {
         let stdout = AlternateScreen::from(stdout);
         let backend = TermionBackend::new(stdout);
         TerminalRenderer {
-            terminal: Terminal::new(backend).unwrap(),
+            terminal: Terminal::new(backend).expect("Couldn't create new terminal with backend"),
             app: CPUTimeApp::new(Duration::from_millis(tick_rate)),
             events: Events::new(tick_rate),
             process_table_row_start: 0,
