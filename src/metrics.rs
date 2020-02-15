@@ -10,6 +10,7 @@ use heim::net::Address;
 use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::cmp::Ordering::{Equal};
 
 use sysinfo::{
     ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt,
@@ -349,8 +350,7 @@ impl CPUTimeApp {
         self.threads_total = 0;
 
         for (pid, process) in process_list {
-            if self.process_map.contains_key(pid) {
-                let zp = self.process_map.get_mut(pid).unwrap();
+            if let Some(zp) = self.process_map.get_mut(pid) {
                 zp.memory = process.memory();
                 zp.cpu_usage = process.cpu_usage();
                 zp.cum_cpu_usage += zp.cpu_usage as f64;
@@ -409,12 +409,11 @@ impl CPUTimeApp {
         // remove pids that are gone
         self.process_map.retain(|&k, _| current_pids.contains(&k));
         // update selected process
-        if self.selected_process.is_some() {
-            let pid = &self.selected_process.as_ref().unwrap().pid;
+        if let Some(p) = self.selected_process.as_mut(){
+            let pid = &p.pid;
             if self.process_map.contains_key(pid) {
                 self.selected_process = Some(self.process_map[pid].clone());
             } else {
-                let p = self.selected_process.as_mut().unwrap();
                 if p.end_time.is_none() {
                     p.end_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
                         Ok(t) => Some(t.as_secs()),
@@ -433,8 +432,8 @@ impl CPUTimeApp {
         let sortfield = &self.psortby;
         let sortorder = &self.psortorder;
         self.processes.sort_by(|a, b| {
-            let mut pa = pm.get(a).unwrap();
-            let mut pb = pm.get(b).unwrap();
+            let mut pa = pm.get(a).expect("Error in sorting the process table.");
+            let mut pb = pm.get(b).expect("Error in sorting the process table.");
             match sortorder {
                 ProcessTableSortOrder::Ascending => {
                     //do nothing
@@ -444,29 +443,29 @@ impl CPUTimeApp {
                 }
             }
             match sortfield {
-                ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap(),
-                ProcessTableSortBy::Mem => pa.memory.partial_cmp(&pb.memory).unwrap(),
-                ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap(),
-                ProcessTableSortBy::User => pa.user_name.partial_cmp(&pb.user_name).unwrap(),
-                ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap(),
+                ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal),
+                ProcessTableSortBy::Mem => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
+                ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
+                ProcessTableSortBy::User => pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal),
+                ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
                 ProcessTableSortBy::Status => pa
                     .status
                     .to_single_char()
                     .partial_cmp(pb.status.to_single_char())
-                    .unwrap(),
-                ProcessTableSortBy::Priority => pa.priority.partial_cmp(&pb.priority).unwrap(),
+                    .unwrap_or(Equal),
+                ProcessTableSortBy::Priority => pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal),
                 ProcessTableSortBy::Virt => {
-                    pa.virtual_memory.partial_cmp(&pb.virtual_memory).unwrap()
+                    pa.virtual_memory.partial_cmp(&pb.virtual_memory).unwrap_or(Equal)
                 }
-                ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap(),
+                ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap_or(Equal),
                 ProcessTableSortBy::DiskRead => pa
                     .get_read_bytes_sec()
                     .partial_cmp(&pb.get_read_bytes_sec())
-                    .unwrap(),
+                    .unwrap_or(Equal),
                 ProcessTableSortBy::DiskWrite => pa
                     .get_write_bytes_sec()
                     .partial_cmp(&pb.get_write_bytes_sec())
-                    .unwrap(),
+                    .unwrap_or(Equal),
             }
         });
     }
