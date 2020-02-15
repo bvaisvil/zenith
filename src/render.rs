@@ -28,7 +28,6 @@ use tui::Frame;
 use tui::Terminal;
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
-//type ZFrame = Frame<'_, TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>;
 
 macro_rules! float_to_byte_string{
     ($x:expr, $unit:expr) =>{
@@ -797,7 +796,7 @@ impl<'a> TerminalRenderer {
                             self.app.psortby = ProcessTableSortBy::Pid;
                         } else {
                             self.app.psortby =
-                                num::FromPrimitive::from_u32(self.app.psortby as u32 + 1).unwrap();
+                                num::FromPrimitive::from_u32(self.app.psortby as u32 + 1).expect("invalid value to set psortby");
                         }
                         self.app.sort_process_table();
                     } else if input == Key::Char(',') || input == Key::Char('<') {
@@ -805,7 +804,7 @@ impl<'a> TerminalRenderer {
                             self.app.psortby = ProcessTableSortBy::Cmd;
                         } else {
                             self.app.psortby =
-                                num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).unwrap();
+                                num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).expect("invalid value to set psortby");
                         }
                         self.app.sort_process_table();
                     } else if input == Key::Char('/') {
