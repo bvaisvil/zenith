@@ -94,7 +94,7 @@ impl HistogramMap {
         let size = (self.duration.as_secs() / self.tick.as_secs()) as usize;
         let names = name.to_owned();
         self.map.insert(names, Histogram::new(size));
-        self.map.get_mut(name).unwrap()
+        self.map.get_mut(name).expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
     pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize) -> Option<Histogram> {
@@ -138,7 +138,7 @@ impl HistogramMap {
 
     fn add_value_to(&mut self, name: &str, val: u64) {
         let h: &mut Histogram = match self.has(name) {
-            true => self.get_mut(name).unwrap(),
+            true => self.get_mut(name).expect("Couldn't get mutable reference"),
             false => self.add(name),
         };
         h.data.push(val);
@@ -149,7 +149,7 @@ impl HistogramMap {
         chrono::Duration::from_std(Duration::from_secs_f64(
             self.tick.as_secs_f64() * width as f64 * zoom_factor as f64,
         ))
-        .unwrap()
+        .expect("Unexpectedly large duration was out of range.")
     }
 }
 
@@ -236,49 +236,63 @@ impl CPUTimeApp {
     }
 
     async fn get_platform(&mut self) {
-        let platform = host::platform().await.unwrap();
-        self.osname = platform.system().to_owned();
-        self.arch = platform.architecture().as_str().to_owned();
-        self.hostname = platform.hostname().to_owned();
-        self.version = platform.version().to_owned();
-        self.release = platform.release().to_owned();
+        match host::platform().await {
+            Ok(p) => {
+                self.osname = p.system().to_owned();
+                self.arch = p.architecture().as_str().to_owned();
+                self.hostname = p.hostname().to_owned();
+                self.version = p.version().to_owned();
+                self.release = p.release().to_owned();
+            },
+            Err(_) => {
+                self.osname = String::from("unknown");
+                self.arch = String::from("unknown");
+                self.hostname = String::from("unknown");
+                self.version = String::from("unknown");
+                self.release = String::from("unknown");
+            }
+        };
     }
 
     async fn get_nics(&mut self) {
         self.network_interfaces.clear();
         let mut nics = net::nic();
         while let Some(n) = nics.next().await {
-            let n = n.unwrap();
-            if !n.is_up() || n.is_loopback() {
-                continue;
-            }
-            if n.name().starts_with("utun")
-                || n.name().starts_with("awd")
-                || n.name().starts_with("ham")
-            {
-                continue;
-            }
-            let ip = match n.address() {
-                Address::Inet(n) => n.to_string(),
-                _ => format!(""),
-            }
-            .trim_end_matches(":0")
-            .to_string();
-            if ip.len() == 0 {
-                continue;
-            }
-            let dest = match n.destination() {
-                Some(d) => match d {
-                    Address::Inet(d) => d.to_string(),
-                    _ => format!(""),
+            match n {
+                Ok(n) => {
+                    if !n.is_up() || n.is_loopback() {
+                        continue;
+                    }
+                    if n.name().starts_with("utun")
+                        || n.name().starts_with("awd")
+                        || n.name().starts_with("ham")
+                    {
+                        continue;
+                    }
+                    let ip = match n.address() {
+                        Address::Inet(n) => n.to_string(),
+                        _ => format!(""),
+                    }
+                        .trim_end_matches(":0")
+                        .to_string();
+                    if ip.len() == 0 {
+                        continue;
+                    }
+                    let dest = match n.destination() {
+                        Some(d) => match d {
+                            Address::Inet(d) => d.to_string(),
+                            _ => format!(""),
+                        },
+                        None => format!(""),
+                    };
+                    self.network_interfaces.push(NetworkInterface {
+                        name: n.name().to_owned(),
+                        ip: ip,
+                        dest: dest,
+                    });
                 },
-                None => format!(""),
-            };
-            self.network_interfaces.push(NetworkInterface {
-                name: n.name().to_owned(),
-                ip: ip,
-                dest: dest,
-            })
+                Err(_) => println!("Couldn't get information on a nic")
+            }
         }
     }
 
@@ -317,13 +331,13 @@ impl CPUTimeApp {
     }
 
     pub fn select_process(&mut self) {
-        let p = match self.processes.get(self.highlighted_row) {
-            Some(p) => self.process_map.get(p),
-            None => None,
+        match self.processes.get(self.highlighted_row) {
+            Some(p) => match self.process_map.get(p){
+                Some(p) => self.selected_process = Some(p.clone()),
+                None => self.selected_process = None
+            }
+            None => self.selected_process = None
         };
-        if p.is_some() {
-            self.selected_process = Some(p.unwrap().clone());
-        }
     }
 
     fn update_process_list(&mut self) {
