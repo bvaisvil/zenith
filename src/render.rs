@@ -768,17 +768,20 @@ impl<'a> TerminalRenderer {
                     render_cpu(app, v_sections[1], &mut f, zf);
                     render_net(&app, v_sections[2], &mut f, zf);
                     render_disk(&app, v_sections[3], &mut f, zf);
-                    if let Some(area) = v_sections.last(){
-                        if *process_height > 0 && app.selected_process.is_none() {
-                            render_process_table(&app, width, *area, *pst, &mut f);
-                            if area.height > 4 {
-                                // account for table border & margins.
-                                process_table_height = area.height - 5;
+                    if *process_height > 0{
+                        if let Some(area) = v_sections.last(){
+                            if app.selected_process.is_none() {
+                                render_process_table(&app, width, *area, *pst, &mut f);
+                                if area.height > 4 {
+                                    // account for table border & margins.
+                                    process_table_height = area.height - 5;
+                                }
+                            } else if app.selected_process.is_some() {
+                                render_process(&app, *area, &mut f, width);
                             }
-                        } else if app.selected_process.is_some() {
-                            render_process(&app, *area, &mut f, width);
                         }
                     }
+                    
                     
                     //render_sensors(&app, sensor_layout, &mut f, zf);
                 }).expect("Could not draw frame.");
