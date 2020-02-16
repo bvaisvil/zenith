@@ -297,12 +297,21 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBack
     }
 }
 
-fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u32) {
+fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
+    Block::default()
+    .title("Network")
+    .borders(Borders::ALL)
+    .render(f, area);
+    let network_layout = Layout::default()
+        .margin(0)
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .split(area);
     let net = Layout::default()
         .margin(1)
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-        .split(area[1]);
+        .split(network_layout[1]);
 
     let net_up = float_to_byte_string!(app.net_out as f64, ByteUnit::B);
     let h_out = match app
@@ -373,7 +382,7 @@ fn render_net(app: &CPUTimeApp, area: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u
     });
     List::new(ips)
         .block(Block::default().title("Network").borders(Borders::ALL))
-        .render(f, area[0]);
+        .render(f, network_layout[0]);
 }
 
 fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16) {
@@ -531,7 +540,13 @@ fn render_sensors(app: &CPUTimeApp, layout: Vec<Rect>, f: &mut Frame<ZBackend>, 
         .render(f, layout[0]);
 }
 
-fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u32) {
+fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
+    Block::default().title("Disk").borders(Borders::ALL).render(f, layout);
+    let disk_layout = Layout::default()
+                        .margin(0)
+                        .direction(Direction::Horizontal)
+                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+                        .split(layout);
     let area = Layout::default()
         .margin(1)
         .direction(Direction::Vertical)
@@ -623,6 +638,54 @@ fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>
         .render(f, disk_layout[0]);
 }
 
+fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32){
+    let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
+    let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
+    let line = vec![
+        Text::styled(
+            format!(" {:}", app.hostname),
+            default_style.modifier(Modifier::BOLD),
+        ),
+        Text::styled(format!(" [{:} {:}]", app.osname, app.release), default_style),
+        Text::styled("[Showing Last: ", default_style),
+        Text::styled(
+            format!("{:} mins", hist_duration.num_minutes()),
+            default_style.fg(Color::Green),
+        ),
+        Text::styled("]", default_style),
+        Text::styled(" (q)uit", default_style),
+        Text::styled(
+            format!("{: >width$}", "", width = area.width as usize),
+            default_style,
+        ),
+    ];
+    Paragraph::new(line.iter()).render(f, area);
+}
+
+fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32){
+    Block::default()
+    .title("")
+    .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
+    .borders(Borders::ALL)
+    .render(f, area);
+    let cpu_layout = Layout::default()
+        .margin(0)
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .split(area);
+
+    let cpu_mem = Layout::default()
+        .margin(1)
+        .direction(Direction::Vertical)
+        .constraints(
+            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
+        )
+        .split(cpu_layout[1]);
+    render_cpu_histogram(&app, cpu_mem[0], f, zf);
+    render_memory_histogram(&app, cpu_mem[1], f, zf);
+    render_cpu_bars(&app, cpu_layout[0], 30, f);
+}
+
 pub struct TerminalRenderer {
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
     app: CPUTimeApp,
@@ -634,6 +697,8 @@ pub struct TerminalRenderer {
     process_height: u16,
     sensor_height: u16,
     zoom_factor: u32,
+    selected_section: usize,
+    constraints: Vec<Constraint>
 }
 
 impl<'a> TerminalRenderer {
@@ -651,6 +716,16 @@ impl<'a> TerminalRenderer {
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
         let backend = TermionBackend::new(stdout);
+        let mut constraints = vec![
+            Constraint::Length(1),
+            Constraint::Length(cpu_height),
+            Constraint::Length(net_height),
+            Constraint::Length(disk_height),
+            //Constraint::Length(*sensor_height),
+        ];
+        if process_height > 0 {
+            constraints.push(Constraint::Min(process_height));
+        }
         TerminalRenderer {
             terminal: Terminal::new(backend).expect("Couldn't create new terminal with backend"),
             app: CPUTimeApp::new(Duration::from_millis(tick_rate)),
@@ -662,118 +737,37 @@ impl<'a> TerminalRenderer {
             process_height,
             sensor_height,
             zoom_factor: 1,
+            selected_section: 1,
+            constraints
         }
     }
 
     pub async fn start(&mut self) {
+        
         loop {
             let app = &self.app;
-            let hostname = self.app.hostname.as_str();
-            let os = self.app.osname.as_str();
-            let release = self.app.release.as_str();
             let pst = &self.process_table_row_start;
-            let cpu_height = &self.cpu_height;
-            let net_height = &self.net_height;
-            let disk_height = &self.disk_height;
             let process_height = &self.process_height;
-            let sensor_height = &self.sensor_height;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
             let zf = &self.zoom_factor;
+            let constraints = &self.constraints;
+
             self.terminal
                 .draw(|mut f| {
                     width = f.size().width;
-                    let hist_duration = app.histogram_map.hist_duration(width as usize, *zf);
-                    // primary layout division.
-                    let mut constraints = vec![
-                        Constraint::Length(1),
-                        Constraint::Length(*cpu_height),
-                        Constraint::Length(*net_height),
-                        Constraint::Length(*disk_height),
-                        //Constraint::Length(*sensor_height),
-                    ];
-                    if *process_height > 0 {
-                        constraints.push(Constraint::Min(*process_height));
-                    }
-
+                    // create layouts
+                    // primary vertical
                     let v_sections = Layout::default()
                         .direction(Direction::Vertical)
                         .margin(0)
                         .constraints(constraints.as_ref())
                         .split(f.size());
-                    //title    
-                    let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
-                    let line = vec![
-                        Text::styled(
-                            format!(" {:}", hostname),
-                            default_style.modifier(Modifier::BOLD),
-                        ),
-                        Text::styled(format!(" [{:} {:}]", os, release), default_style),
-                        Text::styled("[Showing Last: ", default_style),
-                        Text::styled(
-                            format!("{:} mins", hist_duration.num_minutes()),
-                            default_style.fg(Color::Green),
-                        ),
-                        Text::styled("]", default_style),
-                        Text::styled(" (q)uit", default_style),
-                        Text::styled(
-                            format!("{: >width$}", "", width = width as usize),
-                            default_style,
-                        ),
-                    ];
-                    Paragraph::new(line.iter()).render(&mut f, v_sections[0]);
-                    Block::default()
-                        .title("")
-                        .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
-                        .borders(Borders::ALL)
-                        .render(&mut f, v_sections[1]);
-                    let cpu_layout = Layout::default()
-                        .margin(0)
-                        .direction(Direction::Horizontal)
-                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-                        .split(v_sections[1]);
 
-                    let cpu_mem = Layout::default()
-                        .margin(1)
-                        .direction(Direction::Vertical)
-                        .constraints(
-                            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
-                        )
-                        .split(cpu_layout[1]);
-
-                    Block::default()
-                        .title("Network")
-                        .borders(Borders::ALL)
-                        .render(&mut f, v_sections[2]);
-                    let network_layout = Layout::default()
-                        .margin(0)
-                        .direction(Direction::Horizontal)
-                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-                        .split(v_sections[2]);
-
-                    Block::default()
-                        .title("Disk")
-                        .borders(Borders::ALL)
-                        .render(&mut f, v_sections[3]);
-                    let disk_layout = Layout::default()
-                        .margin(0)
-                        .direction(Direction::Horizontal)
-                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-                        .split(v_sections[3]);
-
-                    // Block::default()
-                    //     .title("Sensors")
-                    //     .borders(Borders::ALL)
-                    //     .render(&mut f, v_sections[4]);
-                    // let sensor_layout = Layout::default()
-                    //     .margin(0)
-                    //     .direction(Direction::Horizontal)
-                    //     .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-                    //     .split(v_sections[4]);    
-
-                    render_cpu_histogram(&app, cpu_mem[0], &mut f, zf);
-
-                    render_memory_histogram(&app, cpu_mem[1], &mut f, zf);
+                    render_top_title_bar(app, v_sections[0], &mut f, zf);
+                    render_cpu(app, v_sections[1], &mut f, zf);
+                    render_net(&app, v_sections[2], &mut f, zf);
+                    render_disk(&app, v_sections[3], &mut f, zf);
                     if let Some(area) = v_sections.last(){
                         if *process_height > 0 && app.selected_process.is_none() {
                             render_process_table(&app, width, *area, *pst, &mut f);
@@ -786,14 +780,8 @@ impl<'a> TerminalRenderer {
                         }
                     }
                     
-
-                    render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
-
-                    render_net(&app, network_layout, &mut f, zf);
-                    render_disk(&app, disk_layout, &mut f, zf);
                     //render_sensors(&app, sensor_layout, &mut f, zf);
-                })
-                .expect("Could not draw frame.");
+                }).expect("Could not draw frame.");
 
             match self.events.next().expect("No new event.") {
                 Event::Input(input) => {
@@ -878,6 +866,9 @@ impl<'a> TerminalRenderer {
                             Some(p) => p.terminate().await,
                             None => (),
                         }
+                    }
+                    else if input == Key::Char('\t'){
+
                     }
                 }
                 Event::Tick => {
