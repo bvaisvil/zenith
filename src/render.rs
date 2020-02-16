@@ -522,6 +522,15 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
     };
 }
 
+fn render_sensors(app: &CPUTimeApp, layout: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u32){
+    let sensors = app.sensors.iter().map(|s|{
+        Text::raw(format!("{:}:{:}", s.name, s.current_temp))
+    });
+    List::new(sensors)
+        .block(Block::default().title("Sensors").borders(Borders::ALL))
+        .render(f, layout[0]);
+}
+
 fn render_disk(app: &CPUTimeApp, disk_layout: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u32) {
     let area = Layout::default()
         .margin(1)
@@ -623,6 +632,7 @@ pub struct TerminalRenderer {
     net_height: u16,
     disk_height: u16,
     process_height: u16,
+    sensor_height: u16,
     zoom_factor: u32,
 }
 
@@ -633,6 +643,7 @@ impl<'a> TerminalRenderer {
         net_height: u16,
         disk_height: u16,
         process_height: u16,
+        sensor_height: u16,
     ) -> TerminalRenderer {
         let stdout = io::stdout()
             .into_raw_mode()
@@ -649,6 +660,7 @@ impl<'a> TerminalRenderer {
             net_height,
             disk_height,
             process_height,
+            sensor_height,
             zoom_factor: 1,
         }
     }
@@ -664,6 +676,7 @@ impl<'a> TerminalRenderer {
             let net_height = &self.net_height;
             let disk_height = &self.disk_height;
             let process_height = &self.process_height;
+            let sensor_height = &self.sensor_height;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
             let zf = &self.zoom_factor;
@@ -677,6 +690,7 @@ impl<'a> TerminalRenderer {
                         Constraint::Length(*cpu_height),
                         Constraint::Length(*net_height),
                         Constraint::Length(*disk_height),
+                        //Constraint::Length(*sensor_height),
                     ];
                     if *process_height > 0 {
                         constraints.push(Constraint::Min(*process_height));
@@ -687,6 +701,7 @@ impl<'a> TerminalRenderer {
                         .margin(0)
                         .constraints(constraints.as_ref())
                         .split(f.size());
+                    //title    
                     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
                     let line = vec![
                         Text::styled(
@@ -746,24 +761,37 @@ impl<'a> TerminalRenderer {
                         .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
                         .split(v_sections[3]);
 
+                    // Block::default()
+                    //     .title("Sensors")
+                    //     .borders(Borders::ALL)
+                    //     .render(&mut f, v_sections[4]);
+                    // let sensor_layout = Layout::default()
+                    //     .margin(0)
+                    //     .direction(Direction::Horizontal)
+                    //     .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+                    //     .split(v_sections[4]);    
+
                     render_cpu_histogram(&app, cpu_mem[0], &mut f, zf);
 
                     render_memory_histogram(&app, cpu_mem[1], &mut f, zf);
-
-                    if *process_height > 0 && app.selected_process.is_none() {
-                        render_process_table(&app, width, v_sections[4], *pst, &mut f);
-                        if v_sections[4].height > 4 {
-                            // account for table border & margins.
-                            process_table_height = v_sections[4].height - 5;
+                    if let Some(area) = v_sections.last(){
+                        if *process_height > 0 && app.selected_process.is_none() {
+                            render_process_table(&app, width, *area, *pst, &mut f);
+                            if area.height > 4 {
+                                // account for table border & margins.
+                                process_table_height = area.height - 5;
+                            }
+                        } else if app.selected_process.is_some() {
+                            render_process(&app, *area, &mut f, width);
                         }
-                    } else if app.selected_process.is_some() {
-                        render_process(&app, v_sections[4], &mut f, width);
                     }
+                    
 
                     render_cpu_bars(&app, cpu_layout[0], 30, &mut f);
 
                     render_net(&app, network_layout, &mut f, zf);
                     render_disk(&app, disk_layout, &mut f, zf);
+                    //render_sensors(&app, sensor_layout, &mut f, zf);
                 })
                 .expect("Could not draw frame.");
 

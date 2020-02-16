@@ -7,6 +7,7 @@ use futures::StreamExt;
 use heim::host;
 use heim::net;
 use heim::net::Address;
+use heim::{sensors};
 use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -307,17 +308,21 @@ impl CPUTimeApp {
     //        }
     //    }
 
-    async fn update_sensors(&mut self) {
-        self.sensors.clear();
-        for t in self.system.get_components_list() {
-            self.sensors.push(Sensor {
-                name: t.get_label().to_owned(),
-                current_temp: t.get_temperature(),
-                high: t.get_max(),
-                critical: t.get_critical().unwrap_or(0.0),
-            })
-        }
-    }
+    // async fn update_sensors(&mut self) {
+    //     self.sensors.clear();
+    //     for t in self.system.get_components_list() {
+    //         if t.get_temperature() < 1.0{
+    //             continue;
+    //         }
+    //         self.sensors.push(Sensor {
+    //             name: t.get_label().to_owned(),
+    //             current_temp: t.get_temperature(),
+    //             high: t.get_max(),
+    //             critical: t.get_critical().unwrap_or(0.0),
+    //         });
+    //         self.histogram_map.add_value_to(t.get_label().to_owned().as_str(), t.get_temperature() as u64);
+    //     }
+    // }
 
     pub fn highlight_up(&mut self) {
         if self.highlighted_row != 0 {
@@ -534,7 +539,7 @@ impl CPUTimeApp {
     pub async fn update(&mut self, width: u16) {
         self.system.refresh_all();
         self.update_cpu().await;
-        self.update_sensors().await;
+        //self.update_sensors().await;
 
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
