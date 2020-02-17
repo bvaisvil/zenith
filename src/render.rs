@@ -39,6 +39,14 @@ macro_rules! float_to_byte_string{
     };
 }
 
+#[derive(FromPrimitive, PartialEq, Copy, Clone)]
+enum Section{
+    CPU = 0,
+    Network = 1,
+    Disk = 2,
+    Process = 3
+}
+
 fn mem_title(app: &CPUTimeApp) -> String {
     let mut mem: u64 = 0;
     if app.mem_utilization > 0 && app.mem_total > 0 {
@@ -94,10 +102,15 @@ fn render_process_table<'a>(
     area: Rect,
     process_table_start: usize,
     f: &mut Frame<ZBackend>,
+    selected_section: &Section
 ) {
     if area.height < 5 {
         return; // not enough space to draw anything
     }
+    let style = match selected_section {
+        Section::Process => Style::default().fg(Color::Red),
+        _ => Style::default()
+    };
     let display_height = area.height as usize - 4; // 4 for the margins and table header
 
     let end = process_table_start + display_height;
@@ -172,7 +185,8 @@ fn render_process_table<'a>(
 
     Table::new(header.into_iter(), rows)
         .block(
-            Block::default().borders(Borders::ALL).title(
+            Block::default().borders(Borders::ALL).border_style(style)
+                .title(
                 format!(
                     "Tasks [{}] Threads [{}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]",
                     app.processes.len(),
@@ -297,10 +311,14 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBack
     }
 }
 
-fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
+fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, selected_section: &Section) {
+    let style = match selected_section {
+        Section::Network => Style::default().fg(Color::Red),
+        _ => Style::default()
+    };
     Block::default()
     .title("Network")
-    .borders(Borders::ALL)
+    .borders(Borders::ALL).border_style(style)
     .render(f, area);
     let network_layout = Layout::default()
         .margin(0)
@@ -385,12 +403,16 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
         .render(f, network_layout[0]);
 }
 
-fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16) {
+fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16, selected_section: &Section) {
+    let style = match selected_section {
+        Section::Process => Style::default().fg(Color::Red),
+        _ => Style::default()
+    };
     match &app.selected_process {
         Some(p) => {
             Block::default()
                 .title(format!("Process: {0}", p.name).as_str())
-                .borders(Borders::ALL)
+                .borders(Borders::ALL).border_style(style)
                 .render(f, layout);
             let v_sections = Layout::default()
                 .direction(Direction::Vertical)
@@ -540,8 +562,12 @@ fn render_sensors(app: &CPUTimeApp, layout: Vec<Rect>, f: &mut Frame<ZBackend>, 
         .render(f, layout[0]);
 }
 
-fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
-    Block::default().title("Disk").borders(Borders::ALL).render(f, layout);
+fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32, selected_section: &Section) {
+    let style = match selected_section {
+        Section::Disk => Style::default().fg(Color::Red),
+        _ => Style::default()
+    };
+    Block::default().title("Disk").borders(Borders::ALL).border_style(style).render(f, layout);
     let disk_layout = Layout::default()
                         .margin(0)
                         .direction(Direction::Horizontal)
@@ -662,11 +688,15 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
     Paragraph::new(line.iter()).render(f, area);
 }
 
-fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32){
+fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, selected_section: &Section){
+    let style = match selected_section {
+        Section::CPU => Style::default().fg(Color::Red),
+        _ => Style::default()
+    };
     Block::default()
     .title("")
     .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
-    .borders(Borders::ALL)
+    .borders(Borders::ALL).border_style(style)
     .render(f, area);
     let cpu_layout = Layout::default()
         .margin(0)
@@ -697,7 +727,7 @@ pub struct TerminalRenderer {
     process_height: u16,
     sensor_height: u16,
     zoom_factor: u32,
-    selected_section: usize,
+    selected_section: Section,
     constraints: Vec<Constraint>
 }
 
@@ -737,7 +767,7 @@ impl<'a> TerminalRenderer {
             process_height,
             sensor_height,
             zoom_factor: 1,
-            selected_section: 1,
+            selected_section: Section::Process,
             constraints
         }
     }
@@ -752,6 +782,7 @@ impl<'a> TerminalRenderer {
             let mut process_table_height: u16 = 0;
             let zf = &self.zoom_factor;
             let constraints = &self.constraints;
+            let selected = &self.selected_section;
 
             self.terminal
                 .draw(|mut f| {
@@ -765,19 +796,19 @@ impl<'a> TerminalRenderer {
                         .split(f.size());
 
                     render_top_title_bar(app, v_sections[0], &mut f, zf);
-                    render_cpu(app, v_sections[1], &mut f, zf);
-                    render_net(&app, v_sections[2], &mut f, zf);
-                    render_disk(&app, v_sections[3], &mut f, zf);
+                    render_cpu(app, v_sections[1], &mut f, zf, selected);
+                    render_net(&app, v_sections[2], &mut f, zf, selected);
+                    render_disk(&app, v_sections[3], &mut f, zf, selected);
                     if *process_height > 0{
                         if let Some(area) = v_sections.last(){
                             if app.selected_process.is_none() {
-                                render_process_table(&app, width, *area, *pst, &mut f);
+                                render_process_table(&app, width, *area, *pst, &mut f, selected);
                                 if area.height > 4 {
                                     // account for table border & margins.
                                     process_table_height = area.height - 5;
                                 }
                             } else if app.selected_process.is_some() {
-                                render_process(&app, *area, &mut f, width);
+                                render_process(&app, *area, &mut f, width, selected);
                             }
                         }
                     }
@@ -871,7 +902,11 @@ impl<'a> TerminalRenderer {
                         }
                     }
                     else if input == Key::Char('\t'){
-
+                        let mut i = self.selected_section as u32 + 1;
+                        if i > 3{
+                            i = 0;
+                        }
+                        self.selected_section = num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
                     }
                 }
                 Event::Tick => {
