@@ -193,7 +193,7 @@ fn render_process_table<'a>(
                     app.threads_total
                 )
                 .as_str(),
-            ),
+            ).title_style(style),
         )
         .widths(widths.as_slice())
         .column_spacing(0)
@@ -235,7 +235,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>
         .render(f, area);
 }
 
-fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBackend>) {
+fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBackend>, style: &Style) {
     let mut cpus = app.cpus.to_owned();
     let mut bars: Vec<(&str, u64)> = vec![];
     let mut bar_gap: u16 = 1;
@@ -274,7 +274,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBack
 
     Block::default()
         .title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str())
-        .borders(Borders::ALL)
+        .borders(Borders::ALL).border_style(*style).title_style(*style)
         .render(f, area);
     let cpu_bar_layout = Layout::default()
         .margin(1)
@@ -399,7 +399,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, s
         )
     });
     List::new(ips)
-        .block(Block::default().title("Network").borders(Borders::ALL))
+        .block(Block::default().title("Network").borders(Borders::ALL).border_style(style).title_style(style))
         .render(f, network_layout[0]);
 }
 
@@ -412,7 +412,7 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
         Some(p) => {
             Block::default()
                 .title(format!("Process: {0}", p.name).as_str())
-                .borders(Borders::ALL).border_style(style)
+                .borders(Borders::ALL).border_style(style).title_style(style)
                 .render(f, layout);
             let v_sections = Layout::default()
                 .direction(Direction::Vertical)
@@ -660,7 +660,7 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32
         }
     });
     List::new(disks)
-        .block(Block::default().title("Disks").borders(Borders::ALL))
+        .block(Block::default().title("Disks").borders(Borders::ALL).border_style(style).title_style(style))
         .render(f, disk_layout[0]);
 }
 
@@ -695,7 +695,6 @@ fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, s
     };
     Block::default()
     .title("")
-    .title_style(Style::default().modifier(Modifier::BOLD).fg(Color::Red))
     .borders(Borders::ALL).border_style(style)
     .render(f, area);
     let cpu_layout = Layout::default()
@@ -713,7 +712,7 @@ fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, s
         .split(cpu_layout[1]);
     render_cpu_histogram(&app, cpu_mem[0], f, zf);
     render_memory_histogram(&app, cpu_mem[1], f, zf);
-    render_cpu_bars(&app, cpu_layout[0], 30, f);
+    render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
 }
 
 pub struct TerminalRenderer {
