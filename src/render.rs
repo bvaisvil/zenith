@@ -39,6 +39,14 @@ macro_rules! float_to_byte_string{
     };
 }
 
+macro_rules! set_section_height{
+    ($x:expr, $val:expr) => {
+        if $x + $val > 0{
+            $x += $val;
+        }
+    };
+}
+
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 enum Section{
     CPU = 0,
@@ -720,11 +728,11 @@ pub struct TerminalRenderer {
     app: CPUTimeApp,
     events: Events,
     process_table_row_start: usize,
-    cpu_height: u16,
-    net_height: u16,
-    disk_height: u16,
-    process_height: u16,
-    sensor_height: u16,
+    cpu_height: i16,
+    net_height: i16,
+    disk_height: i16,
+    process_height: i16,
+    sensor_height: i16,
     zoom_factor: u32,
     selected_section: Section,
     constraints: Vec<Constraint>
@@ -733,11 +741,11 @@ pub struct TerminalRenderer {
 impl<'a> TerminalRenderer {
     pub fn new(
         tick_rate: u64,
-        cpu_height: u16,
-        net_height: u16,
-        disk_height: u16,
-        process_height: u16,
-        sensor_height: u16,
+        cpu_height: i16,
+        net_height: i16,
+        disk_height: i16,
+        process_height: i16,
+        sensor_height: i16,
     ) -> TerminalRenderer {
         let stdout = io::stdout()
             .into_raw_mode()
@@ -747,13 +755,13 @@ impl<'a> TerminalRenderer {
         let backend = TermionBackend::new(stdout);
         let mut constraints = vec![
             Constraint::Length(1),
-            Constraint::Length(cpu_height),
-            Constraint::Length(net_height),
-            Constraint::Length(disk_height),
+            Constraint::Length(cpu_height as u16),
+            Constraint::Length(net_height as u16),
+            Constraint::Length(disk_height as u16),
             //Constraint::Length(*sensor_height),
         ];
         if process_height > 0 {
-            constraints.push(Constraint::Min(process_height));
+            constraints.push(Constraint::Min(process_height as u16));
         }
         TerminalRenderer {
             terminal: Terminal::new(backend).expect("Couldn't create new terminal with backend"),
@@ -769,6 +777,30 @@ impl<'a> TerminalRenderer {
             selected_section: Section::Process,
             constraints
         }
+    }
+
+    async fn set_constraints(&mut self){
+        let mut constraints = vec![
+            Constraint::Length(1),
+            Constraint::Length(self.cpu_height as u16),
+            Constraint::Length(self.net_height as u16),
+            Constraint::Length(self.disk_height as u16),
+            //Constraint::Length(*sensor_height),
+        ];
+        if self.process_height > 0 {
+            constraints.push(Constraint::Min(self.process_height as u16));
+        }
+        self.constraints = constraints;
+    }
+
+    async fn set_section_height(&mut self, val: i16){
+        match self.selected_section{
+            Section::CPU => set_section_height!(self.cpu_height, val),
+            Section::Disk => set_section_height!(self.disk_height, val),
+            Section::Network => set_section_height!(self.net_height, val),
+            Section::Process => set_section_height!(self.process_height, val),
+        }
+        self.set_constraints().await;
     }
 
     pub async fn start(&mut self) {
@@ -906,6 +938,12 @@ impl<'a> TerminalRenderer {
                             i = 0;
                         }
                         self.selected_section = num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+                    }
+                    else if input == Key::Char('m'){
+                        self.set_section_height(-2).await;
+                    }
+                    else if input == Key::Char('e'){
+                        self.set_section_height(2).await;
                     }
                 }
                 Event::Tick => {

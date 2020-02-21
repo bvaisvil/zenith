@@ -65,7 +65,7 @@ fn start_zenith(
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
-    let mut r = TerminalRenderer::new(rate, cpu_height, net_height, disk_height, process_height, sensor_height);
+    let mut r = TerminalRenderer::new(rate, cpu_height as i16, net_height as i16, disk_height as i16, process_height as i16, sensor_height as i16);
     Ok(block_on(r.start()))
 }
 
