@@ -50,6 +50,7 @@ fn start_zenith(
     net_height: u16,
     disk_height: u16,
     process_height: u16,
+    sensor_height: u16,
 ) -> Result<(), Box<dyn Error>> {
     // Terminal initialization
     let stdout = io::stdout()
@@ -64,7 +65,7 @@ fn start_zenith(
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
-    let mut r = TerminalRenderer::new(rate, cpu_height, net_height, disk_height, process_height);
+    let mut r = TerminalRenderer::new(rate, cpu_height as i16, net_height as i16, disk_height as i16, process_height as i16, sensor_height as i16);
     Ok(block_on(r.start()))
 }
 
@@ -137,6 +138,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .help(format!("Height of Disk visualization.").as_str())
                 .takes_value(true),
         )
+        // .arg(
+        //     Arg::with_name("sensor-height")
+        //         .short("s")
+        //         .long("sensor-height")
+        //         .value_name("INT")
+        //         .default_value("10")
+        //         .validator(validate_height)
+        //         .help(format!("Height of Sensor visualization.").as_str())
+        //         .takes_value(true),
+        // )
         .arg(
             Arg::with_name("process-height")
                 .short("p")
@@ -175,5 +186,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             .unwrap()
             .parse::<u16>()
             .unwrap(),
+        0    
+        // matches
+        //     .value_of("sensor-height")
+        //     .unwrap()
+        //     .parse::<u16>()
+        //     .unwrap(),
     )
 }

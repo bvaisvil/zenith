@@ -6,10 +6,10 @@
 - Optional CPU, Memory, Network, and Disk usage histograms
 - Quick glances at Disk free space, NIC IP addresses, CPU frequency
 - A top like process table that includes per process disk usage
-
-## Planned Features
 - Different histogram views (5 minutes, 1 hour, etc)
 - Managing processes (signals, nice, etc)
+
+## Planned Features
 - Saving performance data
 - Sensor Temperature histograms
 - Per process network usage (Linux)

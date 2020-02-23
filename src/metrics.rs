@@ -7,6 +7,7 @@ use futures::StreamExt;
 use heim::host;
 use heim::net;
 use heim::net::Address;
+use heim::{sensors};
 use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -173,7 +174,7 @@ pub struct CPUTimeApp {
     pub processes: Vec<i32>,
     pub process_map: HashMap<i32, ZProcess>,
     pub user_cache: UsersCache,
-    pub cum_cpu_process: Option<i32>,
+    pub cum_cpu_process: Option<ZProcess>,
     pub frequency: u64,
     pub highlighted_row: usize,
     pub threads_total: usize,
@@ -212,7 +213,7 @@ impl CPUTimeApp {
             processes: Vec::with_capacity(400),
             process_map: HashMap::with_capacity(400),
             user_cache: UsersCache::new(),
-            cum_cpu_process: Option::from(0),
+            cum_cpu_process: None,
             frequency: 0,
             highlighted_row: 0,
             threads_total: 0,
@@ -307,17 +308,21 @@ impl CPUTimeApp {
     //        }
     //    }
 
-    async fn update_sensors(&mut self) {
-        self.sensors.clear();
-        for t in self.system.get_components_list() {
-            self.sensors.push(Sensor {
-                name: t.get_label().to_owned(),
-                current_temp: t.get_temperature(),
-                high: t.get_max(),
-                critical: t.get_critical().unwrap_or(0.0),
-            })
-        }
-    }
+    // async fn update_sensors(&mut self) {
+    //     self.sensors.clear();
+    //     for t in self.system.get_components_list() {
+    //         if t.get_temperature() < 1.0{
+    //             continue;
+    //         }
+    //         self.sensors.push(Sensor {
+    //             name: t.get_label().to_owned(),
+    //             current_temp: t.get_temperature(),
+    //             high: t.get_max(),
+    //             critical: t.get_critical().unwrap_or(0.0),
+    //         });
+    //         self.histogram_map.add_value_to(t.get_label().to_owned().as_str(), t.get_temperature() as u64);
+    //     }
+    // }
 
     pub fn highlight_up(&mut self) {
         if self.highlighted_row != 0 {
@@ -345,8 +350,11 @@ impl CPUTimeApp {
         self.processes.clear();
         let process_list = self.system.get_process_list();
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
-        let mut top_pid = 0;
-        let mut top_cum_cpu_usage: f64 = 0.0;
+        let mut top_pid: Option<i32> = None;
+        let mut top_cum_cpu_usage: f64 = match &self.cum_cpu_process{
+            Some(p) => p.cum_cpu_usage,
+            None => 0.0
+        };
         self.threads_total = 0;
 
         for (pid, process) in process_list {
@@ -360,7 +368,7 @@ impl CPUTimeApp {
                 zp.threads_total = process.threads_total;
                 self.threads_total += zp.threads_total as usize;
                 if zp.cum_cpu_usage > top_cum_cpu_usage {
-                    top_pid = zp.pid;
+                    top_pid = Some(zp.pid);
                     top_cum_cpu_usage = zp.cum_cpu_usage;
                 }
                 zp.prev_read_bytes = zp.read_bytes;
@@ -397,7 +405,7 @@ impl CPUTimeApp {
                 };
                 self.threads_total += zprocess.threads_total as usize;
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage {
-                    top_pid = zprocess.pid;
+                    top_pid = Some(zprocess.pid);
                     top_cum_cpu_usage = zprocess.cum_cpu_usage;
                 }
                 self.process_map.insert(zprocess.pid, zprocess);
@@ -406,8 +414,42 @@ impl CPUTimeApp {
             current_pids.insert(pid.clone());
         }
 
+
         // remove pids that are gone
         self.process_map.retain(|&k, _| current_pids.contains(&k));
+
+        //set top cumulative process if we've changed it.
+        match top_pid{
+            Some(p) => {
+                match self.process_map.get(&p){
+                    Some(p) => self.cum_cpu_process = Some(p.clone()),
+                    None => ()
+                }
+            },
+            None => {
+                match &mut self.cum_cpu_process{
+                    Some(p) => {
+                        if self.process_map.contains_key(&p.pid){
+                            match self.process_map.get(&p.pid){
+                                Some(cp) => self.cum_cpu_process = Some(cp.clone()),
+                                None => ()
+                            }
+                        }
+                        else{
+                            // our cumulative winner is dead
+                            if p.end_time.is_none(){
+                                p.end_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                                    Ok(t) => Some(t.as_secs()),
+                                    Err(_) => panic!("System time before unix epoch??"),
+                                };
+                            }
+                        }
+                    },
+                    None => ()
+                }
+            }
+        };
+
         // update selected process
         if let Some(p) = self.selected_process.as_mut(){
             let pid = &p.pid;
@@ -424,7 +466,6 @@ impl CPUTimeApp {
         }
 
         self.sort_process_table();
-        self.cum_cpu_process = Option::from(top_pid);
     }
 
     pub fn sort_process_table(&mut self) {
@@ -534,7 +575,7 @@ impl CPUTimeApp {
     pub async fn update(&mut self, width: u16) {
         self.system.refresh_all();
         self.update_cpu().await;
-        self.update_sensors().await;
+        //self.update_sensors().await;
 
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
