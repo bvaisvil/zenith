@@ -75,21 +75,18 @@ fn mem_title(app: &CPUTimeApp) -> String {
 }
 
 fn cpu_title(app: &CPUTimeApp) -> String {
-    let top_process_name = match app.cum_cpu_process {
-        Some(pid) => match &app.process_map.get(&pid) {
-            Some(zp) => &zp.name,
-            None => "",
-        },
+    let top_process_name = match &app.cum_cpu_process {
+        Some(p) => p.name.as_str(),
         None => "",
     };
-    let top_process_amt = match app.cum_cpu_process {
-        Some(pid) => match &app.process_map.get(&pid) {
-            Some(zp) => zp.user_name.clone(),
-            None => String::from(""),
-        },
-        None => String::from(""),
+    let top_process_amt = match &app.cum_cpu_process {
+        Some(p) => p.user_name.as_str(),
+        None => "",
     };
-    let top_pid = app.cum_cpu_process.unwrap_or(0);
+    let top_pid = match &app.cum_cpu_process{
+        Some(p) => p.pid,
+        None => 0
+    };
     let h = match app.histogram_map.get("cpu_usage_histogram") {
         Some(h) => &h.data,
         None => return String::from(""),
