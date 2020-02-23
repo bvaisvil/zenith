@@ -13,9 +13,7 @@ use std::mem::swap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::cmp::Ordering::{Equal};
 
-use sysinfo::{
-    ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt,
-};
+use sysinfo::{ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt, Process};
 use users::{Users, UsersCache};
 
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
@@ -346,6 +344,35 @@ impl CPUTimeApp {
         };
     }
 
+    fn copy_to_zprocess(&self, process: &Process) -> ZProcess{
+        let user_name = match self.user_cache.get_user_by_uid(process.uid) {
+            Some(user) => user.name().to_string_lossy().to_string(),
+            None => String::from(""),
+        };
+        ZProcess {
+            uid: process.uid,
+            user_name: user_name,
+            pid: process.pid().clone(),
+            memory: process.memory(),
+            cpu_usage: process.cpu_usage(),
+            command: process.cmd().to_vec(),
+            status: process.status(),
+            exe: format!("{}", process.exe().display()),
+            name: process.name().to_string(),
+            cum_cpu_usage: process.cpu_usage() as f64,
+            priority: process.priority,
+            virtual_memory: process.virtual_memory(),
+            threads_total: process.threads_total,
+            read_bytes: process.read_bytes,
+            write_bytes: process.write_bytes,
+            prev_read_bytes: process.read_bytes,
+            prev_write_bytes: process.write_bytes,
+            last_updated: SystemTime::now(),
+            end_time: None,
+            start_time: process.start_time(),
+        }
+    }
+
     fn update_process_list(&mut self) {
         self.processes.clear();
         let process_list = self.system.get_process_list();
@@ -359,50 +386,37 @@ impl CPUTimeApp {
 
         for (pid, process) in process_list {
             if let Some(zp) = self.process_map.get_mut(pid) {
-                zp.memory = process.memory();
-                zp.cpu_usage = process.cpu_usage();
-                zp.cum_cpu_usage += zp.cpu_usage as f64;
-                zp.status = process.status();
-                zp.priority = process.priority;
-                zp.virtual_memory = process.virtual_memory();
-                zp.threads_total = process.threads_total;
-                self.threads_total += zp.threads_total as usize;
-                if zp.cum_cpu_usage > top_cum_cpu_usage {
-                    top_pid = Some(zp.pid);
-                    top_cum_cpu_usage = zp.cum_cpu_usage;
+                if zp.start_time == process.start_time(){
+                    zp.memory = process.memory();
+                    zp.cpu_usage = process.cpu_usage();
+                    zp.cum_cpu_usage += zp.cpu_usage as f64;
+                    zp.status = process.status();
+                    zp.priority = process.priority;
+                    zp.virtual_memory = process.virtual_memory();
+                    zp.threads_total = process.threads_total;
+                    self.threads_total += zp.threads_total as usize;
+                    if zp.cum_cpu_usage > top_cum_cpu_usage {
+                        top_pid = Some(zp.pid);
+                        top_cum_cpu_usage = zp.cum_cpu_usage;
+                    }
+                    zp.prev_read_bytes = zp.read_bytes;
+                    zp.prev_write_bytes = zp.write_bytes;
+                    zp.read_bytes = process.read_bytes;
+                    zp.write_bytes = process.write_bytes;
+                    zp.last_updated = SystemTime::now();
                 }
-                zp.prev_read_bytes = zp.read_bytes;
-                zp.prev_write_bytes = zp.write_bytes;
-                zp.read_bytes = process.read_bytes;
-                zp.write_bytes = process.write_bytes;
-                zp.last_updated = SystemTime::now();
+                else{
+                    let zprocess = self.copy_to_zprocess(&process);
+                    self.threads_total += zprocess.threads_total as usize;
+                    if zprocess.cum_cpu_usage > top_cum_cpu_usage {
+                        top_pid = Some(zprocess.pid);
+                        top_cum_cpu_usage = zprocess.cum_cpu_usage;
+                    }
+                    self.process_map.insert(zprocess.pid, zprocess);
+                }
+
             } else {
-                let user_name = match self.user_cache.get_user_by_uid(process.uid) {
-                    Some(user) => user.name().to_string_lossy().to_string(),
-                    None => String::from(""),
-                };
-                let zprocess = ZProcess {
-                    uid: process.uid,
-                    user_name: user_name,
-                    pid: pid.clone(),
-                    memory: process.memory(),
-                    cpu_usage: process.cpu_usage(),
-                    command: process.cmd().to_vec(),
-                    status: process.status(),
-                    exe: format!("{}", process.exe().display()),
-                    name: process.name().to_string(),
-                    cum_cpu_usage: process.cpu_usage() as f64,
-                    priority: process.priority,
-                    virtual_memory: process.virtual_memory(),
-                    threads_total: process.threads_total,
-                    read_bytes: process.read_bytes,
-                    write_bytes: process.write_bytes,
-                    prev_read_bytes: process.read_bytes,
-                    prev_write_bytes: process.write_bytes,
-                    last_updated: SystemTime::now(),
-                    end_time: None,
-                    start_time: process.start_time(),
-                };
+                let zprocess = self.copy_to_zprocess(&process);
                 self.threads_total += zprocess.threads_total as usize;
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage {
                     top_pid = Some(zprocess.pid);
@@ -431,18 +445,21 @@ impl CPUTimeApp {
                     Some(p) => {
                         if self.process_map.contains_key(&p.pid){
                             match self.process_map.get(&p.pid){
-                                Some(cp) => self.cum_cpu_process = Some(cp.clone()),
+                                Some(cp) => {
+                                    if cp.start_time == p.start_time {
+                                        self.cum_cpu_process = Some(cp.clone());
+                                    } else {
+                                        p.set_end_time();
+                                    }
+
+
+                                },
                                 None => ()
                             }
                         }
                         else{
                             // our cumulative winner is dead
-                            if p.end_time.is_none(){
-                                p.end_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
-                                    Ok(t) => Some(t.as_secs()),
-                                    Err(_) => panic!("System time before unix epoch??"),
-                                };
-                            }
+                            p.set_end_time();
                         }
                     },
                     None => ()
@@ -456,12 +473,7 @@ impl CPUTimeApp {
             if self.process_map.contains_key(pid) {
                 self.selected_process = Some(self.process_map[pid].clone());
             } else {
-                if p.end_time.is_none() {
-                    p.end_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
-                        Ok(t) => Some(t.as_secs()),
-                        Err(_) => panic!("System time before unix epoch??"),
-                    };
-                }
+                p.set_end_time();
             }
         }
 

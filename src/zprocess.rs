@@ -3,7 +3,7 @@
  */
 use crate::constants::DEFAULT_TICK;
 use heim::process;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sysinfo::ProcessStatus;
 
@@ -65,6 +65,15 @@ impl ZProcess {
         let p = process::get(self.pid).await.ok();
         if p.is_some() {
             p.unwrap().terminate().await.ok();
+        }
+    }
+
+    pub fn set_end_time(&mut self){
+        if self.end_time.is_none(){
+            self.end_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                Ok(t) => Some(t.as_secs()),
+                Err(_) => panic!("System time before unix epoch??"),
+            };
         }
     }
 }
