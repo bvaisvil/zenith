@@ -63,3 +63,7 @@ Don't want a section? Remove it by setting the height to 0.
 For example:
 ```zenith -c 0```
 Will remove the CPU histogram.
+
+Up/down arrow keys move around the process table. Return will focus on a process.
+Tab switches the active section. Active sections can be expanded (e) and minimized (m). 
+Using this you can create the layout you want.
