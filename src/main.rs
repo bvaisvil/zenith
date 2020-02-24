@@ -71,11 +71,11 @@ fn start_zenith(
 
 fn validate_refresh_rate(arg: String) -> Result<(), String> {
     let val = arg.parse::<u64>().unwrap_or(0);
-    if val >= 500 {
+    if val >= 1000 {
         Ok(())
     } else {
         Err(format!(
-            "{} Enter a refresh rate greater than 500 ms",
+            "{} Enter a refresh rate that is at least 1000 ms",
             &*arg
         ))
     }

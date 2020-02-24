@@ -91,7 +91,7 @@ impl HistogramMap {
     }
 
     fn add(&mut self, name: &str) -> &mut Histogram {
-        let size = (self.duration.as_secs() / self.tick.as_secs()) as usize;
+        let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
         let names = name.to_owned();
         self.map.insert(names, Histogram::new(size));
         self.map.get_mut(name).expect("Unexpectedly couldn't get mutable reference to value we just added.")
