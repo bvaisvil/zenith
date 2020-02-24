@@ -17,7 +17,7 @@ use termion::event::Key;
 use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
-use tui::backend::TermionBackend;
+use tui::backend::{TermionBackend, Backend};
 
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
@@ -775,6 +775,7 @@ impl<'a> TerminalRenderer {
         }
     }
 
+
     async fn set_constraints(&mut self){
         let mut constraints = vec![
             Constraint::Length(1),
@@ -940,6 +941,9 @@ impl<'a> TerminalRenderer {
                     }
                     else if input == Key::Char('e'){
                         self.set_section_height(2).await;
+                    }
+                    else if input == Key::Ctrl('c'){
+                        break;
                     }
                 }
                 Event::Tick => {
