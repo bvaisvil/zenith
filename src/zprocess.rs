@@ -3,9 +3,30 @@
  */
 use crate::constants::DEFAULT_TICK;
 use heim::process;
+use heim::process::{ProcessError};
 use std::time::SystemTime;
 
 use sysinfo::ProcessStatus;
+
+macro_rules! convert_result_to_string{
+    ($x:expr) => {
+        match $x{
+            Ok(r) => String::from("Signal Sent."),
+            Err(e) => convert_error_to_string!(e)
+        }
+    };
+}
+
+macro_rules! convert_error_to_string {
+    ($x:expr) => {
+        match $x{
+            ProcessError::NoSuchProcess {..} => String::from("No Such Process"),
+            ProcessError::ZombieProcess {..} => String::from("Zombie Process"),
+            ProcessError::AccessDenied {..} => String::from("Access Denied"),
+            _ => String::from("Unknow error")
+        }
+    };
+}
 
 #[derive(Clone)]
 pub struct ZProcess {
@@ -39,32 +60,31 @@ impl ZProcess {
         (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
 
-    pub async fn suspend(&self) {
-        let p = process::get(self.pid).await.ok();
-
-        if p.is_some() {
-            p.unwrap().suspend().await.ok();
+    pub async fn suspend(&self) -> String{
+        match process::get(self.pid).await{
+            Ok(p) => convert_result_to_string!(p.suspend().await),
+            Err(e) => convert_error_to_string!(e)
         }
     }
 
-    pub async fn resume(&self) {
-        let p = process::get(self.pid).await.ok();
-        if p.is_some() {
-            p.unwrap().resume().await.ok();
+    pub async fn resume(&self) -> String {
+        match process::get(self.pid).await{
+            Ok(p) => convert_result_to_string!(p.resume().await),
+            Err(e) => convert_error_to_string!(e)
         }
     }
 
-    pub async fn kill(&self) {
-        let p = process::get(self.pid).await.ok();
-        if p.is_some() {
-            p.unwrap().kill().await.ok();
+    pub async fn kill(&self)  -> String{
+        match process::get(self.pid).await{
+            Ok(p) => convert_result_to_string!(p.kill().await),
+            Err(e) => convert_error_to_string!(e)
         }
     }
 
-    pub async fn terminate(&self) {
-        let p = process::get(self.pid).await.ok();
-        if p.is_some() {
-            p.unwrap().terminate().await.ok();
+    pub async fn terminate(&self)  -> String{
+        match process::get(self.pid).await{
+            Ok(p) => convert_result_to_string!(p.terminate().await),
+            Err(e) => convert_error_to_string!(e)
         }
     }
 }

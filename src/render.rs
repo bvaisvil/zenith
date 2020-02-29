@@ -47,6 +47,8 @@ macro_rules! set_section_height{
     };
 }
 
+
+
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 enum Section{
     CPU = 0,
@@ -408,7 +410,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, s
         .render(f, network_layout[0]);
 }
 
-fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16, selected_section: &Section) {
+fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16, selected_section: &Section, process_message: &Option<String>) {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -436,9 +438,9 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
                     .as_ref(),
                 )
                 .split(v_sections[1]);
-
+            
             Block::default()
-                .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {: >width$}", "", width = layout.width as usize).as_str())
+                .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
                 .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
 
             //Block::default().borders(Borders::LEFT).render(f, h_sections[1]);
@@ -732,7 +734,8 @@ pub struct TerminalRenderer {
     sensor_height: i16,
     zoom_factor: u32,
     selected_section: Section,
-    constraints: Vec<Constraint>
+    constraints: Vec<Constraint>,
+    process_message: Option<String>
 }
 
 impl<'a> TerminalRenderer {
@@ -772,7 +775,8 @@ impl<'a> TerminalRenderer {
             sensor_height,
             zoom_factor: 1,
             selected_section: Section::Process,
-            constraints
+            constraints,
+            process_message: None
         }
     }
 
@@ -811,6 +815,7 @@ impl<'a> TerminalRenderer {
             let zf = &self.zoom_factor;
             let constraints = &self.constraints;
             let selected = &self.selected_section;
+            let process_message = &self.process_message;
 
             self.terminal
                 .draw(|mut f| {
@@ -836,7 +841,7 @@ impl<'a> TerminalRenderer {
                                     process_table_height = area.height - 5;
                                 }
                             } else if app.selected_process.is_some() {
-                                render_process(&app, *area, &mut f, width, selected);
+                                render_process(&app, *area, &mut f, width, selected, process_message);
                             }
                         }
                     }
@@ -906,28 +911,34 @@ impl<'a> TerminalRenderer {
                         }
                     } else if input == Key::Char('\n') {
                         self.app.select_process();
+                        self.process_message = None;
                     } else if input == Key::Esc || input == Key::Char('b') {
                         self.app.selected_process = None;
+                        self.process_message = None;
                     } else if input == Key::Char('s') {
-                        match &self.app.selected_process {
-                            Some(p) => p.suspend().await,
-                            None => (),
-                        }
+                        self.process_message = None;
+                        self.process_message = match &self.app.selected_process {
+                            Some(p) => Some(p.suspend().await),
+                            None => None,
+                        };
                     } else if input == Key::Char('r') {
-                        match &self.app.selected_process {
-                            Some(p) => p.resume().await,
-                            None => (),
-                        }
+                        self.process_message = None;
+                        self.process_message = match &self.app.selected_process {
+                            Some(p) => Some(p.resume().await),
+                            None => None,
+                        };
                     } else if input == Key::Char('k') {
-                        match &self.app.selected_process {
-                            Some(p) => p.kill().await,
-                            None => (),
-                        }
+                        self.process_message = None;
+                        self.process_message = match &self.app.selected_process {
+                            Some(p) => Some(p.kill().await),
+                            None => None,
+                        };
                     } else if input == Key::Char('t') {
-                        match &self.app.selected_process {
-                            Some(p) => p.terminate().await,
-                            None => (),
-                        }
+                        self.process_message = None;
+                        self.process_message = match &self.app.selected_process {
+                            Some(p) => Some(p.terminate().await),
+                            None => None,
+                        };
                     }
                     else if input == Key::Char('\t'){
                         let mut i = self.selected_section as u32 + 1;
