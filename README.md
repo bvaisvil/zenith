@@ -27,11 +27,20 @@
 
 ## Installation
 
-Download one of the compiled releases.
+### Binary
+
+Download one of the compiled [releases](https://github.com/bvaisvil/zenith/releases).
+
+### Homebrew
+
+```bash
+brew tap bvaisvil/zenith
+brew install zenith
+```
 
 ## Building
 
-This builds under rustc version 1.39.0.
+This builds under rustc version >= 1.39.0.
 
 ```
 cd zenith
