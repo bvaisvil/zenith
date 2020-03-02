@@ -97,7 +97,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("zenith")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Benjamin Vaisvil <ben@neuon.com>")
-        .about("Like htop but with histograms.")
+        .about("Zenith, sort of like top but with histograms.
+Up/down arrow keys move around the process table. Return (enter) will focus on a process.
+Tab switches the active section. Active sections can be expanded (e) and minimized (m).
+Using this you can create the layout you want.")
         .arg(
             Arg::with_name("refresh-rate")
                 .short("r")
