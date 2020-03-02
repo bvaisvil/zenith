@@ -685,7 +685,7 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
             default_style.fg(Color::Green),
         ),
         Text::styled("]", default_style),
-        Text::styled(" (q)uit", default_style),
+        Text::styled(" (q)uit <tab> change section (e)nlarge (m)inimize [+/-] zoom", default_style),
         Text::styled(
             format!("{: >width$}", "", width = area.width as usize),
             default_style,
