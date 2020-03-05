@@ -15,6 +15,12 @@ use std::cmp::Ordering::{Equal};
 
 use sysinfo::{ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt, Process};
 use users::{Users, UsersCache};
+use sled;
+use std::path::PathBuf;
+use std::borrow::Borrow;
+use serde_derive::{Serialize, Deserialize};
+use bincode;
+
 
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy {
@@ -63,6 +69,7 @@ pub struct Sensor {
     pub high: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Histogram {
     pub data: Vec<u64>,
 }
@@ -76,29 +83,30 @@ impl Histogram {
 }
 
 pub struct HistogramMap {
-    map: HashMap<String, Histogram>,
+    map: sled::Db,
     duration: Duration,
     tick: Duration,
 }
 
 impl HistogramMap {
-    fn new(dur: Duration, tick: Duration) -> HistogramMap {
+    fn new(dur: Duration, tick: Duration, db: sled::Db) -> HistogramMap {
         HistogramMap {
-            map: HashMap::with_capacity(10),
+            map: db,
             duration: dur,
             tick,
         }
     }
 
-    fn add(&mut self, name: &str) -> &mut Histogram {
+    fn add(&mut self, name: &str) -> Histogram {
         let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
         let names = name.to_owned();
-        self.map.insert(names, Histogram::new(size));
-        self.map.get_mut(name).expect("Unexpectedly couldn't get mutable reference to value we just added.")
+        let r = self.map.insert(names.as_bytes(), bincode::serialize(&Histogram::new(size)).expect("failed serialization"));
+        r.expect("Couldn't insert into map");
+        self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
     pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize) -> Option<Histogram> {
-        match self.map.get(name) {
+        match self.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
                 let last_index = h.data.len();
@@ -124,25 +132,40 @@ impl HistogramMap {
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&Histogram> {
-        self.map.get(name)
+    pub fn get(&self, name: &str) -> Option<Histogram> {
+        let v = self.map.get(name.as_bytes()).expect("Couldn't open database");
+        match v {
+            Some(v) => {
+                let value: Histogram = bincode::deserialize(&v).expect("failed deserialization1");
+                Some(value)
+            },
+            None => None
+        }
     }
 
-    fn get_mut(&mut self, name: &str) -> Option<&mut Histogram> {
-        self.map.get_mut(name)
+    fn get_mut(&mut self, name: &str) -> Option<Histogram> {
+        let v = self.map.get(name.as_bytes()).expect("Couldn't open database");
+        match v {
+            Some(v) => {
+                let mut value: Histogram = bincode::deserialize(&v).expect("failed deserialization2");
+                Some(value)
+            },
+            None => None
+        }
     }
 
     fn has(&self, name: &str) -> bool {
-        self.map.contains_key(name)
+        self.map.contains_key(name).expect("Couldn't open database")
     }
 
     fn add_value_to(&mut self, name: &str, val: u64) {
-        let h: &mut Histogram = match self.has(name) {
+        let mut h: Histogram = match self.has(name) {
             true => self.get_mut(name).expect("Couldn't get mutable reference"),
             false => self.add(name),
         };
         h.data.push(val);
-        h.data.remove(0);
+        //h.data.remove(0);
+        self.map.insert(name.as_bytes(), bincode::serialize(&h).expect("couldn't serialize value"));
     }
 
     pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration {
@@ -192,9 +215,10 @@ pub struct CPUTimeApp {
 }
 
 impl CPUTimeApp {
-    pub fn new(tick: Duration) -> CPUTimeApp {
+    pub fn new(tick: Duration, db: sled::Db) -> CPUTimeApp {
+
         let mut s = CPUTimeApp {
-            histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick),
+            histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db),
             tick,
             cpus: vec![],
             system: System::new(),
@@ -232,6 +256,7 @@ impl CPUTimeApp {
         };
         s.system.refresh_all();
         s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.
+
         return s;
     }
 

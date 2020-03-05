@@ -26,6 +26,7 @@ use tui::widgets::{
 };
 use tui::Frame;
 use tui::Terminal;
+use sled;
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
 
@@ -87,7 +88,7 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         None => 0
     };
     let h = match app.histogram_map.get("cpu_usage_histogram") {
-        Some(h) => &h.data,
+        Some(h) => h.data,
         None => return String::from(""),
     };
     let mean: f64 = match h.len() {
@@ -742,6 +743,7 @@ impl<'a> TerminalRenderer {
         disk_height: i16,
         process_height: i16,
         sensor_height: i16,
+        db: sled::Db
     ) -> TerminalRenderer {
         let stdout = io::stdout()
             .into_raw_mode()
@@ -761,7 +763,7 @@ impl<'a> TerminalRenderer {
         }
         TerminalRenderer {
             terminal: Terminal::new(backend).expect("Couldn't create new terminal with backend"),
-            app: CPUTimeApp::new(Duration::from_millis(tick_rate)),
+            app: CPUTimeApp::new(Duration::from_millis(tick_rate), db),
             events: Events::new(tick_rate),
             process_table_row_start: 0,
             cpu_height,

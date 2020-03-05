@@ -26,6 +26,9 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::Terminal;
+use sled;
+use dirs;
+use std::path::{Path};
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -61,11 +64,18 @@ fn start_zenith(
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
     terminal.hide_cursor().expect("Hiding cursor failed.");
-
+    let db = sled::open(dirs::home_dir().unwrap_or(Path::new("./").to_owned()).join(".zenith"))?;
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
-    let mut r = TerminalRenderer::new(rate, cpu_height as i16, net_height as i16, disk_height as i16, process_height as i16, sensor_height as i16);
+    let mut r = TerminalRenderer::new(rate,
+                                      cpu_height as i16,
+                                      net_height as i16,
+                                      disk_height as i16,
+                                      process_height as i16,
+                                      sensor_height as i16,
+                                                    db
+    );
     Ok(block_on(r.start()))
 }
 
