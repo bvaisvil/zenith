@@ -20,7 +20,13 @@ use std::path::PathBuf;
 use std::borrow::Borrow;
 use serde_derive::{Serialize, Deserialize};
 use bincode;
+use sysinfo::Signal::Sys;
+use std::ops::Sub;
 
+const ONE_WEEK: u64 = 60*60*24*7;
+const DB_ERROR: &str = "Couldn't open database.";
+const DSER_ERROR: &str = "Couldn't deserialize object";
+const SER_ERROR: &str = "Couldn't serialize object";
 
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy {
@@ -86,14 +92,54 @@ pub struct HistogramMap {
     map: sled::Db,
     duration: Duration,
     tick: Duration,
+    time: SystemTime
 }
 
 impl HistogramMap {
     fn new(dur: Duration, tick: Duration, db: sled::Db) -> HistogramMap {
+        // have to store tick too?
+        let current_time = SystemTime::now();
+        let mut t = match db.get("start_time".as_bytes()).expect(DB_ERROR){
+            Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
+            None => current_time
+        };
+        db.insert("start_time", bincode::serialize(&t).expect(SER_ERROR)).expect(DB_ERROR);
+        if t < current_time{
+            let mut d = current_time.duration_since(t)
+                                         .expect("Current time is before stored time. This should not happen.");
+            // if d.as_secs() > ONE_WEEK{
+            //     t = current_time.sub(Duration::from_secs(ONE_WEEK));
+            //     d = Duration::from_secs(ONE_WEEK);
+            //
+            // }
+
+
+            for k in db.iter().keys(){
+                let key = k.expect(DB_ERROR);
+                if key == "start_time"{ continue; }
+                match db.get(&key).expect(DB_ERROR){
+                    Some(v) => {
+                        let mut v: Histogram = bincode::deserialize(&v).expect(DSER_ERROR);
+                        // problem is histogram is init'd with many seconds, perhaps we need to stop doing that?
+                        let hdur = Duration::from_secs(v.data.len() as u64 * tick.as_secs());
+                        panic!("{:?}: {:?}", hdur, d);
+                        let mut dur = d;
+                        while dur > hdur{
+                            v.data.push(0);
+                            dur -= tick;
+                        }
+                        db.insert(&key, bincode::serialize(&v).expect(SER_ERROR)).expect(DB_ERROR);
+                    },
+                    None => {}
+                }
+            }
+        }
+
         HistogramMap {
             map: db,
             duration: dur,
             tick,
+            time: t
         }
     }
 
@@ -101,7 +147,7 @@ impl HistogramMap {
         let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
         let names = name.to_owned();
         let r = self.map.insert(names.as_bytes(), bincode::serialize(&Histogram::new(size)).expect("failed serialization"));
-        r.expect("Couldn't insert into map");
+        r.expect(DB_ERROR);
         self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
@@ -165,7 +211,7 @@ impl HistogramMap {
         };
         h.data.push(val);
         //h.data.remove(0);
-        self.map.insert(name.as_bytes(), bincode::serialize(&h).expect("couldn't serialize value"));
+        self.map.insert(name.as_bytes(), bincode::serialize(&h).expect("couldn't serialize value")).expect(DB_ERROR);
     }
 
     pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration {
