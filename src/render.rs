@@ -88,7 +88,7 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         None => 0
     };
     let h = match app.histogram_map.get("cpu_usage_histogram") {
-        Some(h) => h.data,
+        Some(h) => &h.data,
         None => return String::from(""),
     };
     let mean: f64 = match h.len() {
@@ -743,7 +743,7 @@ impl<'a> TerminalRenderer {
         disk_height: i16,
         process_height: i16,
         sensor_height: i16,
-        db: sled::Db
+        db: Option<sled::Db>
     ) -> TerminalRenderer {
         let stdout = io::stdout()
             .into_raw_mode()
@@ -903,7 +903,7 @@ impl<'a> TerminalRenderer {
                             self.zoom_factor -= 1;
                         }
                     } else if input == Key::Char('-') {
-                        if self.zoom_factor < 10 {
+                        if self.zoom_factor < 100 {
                             self.zoom_factor += 1;
                         }
                     } else if input == Key::Char('\n') {

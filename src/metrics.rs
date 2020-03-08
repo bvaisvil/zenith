@@ -89,65 +89,78 @@ impl Histogram {
 }
 
 pub struct HistogramMap {
-    map: sled::Db,
+    map: HashMap<String, Histogram>,
     duration: Duration,
     tick: Duration,
-    time: SystemTime
+    time: SystemTime,
+    db: Option<sled::Db>
 }
 
 impl HistogramMap {
-    fn new(dur: Duration, tick: Duration, db: sled::Db) -> HistogramMap {
-        // have to store tick too?
+    fn new(dur: Duration, tick: Duration, db: Option<sled::Db>) -> HistogramMap {
+        let mut map = HashMap::with_capacity(10);
         let current_time = SystemTime::now();
-        let mut t = match db.get("start_time".as_bytes()).expect(DB_ERROR){
-            Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
-            None => current_time
-        };
-        db.insert("start_time", bincode::serialize(&t).expect(SER_ERROR)).expect(DB_ERROR);
-        if t < current_time{
-            let mut d = current_time.duration_since(t)
-                                         .expect("Current time is before stored time. This should not happen.");
-            // if d.as_secs() > ONE_WEEK{
-            //     t = current_time.sub(Duration::from_secs(ONE_WEEK));
-            //     d = Duration::from_secs(ONE_WEEK);
-            //
-            // }
+        let mut tick = tick;
+        match &db{
+            Some(db) => {
+                
+                let previous_stop = match db.get("stop_time").expect(DB_ERROR){
+                    Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
+                    None => current_time
+                };
 
+                let tick = match db.get("tick").expect(DB_ERROR){
+                    Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
+                    None => tick
+                };
+                
+                if previous_stop < current_time{
+                    let d = current_time.duration_since(previous_stop)
+                                                .expect("Current time is before stored time. This should not happen.");
 
-            for k in db.iter().keys(){
-                let key = k.expect(DB_ERROR);
-                if key == "start_time"{ continue; }
-                match db.get(&key).expect(DB_ERROR){
-                    Some(v) => {
-                        let mut v: Histogram = bincode::deserialize(&v).expect(DSER_ERROR);
-                        // problem is histogram is init'd with many seconds, perhaps we need to stop doing that?
-                        let hdur = Duration::from_secs(v.data.len() as u64 * tick.as_secs());
-                        panic!("{:?}: {:?}", hdur, d);
-                        let mut dur = d;
-                        while dur > hdur{
-                            v.data.push(0);
-                            dur -= tick;
+                    // restore previous histograms
+                    for k in db.iter().keys(){
+                        let k = k.expect(DB_ERROR);
+                        let key = String::from_utf8(k.to_owned().to_vec()).expect("Couldn't make a utf8 string from that key.");
+                        if k == "stop_time"{ continue; }
+                        if k == "tick"{ continue; }
+                        if k == "start_time" { continue; }
+                        match db.get(&k).expect(DB_ERROR){
+                            Some(v) => {
+                                let mut v: Histogram = bincode::deserialize(&v).expect(format!("while loading previous data: {:?}", k).as_str());
+                                let mut dur = Duration::from(d);
+                                // add 0s between then and now.
+                                let zero_dur = Duration::from_secs(0);
+                                while dur > zero_dur + tick{
+                                    v.data.push(0);
+                                    dur -= tick;
+                                }
+                                map.insert(key, v);
+                                
+                            },
+                            None => {}
                         }
-                        db.insert(&key, bincode::serialize(&v).expect(SER_ERROR)).expect(DB_ERROR);
-                    },
-                    None => {}
+                    }
                 }
+            },
+            None => {
+
             }
         }
 
         HistogramMap {
-            map: db,
+            map,
             duration: dur,
             tick,
-            time: t
+            time: current_time,
+            db
         }
     }
 
-    fn add(&mut self, name: &str) -> Histogram {
+    fn add(&mut self, name: &str) -> &mut Histogram {
         let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
         let names = name.to_owned();
-        let r = self.map.insert(names.as_bytes(), bincode::serialize(&Histogram::new(size)).expect("failed serialization"));
-        r.expect(DB_ERROR);
+        let r = self.map.insert(names, Histogram::new(size));
         self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
@@ -178,40 +191,26 @@ impl HistogramMap {
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<Histogram> {
-        let v = self.map.get(name.as_bytes()).expect("Couldn't open database");
-        match v {
-            Some(v) => {
-                let value: Histogram = bincode::deserialize(&v).expect("failed deserialization1");
-                Some(value)
-            },
-            None => None
-        }
+    pub fn get(&self, name: &str) -> Option<&Histogram> {
+        let v = self.map.get(name);
+        v
     }
 
-    fn get_mut(&mut self, name: &str) -> Option<Histogram> {
-        let v = self.map.get(name.as_bytes()).expect("Couldn't open database");
-        match v {
-            Some(v) => {
-                let mut value: Histogram = bincode::deserialize(&v).expect("failed deserialization2");
-                Some(value)
-            },
-            None => None
-        }
+    fn get_mut(&mut self, name: &str) -> Option<&mut Histogram> {
+        let v = self.map.get_mut(name);
+        v
     }
 
     fn has(&self, name: &str) -> bool {
-        self.map.contains_key(name).expect("Couldn't open database")
+        self.map.contains_key(name)
     }
 
     fn add_value_to(&mut self, name: &str, val: u64) {
-        let mut h: Histogram = match self.has(name) {
+        let h: &mut Histogram = match self.has(name) {
             true => self.get_mut(name).expect("Couldn't get mutable reference"),
             false => self.add(name),
         };
         h.data.push(val);
-        //h.data.remove(0);
-        self.map.insert(name.as_bytes(), bincode::serialize(&h).expect("couldn't serialize value")).expect(DB_ERROR);
     }
 
     pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration {
@@ -219,6 +218,30 @@ impl HistogramMap {
             self.tick.as_secs_f64() * width as f64 * zoom_factor as f64,
         ))
         .expect("Unexpectedly large duration was out of range.")
+    }
+
+    fn save_histograms(&mut self){
+        match &self.db{
+            Some(db) => {
+                let now = SystemTime::now();
+                db.insert("stop_time".as_bytes(), bincode::serialize(&now).expect(SER_ERROR)).expect(DB_ERROR);
+                db.insert("tick".as_bytes(), bincode::serialize(&self.tick).expect(SER_ERROR)).expect(DB_ERROR);
+                for k in self.map.keys(){
+                    match self.get(k){
+                        Some(v) => {db.insert(k.as_bytes(), bincode::serialize(&v).expect(SER_ERROR)).expect(DB_ERROR);},
+                        None => {}
+                    }
+                }
+            },
+            None => {}
+        }
+        
+    }
+}
+
+impl Drop for HistogramMap{
+    fn drop(&mut self){
+        self.save_histograms();
     }
 }
 
@@ -261,7 +284,7 @@ pub struct CPUTimeApp {
 }
 
 impl CPUTimeApp {
-    pub fn new(tick: Duration, db: sled::Db) -> CPUTimeApp {
+    pub fn new(tick: Duration, db: Option<sled::Db>) -> CPUTimeApp {
 
         let mut s = CPUTimeApp {
             histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db),

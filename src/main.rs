@@ -54,6 +54,8 @@ fn start_zenith(
     disk_height: u16,
     process_height: u16,
     sensor_height: u16,
+    disable_history: bool,
+    db_path: &str
 ) -> Result<(), Box<dyn Error>> {
     // Terminal initialization
     let stdout = io::stdout()
@@ -64,7 +66,10 @@ fn start_zenith(
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
     terminal.hide_cursor().expect("Hiding cursor failed.");
-    let db = sled::open(dirs::home_dir().unwrap_or(Path::new("./").to_owned()).join(".zenith"))?;
+    let db = match disable_history{
+        true => None,
+        false => Some(sled::open(Path::new(db_path))?)
+    };
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
@@ -104,6 +109,9 @@ fn validate_height(arg: String) -> Result<(), String> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+
+    let default_db_path = dirs::home_dir().unwrap_or(Path::new("./").to_owned()).join(".zenith");
+    let default_db_path = default_db_path.to_str().expect("Couldn't set default db path");
     let matches = App::new("zenith")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Benjamin Vaisvil <ben@neuon.com>")
@@ -168,6 +176,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .help(format!("Min Height of Process Table.").as_str())
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("disable-history")
+            .long("disable-history")
+            .help(format!("Disables history when flag is present").as_str())
+            .takes_value(false)
+        )
+        .arg(
+            Arg::with_name("db")
+                .long("db")
+                .value_name("STRING")
+                .default_value(default_db_path)
+                .help(format!("Database to use, if any.").as_str())
+                .takes_value(true),
+        )
         .get_matches();
 
     start_zenith(
@@ -196,11 +218,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .unwrap()
             .parse::<u16>()
             .unwrap(),
-        0    
-        // matches
-        //     .value_of("sensor-height")
-        //     .unwrap()
-        //     .parse::<u16>()
-        //     .unwrap(),
+        0,
+        matches.is_present("disable-history"),
+        matches.value_of("db").unwrap()
     )
 }

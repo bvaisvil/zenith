@@ -8,14 +8,13 @@
 - A top like process table that includes per process disk usage
 - Different histogram views (5 minutes, 1 hour, etc)
 - Managing processes (signals, nice, etc)
+- Saving performance data
 
 ## Planned Features
-- Saving performance data
 - Sensor Temperature histograms
 - Per process network usage (Linux)
 - Messaging about adverse system events, like errors in kernel ring buffer (Linux)
 - Docker support
-- More process details
 
 ## Current Platforms
 - Linux
