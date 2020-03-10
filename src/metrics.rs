@@ -708,4 +708,8 @@ impl CPUTimeApp {
         self.get_platform().await;
         self.get_nics().await;
     }
+
+    pub async fn save_state(&mut self){
+        self.histogram_map.save_histograms();
+    }
 }

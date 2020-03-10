@@ -951,6 +951,9 @@ impl<'a> TerminalRenderer {
                 Event::Tick => {
                     self.app.update(width).await;
                 }
+                Event::Save => {
+                    self.app.save_state().await;
+                }
             }
         }
     }
