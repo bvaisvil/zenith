@@ -75,7 +75,7 @@ pub struct Sensor {
     pub high: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Histogram {
     pub data: Vec<u64>,
 }
@@ -91,7 +91,7 @@ impl Histogram {
 pub struct HistogramMap {
     map: HashMap<String, Histogram>,
     duration: Duration,
-    tick: Duration,
+    pub tick: Duration,
     time: SystemTime,
     db: Option<sled::Db>
 }
@@ -164,10 +164,14 @@ impl HistogramMap {
         self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
-    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize) -> Option<Histogram> {
+    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize, offset: usize) -> Option<Histogram> {
         match self.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
+                let mut h = h.clone();
+                for i in 0..zoom_factor as usize * offset{
+                    h.data.pop();
+                }
                 let last_index = h.data.len();
                 let nh_len = nh.data.len();
                 let mut si: usize = last_index;
@@ -185,6 +189,11 @@ impl HistogramMap {
                 }
 
                 nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();
+                // let mut x = offset;
+                // while x > 0{
+                //     nh.data.insert(0, 0);
+                //     x -= 1;
+                // }
                 Some(nh)
             }
             None => None,
@@ -218,6 +227,13 @@ impl HistogramMap {
             self.tick.as_secs_f64() * width as f64 * zoom_factor as f64,
         ))
         .expect("Unexpectedly large duration was out of range.")
+    }
+
+    pub fn histograms_width(&self) -> Option<usize>{
+        match self.map.iter().next(){
+            Some((k, h)) => Some(h.data.len()),
+            None => None
+        }
     }
 
     fn save_histograms(&mut self){

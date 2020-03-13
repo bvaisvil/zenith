@@ -6,7 +6,7 @@ use crate::util::*;
 use crate::zprocess::*;
 use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
-use chrono::Local;
+use chrono::{Local, Datelike, Timelike};
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::io;
@@ -21,12 +21,11 @@ use tui::backend::{TermionBackend, Backend};
 
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{
-    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget,
-};
+use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget, Dataset};
 use tui::Frame;
 use tui::Terminal;
 use sled;
+use std::ops::Mul;
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
 
@@ -206,11 +205,11 @@ fn render_process_table<'a>(
         .render(f, area);
 }
 
-fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
+fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize) {
     let title = cpu_title(&app);
     let h = match app
         .histogram_map
-        .get_zoomed("cpu_usage_histogram", *zf, area.width as usize)
+        .get_zoomed("cpu_usage_histogram", *zf, area.width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -223,10 +222,10 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
         .render(f, area);
 }
 
-fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32) {
+fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize) {
     let h = match app
         .histogram_map
-        .get_zoomed("mem_utilization", *zf, area.width as usize)
+        .get_zoomed("mem_utilization", *zf, area.width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -316,7 +315,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBack
     }
 }
 
-fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, selected_section: &Section) {
+fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, selected_section: &Section) {
     let style = match selected_section {
         Section::Network => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -339,7 +338,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, s
     let net_up = float_to_byte_string!(app.net_out as f64, ByteUnit::B);
     let h_out = match app
         .histogram_map
-        .get_zoomed("net_out", *zf, net[0].width as usize)
+        .get_zoomed("net_out", *zf, net[0].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -370,7 +369,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, s
     let net_down = float_to_byte_string!(app.net_in as f64, ByteUnit::B);
     let h_in = match app
         .histogram_map
-        .get_zoomed("net_in", *zf, net[1].width as usize)
+        .get_zoomed("net_in", *zf, net[1].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -567,7 +566,7 @@ fn render_sensors(app: &CPUTimeApp, layout: Vec<Rect>, f: &mut Frame<ZBackend>, 
         .render(f, layout[0]);
 }
 
-fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32, selected_section: &Section) {
+fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, selected_section: &Section) {
     let style = match selected_section {
         Section::Disk => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -587,7 +586,7 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32
     let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
     let h_read = match app
         .histogram_map
-        .get_zoomed("disk_read", *zf, area[0].width as usize)
+        .get_zoomed("disk_read", *zf, area[0].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -617,7 +616,7 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32
     let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
     let h_write = match app
         .histogram_map
-        .get_zoomed("disk_write", *zf, area[1].width as usize)
+        .get_zoomed("disk_write", *zf, area[1].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -669,8 +668,23 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32
         .render(f, disk_layout[0]);
 }
 
-fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32){
+fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
+    if start.day() == end.day() && start.month() == end.month() {
+        return format!(" ({:02}:{:02}:{:02} - {:02}:{:02}:{:02})",
+                       start.hour(), start.minute(), start.second(),
+                       end.hour(), end.minute(), end.second()
+        );
+    }
+    format!(" ({:} {:02}:{:02}:{:02} - {:} {:02}:{:02}:{:02})",
+            start.date(), start.hour(), start.minute(), start.second(),
+            end.date(), end.hour(), end.minute(), end.second() )
+}
+
+fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, tick: &Duration) {
     let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
+    let d = hist_duration + chrono::Duration::from_std(tick.mul(*offset as u32)).expect("Couldn't convert from std");
+    let start = Local::now().checked_sub_signed(d).expect("Couldn't compute time");
+    let end = start.checked_add_signed(hist_duration).expect("Couldn't add time");
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
     let line = vec![
         Text::styled(
@@ -678,11 +692,12 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
             default_style.modifier(Modifier::BOLD),
         ),
         Text::styled(format!(" [{:} {:}]", app.osname, app.release), default_style),
-        Text::styled("[Showing Last: ", default_style),
+        Text::styled("[Showing: ", default_style),
         Text::styled(
             format!("{:} mins", hist_duration.num_minutes()),
             default_style.fg(Color::Green),
         ),
+        Text::styled(display_time(start, end), default_style),
         Text::styled("]", default_style),
         Text::styled(" (q)uit", default_style),
         Text::styled(
@@ -693,7 +708,7 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
     Paragraph::new(line.iter()).render(f, area);
 }
 
-fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, selected_section: &Section){
+fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, selected_section: &Section){
     let style = match selected_section {
         Section::CPU => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -715,8 +730,8 @@ fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, s
             [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
         )
         .split(cpu_layout[1]);
-    render_cpu_histogram(&app, cpu_mem[0], f, zf);
-    render_memory_histogram(&app, cpu_mem[1], f, zf);
+    render_cpu_histogram(&app, cpu_mem[0], f, zf, offset);
+    render_memory_histogram(&app, cpu_mem[1], f, zf, offset);
     render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
 }
 
@@ -731,6 +746,7 @@ pub struct TerminalRenderer {
     process_height: i16,
     sensor_height: i16,
     zoom_factor: u32,
+    hist_start_offset: usize,
     selected_section: Section,
     constraints: Vec<Constraint>
 }
@@ -773,7 +789,8 @@ impl<'a> TerminalRenderer {
             sensor_height,
             zoom_factor: 1,
             selected_section: Section::Process,
-            constraints
+            constraints,
+            hist_start_offset: 0
         }
     }
 
@@ -813,6 +830,8 @@ impl<'a> TerminalRenderer {
             let zf = &self.zoom_factor;
             let constraints = &self.constraints;
             let selected = &self.selected_section;
+            let offset = &self.hist_start_offset;
+            let tick = &self.app.histogram_map.tick;
 
             self.terminal
                 .draw(|mut f| {
@@ -825,10 +844,10 @@ impl<'a> TerminalRenderer {
                         .constraints(constraints.as_ref())
                         .split(f.size());
 
-                    render_top_title_bar(app, v_sections[0], &mut f, zf);
-                    render_cpu(app, v_sections[1], &mut f, zf, selected);
-                    render_net(&app, v_sections[2], &mut f, zf, selected);
-                    render_disk(&app, v_sections[3], &mut f, zf, selected);
+                    render_top_title_bar(app, v_sections[0], &mut f, zf, offset, tick);
+                    render_cpu(app, v_sections[1], &mut f, zf, offset, selected);
+                    render_net(&app, v_sections[2], &mut f, zf, offset, selected);
+                    render_disk(&app, v_sections[3], &mut f, zf, offset, selected);
                     if *process_height > 0{
                         if let Some(area) = v_sections.last(){
                             if app.selected_process.is_none() {
@@ -852,8 +871,7 @@ impl<'a> TerminalRenderer {
                     if input == Key::Char('q') {
                         break;
                     } else if input == Key::Up {
-                        if self.app.selected_process.is_some() {
-                        } else {
+                        if self.app.selected_process.is_some() {} else {
                             self.app.highlight_up();
                             if self.process_table_row_start > 0
                                 && self.app.highlighted_row < self.process_table_row_start
@@ -862,15 +880,29 @@ impl<'a> TerminalRenderer {
                             }
                         }
                     } else if input == Key::Down {
-                        if self.app.selected_process.is_some() {
-                        } else {
+                        if self.app.selected_process.is_some() {} else {
                             self.app.highlight_down();
                             if self.process_table_row_start < self.app.process_map.len()
                                 && self.app.highlighted_row
-                                    > (self.process_table_row_start + process_table_height as usize)
+                                > (self.process_table_row_start + process_table_height as usize)
                             {
                                 self.process_table_row_start += 1;
                             }
+                        }
+                    } else if input == Key::Left {
+                        match self.app.histogram_map.histograms_width(){
+                            Some(w) => {
+                                self.hist_start_offset += 1;
+                                if self.hist_start_offset > w + 1{
+                                    self.hist_start_offset = w - 1;
+                                }
+                            },
+                            None => {}
+                        }
+                        self.hist_start_offset += 1;
+                    } else if input == Key::Right {
+                        if self.hist_start_offset > 0{
+                            self.hist_start_offset -= 1;
                         }
                     } else if input == Key::Char('.') || input == Key::Char('>') {
                         if self.app.psortby == ProcessTableSortBy::Cmd {
