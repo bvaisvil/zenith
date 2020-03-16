@@ -128,6 +128,11 @@ impl HistogramMap {
                         match db.get(&k).expect(DB_ERROR){
                             Some(v) => {
                                 let mut v: Histogram = bincode::deserialize(&v).expect(format!("while loading previous data: {:?}", k).as_str());
+                                let week_ticks = ONE_WEEK / tick.as_secs();
+                                if v.data.len() as u64 > week_ticks{
+                                    let end = v.data.len() as u64 - week_ticks;
+                                    v.data.drain(0..end as usize);
+                                }
                                 let mut dur = Duration::from(d);
                                 // add 0s between then and now.
                                 let zero_dur = Duration::from_secs(0);
