@@ -1,13 +1,13 @@
 [package]
 name = "zenith"
-version = "0.7.4"
+version = "0.7.5"
 authors = ["Benjamin Vaisvil"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tui = "0.6.2"
+tui = "0.6.*"
 termion = "1.5"
 byte-unit = "3.0.3"
 users = "0.9.1"
@@ -20,4 +20,9 @@ futures = "0.3.1"
 clap = "2.31.*"
 chrono = "0.4.*"
 sysinfo = {git = "https://github.com/bvaisvil/sysinfo", branch="zenith_changes"}
+sled = "0.31.*"
+dirs = "2.0.*"
+serde = {version="1.0.104", features=["derive"]}
+serde_derive = "1.0.104"
+bincode = "1.2.1"
 #sysinfo = {path = "../sysinfo"}

@@ -26,6 +26,9 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::Terminal;
+use sled;
+use dirs;
+use std::path::{Path};
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -51,6 +54,8 @@ fn start_zenith(
     disk_height: u16,
     process_height: u16,
     sensor_height: u16,
+    disable_history: bool,
+    db_path: &str
 ) -> Result<(), Box<dyn Error>> {
     // Terminal initialization
     let stdout = io::stdout()
@@ -61,11 +66,21 @@ fn start_zenith(
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
     terminal.hide_cursor().expect("Hiding cursor failed.");
-
+    let db = match disable_history{
+        true => None,
+        false => Some(sled::open(Path::new(db_path))?)
+    };
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
-    let mut r = TerminalRenderer::new(rate, cpu_height as i16, net_height as i16, disk_height as i16, process_height as i16, sensor_height as i16);
+    let mut r = TerminalRenderer::new(rate,
+                                      cpu_height as i16,
+                                      net_height as i16,
+                                      disk_height as i16,
+                                      process_height as i16,
+                                      sensor_height as i16,
+                                                    db
+    );
     Ok(block_on(r.start()))
 }
 
@@ -94,6 +109,9 @@ fn validate_height(arg: String) -> Result<(), String> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+
+    let default_db_path = dirs::home_dir().unwrap_or(Path::new("./").to_owned()).join(".zenith");
+    let default_db_path = default_db_path.to_str().expect("Couldn't set default db path");
     let matches = App::new("zenith")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Benjamin Vaisvil <ben@neuon.com>")
@@ -161,6 +179,20 @@ Using this you can create the layout you want.")
                 .help(format!("Min Height of Process Table.").as_str())
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("disable-history")
+            .long("disable-history")
+            .help(format!("Disables history when flag is present").as_str())
+            .takes_value(false)
+        )
+        .arg(
+            Arg::with_name("db")
+                .long("db")
+                .value_name("STRING")
+                .default_value(default_db_path)
+                .help(format!("Database to use, if any.").as_str())
+                .takes_value(true),
+        )
         .get_matches();
 
     start_zenith(
@@ -189,11 +221,8 @@ Using this you can create the layout you want.")
             .unwrap()
             .parse::<u16>()
             .unwrap(),
-        0    
-        // matches
-        //     .value_of("sensor-height")
-        //     .unwrap()
-        //     .parse::<u16>()
-        //     .unwrap(),
+        0,
+        matches.is_present("disable-history"),
+        matches.value_of("db").unwrap()
     )
 }

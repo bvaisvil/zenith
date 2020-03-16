@@ -15,6 +15,18 @@ use std::cmp::Ordering::{Equal};
 
 use sysinfo::{ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt, Process};
 use users::{Users, UsersCache};
+use sled;
+use std::path::PathBuf;
+use std::borrow::Borrow;
+use serde_derive::{Serialize, Deserialize};
+use bincode;
+use sysinfo::Signal::Sys;
+use std::ops::Sub;
+
+const ONE_WEEK: u64 = 60*60*24*7;
+const DB_ERROR: &str = "Couldn't open database.";
+const DSER_ERROR: &str = "Couldn't deserialize object";
+const SER_ERROR: &str = "Couldn't serialize object";
 
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy {
@@ -63,6 +75,7 @@ pub struct Sensor {
     pub high: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Histogram {
     pub data: Vec<u64>,
 }
@@ -78,29 +91,92 @@ impl Histogram {
 pub struct HistogramMap {
     map: HashMap<String, Histogram>,
     duration: Duration,
-    tick: Duration,
+    pub tick: Duration,
+    time: SystemTime,
+    db: Option<sled::Db>
 }
 
 impl HistogramMap {
-    fn new(dur: Duration, tick: Duration) -> HistogramMap {
+    fn new(dur: Duration, tick: Duration, db: Option<sled::Db>) -> HistogramMap {
+        let mut map = HashMap::with_capacity(10);
+        let current_time = SystemTime::now();
+        let mut tick = tick;
+        match &db{
+            Some(db) => {
+                
+                let previous_stop = match db.get("stop_time").expect(DB_ERROR){
+                    Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
+                    None => current_time
+                };
+
+                let tick = match db.get("tick").expect(DB_ERROR){
+                    Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
+                    None => tick
+                };
+                
+                if previous_stop < current_time{
+                    let d = current_time.duration_since(previous_stop)
+                                                .expect("Current time is before stored time. This should not happen.");
+
+                    // restore previous histograms
+                    for k in db.iter().keys(){
+                        let k = k.expect(DB_ERROR);
+                        let key = String::from_utf8(k.to_owned().to_vec()).expect("Couldn't make a utf8 string from that key.");
+                        if k == "stop_time"{ continue; }
+                        if k == "tick"{ continue; }
+                        if k == "start_time" { continue; }
+                        match db.get(&k).expect(DB_ERROR){
+                            Some(v) => {
+                                let mut v: Histogram = bincode::deserialize(&v).expect(format!("while loading previous data: {:?}", k).as_str());
+                                let week_ticks = ONE_WEEK / tick.as_secs();
+                                if v.data.len() as u64 > week_ticks{
+                                    let end = v.data.len() as u64 - week_ticks;
+                                    v.data.drain(0..end as usize);
+                                }
+                                let mut dur = Duration::from(d);
+                                // add 0s between then and now.
+                                let zero_dur = Duration::from_secs(0);
+                                while dur > zero_dur + tick{
+                                    v.data.push(0);
+                                    dur -= tick;
+                                }
+                                map.insert(key, v);
+                                
+                            },
+                            None => {}
+                        }
+                    }
+                }
+            },
+            None => {
+
+            }
+        }
+
         HistogramMap {
-            map: HashMap::with_capacity(10),
+            map,
             duration: dur,
             tick,
+            time: current_time,
+            db
         }
     }
 
     fn add(&mut self, name: &str) -> &mut Histogram {
         let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
         let names = name.to_owned();
-        self.map.insert(names, Histogram::new(size));
-        self.map.get_mut(name).expect("Unexpectedly couldn't get mutable reference to value we just added.")
+        let r = self.map.insert(names, Histogram::new(size));
+        self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
-    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize) -> Option<Histogram> {
-        match self.map.get(name) {
+    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize, offset: usize) -> Option<Histogram> {
+        match self.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
+                let mut h = h.clone();
+                for i in 0..zoom_factor as usize * offset{
+                    h.data.pop();
+                }
                 let last_index = h.data.len();
                 let nh_len = nh.data.len();
                 let mut si: usize = last_index;
@@ -118,6 +194,11 @@ impl HistogramMap {
                 }
 
                 nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();
+                // let mut x = offset;
+                // while x > 0{
+                //     nh.data.insert(0, 0);
+                //     x -= 1;
+                // }
                 Some(nh)
             }
             None => None,
@@ -125,11 +206,13 @@ impl HistogramMap {
     }
 
     pub fn get(&self, name: &str) -> Option<&Histogram> {
-        self.map.get(name)
+        let v = self.map.get(name);
+        v
     }
 
     fn get_mut(&mut self, name: &str) -> Option<&mut Histogram> {
-        self.map.get_mut(name)
+        let v = self.map.get_mut(name);
+        v
     }
 
     fn has(&self, name: &str) -> bool {
@@ -142,7 +225,6 @@ impl HistogramMap {
             false => self.add(name),
         };
         h.data.push(val);
-        h.data.remove(0);
     }
 
     pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration {
@@ -150,6 +232,37 @@ impl HistogramMap {
             self.tick.as_secs_f64() * width as f64 * zoom_factor as f64,
         ))
         .expect("Unexpectedly large duration was out of range.")
+    }
+
+    pub fn histograms_width(&self) -> Option<usize>{
+        match self.map.iter().next(){
+            Some((k, h)) => Some(h.data.len()),
+            None => None
+        }
+    }
+
+    fn save_histograms(&mut self){
+        match &self.db{
+            Some(db) => {
+                let now = SystemTime::now();
+                db.insert("stop_time".as_bytes(), bincode::serialize(&now).expect(SER_ERROR)).expect(DB_ERROR);
+                db.insert("tick".as_bytes(), bincode::serialize(&self.tick).expect(SER_ERROR)).expect(DB_ERROR);
+                for k in self.map.keys(){
+                    match self.get(k){
+                        Some(v) => {db.insert(k.as_bytes(), bincode::serialize(&v).expect(SER_ERROR)).expect(DB_ERROR);},
+                        None => {}
+                    }
+                }
+            },
+            None => {}
+        }
+        
+    }
+}
+
+impl Drop for HistogramMap{
+    fn drop(&mut self){
+        self.save_histograms();
     }
 }
 
@@ -192,9 +305,10 @@ pub struct CPUTimeApp {
 }
 
 impl CPUTimeApp {
-    pub fn new(tick: Duration) -> CPUTimeApp {
+    pub fn new(tick: Duration, db: Option<sled::Db>) -> CPUTimeApp {
+
         let mut s = CPUTimeApp {
-            histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick),
+            histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db),
             tick,
             cpus: vec![],
             system: System::new(),
@@ -232,6 +346,7 @@ impl CPUTimeApp {
         };
         s.system.refresh_all();
         s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.
+
         return s;
     }
 
@@ -613,5 +728,9 @@ impl CPUTimeApp {
         self.update_disk(width);
         self.get_platform().await;
         self.get_nics().await;
+    }
+
+    pub async fn save_state(&mut self){
+        self.histogram_map.save_histograms();
     }
 }

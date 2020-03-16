@@ -35,6 +35,7 @@ use termion::input::TermRead;
 pub enum Event<I> {
     Input(I),
     Tick,
+    Save
 }
 
 /// A small event handler that wrap termion input and tick events. Each event
@@ -93,9 +94,15 @@ impl Events {
             let tx = tx.clone();
             thread::spawn(move || {
                 let tx = tx.clone();
+                let mut count: u64 = 0;
                 loop {
-                    tx.send(Event::Tick).unwrap();
+                    tx.send(Event::Tick).expect("Couldn't send event.");
+                    count += 1;
+                    if count % 5 == 0{
+                        tx.send(Event::Save).expect("Couldn't send event");
+                    }
                     thread::sleep(config.tick_rate);
+
                 }
             })
         };

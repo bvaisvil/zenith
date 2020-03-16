@@ -8,14 +8,13 @@
 - A top like process table that includes per process disk usage
 - Different histogram views (5 minutes, 1 hour, etc)
 - Managing processes (signals, nice, etc)
+- Saving performance data
 
 ## Planned Features
-- Saving performance data
 - Sensor Temperature histograms
 - Per process network usage (Linux)
 - Messaging about adverse system events, like errors in kernel ring buffer (Linux)
 - Docker support
-- More process details
 
 ## Current Platforms
 - Linux
@@ -75,4 +74,6 @@ Will remove the CPU histogram.
 
 Up/down arrow keys move around the process table. Return (enter) will focus on a process.
 Tab switches the active section. Active sections can be expanded (e) and minimized (m). 
++/- (or =/-) will zoom in / out all of the histograms. Arrow keys (←/→) move forward/backward in time.
+Back tick (`) resets the histogram to current time and max zoom.
 Using this you can create the layout you want.
