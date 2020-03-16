@@ -63,6 +63,8 @@ For example:
 ```zenith -c 0```
 Will remove the CPU histogram.
 
-Up/down arrow keys move around the process table. Return will focus on a process.
+Up/down arrow keys move around the process table. Return (enter) will focus on a process.
 Tab switches the active section. Active sections can be expanded (e) and minimized (m). 
++/- (or =/-) will zoom in / out all of the histograms. Arrow keys (←/→) move forward/backward in time.
+Back tick (`) resets the histogram to current time and max zoom.
 Using this you can create the layout you want.
