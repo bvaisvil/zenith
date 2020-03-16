@@ -29,6 +29,8 @@ use tui::Terminal;
 use sled;
 use dirs;
 use std::path::{Path};
+use std::process::exit;
+use std::fs::{File, remove_file};
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -57,6 +59,20 @@ fn start_zenith(
     disable_history: bool,
     db_path: &str
 ) -> Result<(), Box<dyn Error>> {
+
+    //check lock    
+    let lock_path = Path::new(db_path).join(Path::new(".zenith.lock"));
+    if lock_path.exists(){
+        if !disable_history{
+            print!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
+            exit(1);
+        }
+    }
+    else{
+        File::create(&lock_path)?;
+    }
+
+
     // Terminal initialization
     let stdout = io::stdout()
         .into_raw_mode()
@@ -66,6 +82,7 @@ fn start_zenith(
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
     terminal.hide_cursor().expect("Hiding cursor failed.");
+    
     let db = match disable_history{
         true => None,
         false => Some(sled::open(Path::new(db_path))?)
@@ -81,7 +98,11 @@ fn start_zenith(
                                       sensor_height as i16,
                                                     db
     );
-    Ok(block_on(r.start()))
+    let z = block_on(r.start());
+    if !disable_history && lock_path.exists(){
+        remove_file(lock_path)?
+    }
+    Ok(z)
 }
 
 fn validate_refresh_rate(arg: String) -> Result<(), String> {
