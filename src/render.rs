@@ -682,10 +682,21 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
 
 fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, tick: &Duration) {
     let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
-    let d = hist_duration + chrono::Duration::from_std(tick.mul(*offset as u32)).expect("Couldn't convert from std");
-    let start = Local::now().checked_sub_signed(d).expect("Couldn't compute time");
-    let end = start.checked_add_signed(hist_duration).expect("Couldn't add time");
+    let offset_duration = chrono::Duration::from_std(tick.mul(*offset as u32).mul(*zf)).expect("Couldn't convert from std");
+    let now = Local::now();
+    let start = now.checked_sub_signed(hist_duration + offset_duration).expect("Couldn't compute time");
+    let end = now.checked_sub_signed(offset_duration).expect("Couldn't add time");
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
+    let back_in_time = if offset_duration.num_seconds() > 0{
+        format!("(-{:02}:{:02}:{:02})", 
+        offset_duration.num_hours(), 
+        offset_duration.num_minutes() % 60, 
+        offset_duration.num_seconds() % 60)
+    }
+    else
+    {
+        String::from("")
+    };
     let line = vec![
         Text::styled(
             format!(" {:}", app.hostname),
@@ -698,7 +709,9 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
             default_style.fg(Color::Green),
         ),
         Text::styled(display_time(start, end), default_style),
+        Text::styled(back_in_time, default_style.modifier(Modifier::BOLD)),
         Text::styled("]", default_style),
+        Text::styled(" <tab> sections, (e)pand (m)inimize [+/-] zoom [←/→] scroll histogram (`) reset", default_style),
         Text::styled(" (q)uit", default_style),
         Text::styled(
             format!("{: >width$}", "", width = area.width as usize),
@@ -975,6 +988,10 @@ impl<'a> TerminalRenderer {
                     }
                     else if input == Key::Char('e'){
                         self.set_section_height(2).await;
+                    }
+                    else if input == Key::Char('`'){
+                        self.zoom_factor = 1;
+                        self.hist_start_offset = 0;
                     }
                     else if input == Key::Ctrl('c'){
                         break;

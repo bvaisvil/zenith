@@ -1065,7 +1065,7 @@ dependencies = [
 [[package]]
 name = "sysinfo"
 version = "0.10.5"
-source = "git+https://github.com/bvaisvil/sysinfo?branch=zenith_changes#fc7cfa317af8c50e037355e34526dd457e29f005"
+source = "git+https://github.com/bvaisvil/sysinfo?branch=zenith_changes#41e0a849b129da2f94b3b1570e34f45785aab00b"
 dependencies = [
  "cfg-if",
  "doc-comment",
