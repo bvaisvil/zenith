@@ -30,7 +30,7 @@ use sled;
 use dirs;
 use std::path::{Path};
 use std::process::exit;
-use std::fs::{File, remove_file};
+use std::fs::{File, remove_file, create_dir_all};
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -62,16 +62,25 @@ fn start_zenith(
 
     //check lock    
     let lock_path = Path::new(db_path).join(Path::new(".zenith.lock"));
-    if lock_path.exists(){
+    let db = if lock_path.exists(){
         if !disable_history{
             print!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
             exit(1);
         }
+        else{
+            None
+        }
     }
     else{
-        File::create(&lock_path)?;
-    }
-
+        if !disable_history{
+            let db = sled::open(Path::new(db_path))?;
+            File::create(&lock_path)?;
+            Some(db)
+        }
+        else{
+            None
+        }
+    };
 
     // Terminal initialization
     let stdout = io::stdout()
@@ -83,10 +92,7 @@ fn start_zenith(
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
     terminal.hide_cursor().expect("Hiding cursor failed.");
     
-    let db = match disable_history{
-        true => None,
-        false => Some(sled::open(Path::new(db_path))?)
-    };
+
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
