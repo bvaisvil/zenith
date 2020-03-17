@@ -80,9 +80,9 @@ Using this you can create the layout you want.
 
 ## Built using these great crates
 
-- (tui-rs)[https://github.com/fdehau/tui-rs]
-- (sysinfo)[https://github.com/GuillaumeGomez/sysinfo]
-- (heim)[https://github.com/GuillaumeGomez/heim]
-- (sled)[https://github.com/spacejam/sled]
-- (serde)[https://github.com/serde-rs/serde]
-- (clap)[https://github.com/clap-rs/clap]
+- [tui-rs](https://github.com/fdehau/tui-rs)
+- [sysinfo](https://github.com/GuillaumeGomez/sysinfo)
+- [heim](https://github.com/heim-rs/heim)
+- [sled](https://github.com/spacejam/sled)
+- [serde](https://github.com/serde-rs/serde)
+- [clap](https://github.com/clap-rs/clap)
