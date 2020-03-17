@@ -8,6 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/bvaisvil/zenith"
 repository = "https://github.com/bvaisvil/zenith"
 license = "MIT"
+keywords = ["system monitor", "tui", "process monitor", "sysinfo"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
