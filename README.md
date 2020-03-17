@@ -77,3 +77,12 @@ Tab switches the active section. Active sections can be expanded (e) and minimiz
 +/- (or =/-) will zoom in / out all of the charts. Arrow keys (←/→) move forward/backward in time.
 Back tick (`) resets the chart to current time and max zoom.
 Using this you can create the layout you want.
+
+## Built using these great crates
+
+- (tui-rs)[https://github.com/fdehau/tui-rs]
+- (sysinfo)[https://github.com/GuillaumeGomez/sysinfo]
+- (heim)[https://github.com/GuillaumeGomez/heim]
+- (sled)[https://github.com/spacejam/sled]
+- (serde)[https://github.com/serde-rs/serde]
+- (clap)[https://github.com/clap-rs/clap]

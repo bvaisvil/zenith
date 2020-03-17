@@ -665,11 +665,11 @@ checksum = "88579771288728879b57485cc7d6b07d648c9f0141eb955f8ab7f9d45394468e"
 
 [[package]]
 name = "memoffset"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75189eb85871ea5c2e2c15abbdd541185f63b408415e5051f5cac122d8c774b9"
+checksum = "b4fc2c02a7e374099d4ee95a193111f72d2110197fe200272371758f6c3643d8"
 dependencies = [
- "rustc_version",
+ "autocfg",
 ]
 
 [[package]]
@@ -1065,7 +1065,7 @@ dependencies = [
 [[package]]
 name = "sysinfo"
 version = "0.10.5"
-source = "git+https://github.com/bvaisvil/sysinfo?branch=zenith_changes#41e0a849b129da2f94b3b1570e34f45785aab00b"
+source = "git+https://github.com/bvaisvil/sysinfo?branch=zenith_changes#694cfd463acf3e0563ce1838e8ae75e1d5bad954"
 dependencies = [
  "cfg-if",
  "doc-comment",
