@@ -3,15 +3,15 @@
 <img src="./assets/screenshot.png" alt="Running zenith under iterm on MacOS">
 
 ## Features
-- Optional CPU, Memory, Network, and Disk usage histograms
+- Optional CPU, Memory, Network, and Disk usage charts
 - Quick glances at Disk free space, NIC IP addresses, CPU frequency
 - A top like process table that includes per process disk usage
-- Different histogram views (5 minutes, 1 hour, etc)
+- Different chart views (5 minutes, 1 hour, etc)
 - Managing processes (signals, nice, etc)
 - Saving performance data
 
 ## Planned Features
-- Sensor Temperature histograms
+- Sensor Temperature charts
 - Per process network usage (Linux)
 - Messaging about adverse system events, like errors in kernel ring buffer (Linux)
 - Docker support
@@ -70,10 +70,10 @@ Don't want a section? Remove it by setting the height to 0.
 
 For example:
 ```zenith -c 0```
-Will remove the CPU histogram.
+Will remove the CPU chart.
 
 Up/down arrow keys move around the process table. Return (enter) will focus on a process.
 Tab switches the active section. Active sections can be expanded (e) and minimized (m). 
-+/- (or =/-) will zoom in / out all of the histograms. Arrow keys (←/→) move forward/backward in time.
-Back tick (`) resets the histogram to current time and max zoom.
++/- (or =/-) will zoom in / out all of the charts. Arrow keys (←/→) move forward/backward in time.
+Back tick (`) resets the chart to current time and max zoom.
 Using this you can create the layout you want.
