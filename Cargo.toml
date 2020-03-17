@@ -3,7 +3,11 @@ name = "zenith"
 version = "0.7.5"
 authors = ["Benjamin Vaisvil"]
 edition = "2018"
-
+description = "Similar to top or htop but with CPU, Network Usage, and Disk Usage charts."
+readme = "README.md"
+homepage = "https://github.com/bvaisvil/zenith"
+repository = "https://github.com/bvaisvil/zenith"
+license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
