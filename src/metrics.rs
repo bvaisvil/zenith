@@ -194,11 +194,6 @@ impl HistogramMap {
                 }
 
                 nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();
-                // let mut x = offset;
-                // while x > 0{
-                //     nh.data.insert(0, 0);
-                //     x -= 1;
-                // }
                 Some(nh)
             }
             None => None,
