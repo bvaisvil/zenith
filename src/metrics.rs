@@ -22,6 +22,8 @@ use serde_derive::{Serialize, Deserialize};
 use bincode;
 use sysinfo::Signal::Sys;
 use std::ops::Sub;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
 
 const ONE_WEEK: u64 = 60*60*24*7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -169,28 +171,33 @@ impl HistogramMap {
         self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
-    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, width: usize, offset: usize) -> Option<Histogram> {
+    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, update_number: u32, width: usize, offset: usize) -> Option<Histogram> {
+        let mut log = OpenOptions::new().create(true).append(true).open("log.txt").unwrap();
+        
         match self.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
                 let mut h = h.clone();
-                for i in 0..zoom_factor as usize * offset{
+                for _i in 0..zoom_factor as usize * offset{
                     h.data.pop();
                 }
-                let last_index = h.data.len();
                 let nh_len = nh.data.len();
-                let mut si: usize = last_index;
-                for index in (0..nh_len).rev() {
-                    if si < zoom_factor as usize {
-                        break;
+                let zf = zoom_factor as usize;
+                let mut si: usize = if (width * zf) > h.data.len(){
+                    0
+                }
+                else{
+                    h.data.len() - (width * zf) - update_number as usize
+                };
+                
+                for index in (0..nh_len){
+                    if si + zf <= h.data.len(){
+                        nh.data[index] = h.data[si..si + zf].iter().sum::<u64>();
                     }
-                    for i in si - zoom_factor as usize..si {
-                        if i >= 0 {
-                            nh.data[index] += h.data[i];
-                        }
+                    else{
+                        nh.data[index] = h.data[si..].iter().sum::<u64>();
                     }
-
-                    si -= zoom_factor as usize;
+                    si += zf;
                 }
 
                 nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();

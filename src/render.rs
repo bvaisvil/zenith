@@ -207,11 +207,12 @@ fn render_process_table<'a>(
         .render(f, area);
 }
 
-fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize) {
+fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>,
+     zf: &u32, update_number: &u32, offset: &usize) {
     let title = cpu_title(&app);
     let h = match app
         .histogram_map
-        .get_zoomed("cpu_usage_histogram", *zf, area.width as usize, *offset)
+        .get_zoomed("cpu_usage_histogram", *zf, *update_number, area.width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -224,10 +225,10 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
         .render(f, area);
 }
 
-fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize) {
+fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, update_number: &u32, offset: &usize) {
     let h = match app
         .histogram_map
-        .get_zoomed("mem_utilization", *zf, area.width as usize, *offset)
+        .get_zoomed("mem_utilization", *zf, *update_number, area.width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -317,7 +318,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBack
     }
 }
 
-fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, selected_section: &Section) {
+fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, update_number: &u32, offset: &usize, selected_section: &Section) {
     let style = match selected_section {
         Section::Network => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -340,7 +341,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, o
     let net_up = float_to_byte_string!(app.net_out as f64, ByteUnit::B);
     let h_out = match app
         .histogram_map
-        .get_zoomed("net_out", *zf, net[0].width as usize, *offset)
+        .get_zoomed("net_out", *zf, *update_number, net[0].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -371,7 +372,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, o
     let net_down = float_to_byte_string!(app.net_in as f64, ByteUnit::B);
     let h_in = match app
         .histogram_map
-        .get_zoomed("net_in", *zf, net[1].width as usize, *offset)
+        .get_zoomed("net_in", *zf, *update_number, net[1].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -559,16 +560,9 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width
     };
 }
 
-fn render_sensors(app: &CPUTimeApp, layout: Vec<Rect>, f: &mut Frame<ZBackend>, zf: &u32){
-    let sensors = app.sensors.iter().map(|s|{
-        Text::raw(format!("{:}:{:}", s.name, s.current_temp))
-    });
-    List::new(sensors)
-        .block(Block::default().title("Sensors").borders(Borders::ALL))
-        .render(f, layout[0]);
-}
 
-fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, selected_section: &Section) {
+fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, 
+    zf: &u32, update_number: &u32, offset: &usize, selected_section: &Section) {
     let style = match selected_section {
         Section::Disk => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -588,7 +582,7 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32
     let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
     let h_read = match app
         .histogram_map
-        .get_zoomed("disk_read", *zf, area[0].width as usize, *offset)
+        .get_zoomed("disk_read", *zf, *update_number, area[0].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -618,7 +612,7 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, zf: &u32
     let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
     let h_write = match app
         .histogram_map
-        .get_zoomed("disk_write", *zf, area[1].width as usize, *offset)
+        .get_zoomed("disk_write", *zf, *update_number, area[1].width as usize, *offset)
     {
         Some(h) => h.data,
         None => return,
@@ -723,7 +717,7 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
     Paragraph::new(line.iter()).render(f, area);
 }
 
-fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, selected_section: &Section){
+fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, update_number: &u32, offset: &usize, selected_section: &Section){
     let style = match selected_section {
         Section::CPU => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -745,8 +739,8 @@ fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, o
             [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
         )
         .split(cpu_layout[1]);
-    render_cpu_histogram(&app, cpu_mem[0], f, zf, offset);
-    render_memory_histogram(&app, cpu_mem[1], f, zf, offset);
+    render_cpu_histogram(&app, cpu_mem[0], f, zf, update_number, offset);
+    render_memory_histogram(&app, cpu_mem[1], f, zf, update_number, offset);
     render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
 }
 
@@ -761,6 +755,7 @@ pub struct TerminalRenderer {
     process_height: i16,
     sensor_height: i16,
     zoom_factor: u32,
+    update_number: u32,
     hist_start_offset: usize,
     selected_section: Section,
     constraints: Vec<Constraint>,
@@ -804,6 +799,7 @@ impl<'a> TerminalRenderer {
             process_height,
             sensor_height,
             zoom_factor: 1,
+            update_number: 0,
             selected_section: Section::Process,
             constraints,
             process_message: None,
@@ -850,6 +846,7 @@ impl<'a> TerminalRenderer {
             let process_message = &self.process_message;
             let offset = &self.hist_start_offset;
             let tick = &self.app.histogram_map.tick;
+            let un = &self.update_number;
 
             self.terminal
                 .draw(|mut f| {
@@ -863,9 +860,9 @@ impl<'a> TerminalRenderer {
                         .split(f.size());
 
                     render_top_title_bar(app, v_sections[0], &mut f, zf, offset, tick);
-                    render_cpu(app, v_sections[1], &mut f, zf, offset, selected);
-                    render_net(&app, v_sections[2], &mut f, zf, offset, selected);
-                    render_disk(&app, v_sections[3], &mut f, zf, offset, selected);
+                    render_cpu(app, v_sections[1], &mut f, zf, un, offset,  selected);
+                    render_net(&app, v_sections[2], &mut f, zf,un, offset, selected);
+                    render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
                     if *process_height > 0{
                         if let Some(area) = v_sections.last(){
                             if app.selected_process.is_none() {
@@ -952,10 +949,12 @@ impl<'a> TerminalRenderer {
                         if self.zoom_factor > 1 {
                             self.zoom_factor -= 1;
                         }
+                        self.update_number = 0;
                     } else if input == Key::Char('-') {
                         if self.zoom_factor < 100 {
                             self.zoom_factor += 1;
                         }
+                        self.update_number = 0;
                     } else if input == Key::Char('\n') {
                         self.app.select_process();
                         self.process_message = None;
@@ -1010,6 +1009,10 @@ impl<'a> TerminalRenderer {
                 }
                 Event::Tick => {
                     self.app.update(width).await;
+                    self.update_number += 1;
+                    if self.update_number == self.zoom_factor{
+                        self.update_number = 0;
+                    }
                 }
                 Event::Save => {
                     self.app.save_state().await;
