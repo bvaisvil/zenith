@@ -16,21 +16,21 @@ mod zprocess;
 
 use crate::render::TerminalRenderer;
 use clap::{App, Arg};
+use dirs;
 use futures::executor::block_on;
+use sled;
 use std::error::Error;
+use std::fs::{remove_file, File};
 use std::io;
 use std::panic;
 use std::panic::PanicInfo;
+use std::path::Path;
+use std::process::exit;
 use termion::input::MouseTerminal;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::Terminal;
-use sled;
-use dirs;
-use std::path::{Path};
-use std::process::exit;
-use std::fs::{File, remove_file};
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -57,27 +57,23 @@ fn start_zenith(
     process_height: u16,
     sensor_height: u16,
     disable_history: bool,
-    db_path: &str
+    db_path: &str,
 ) -> Result<(), Box<dyn Error>> {
-
-    //check lock    
+    //check lock
     let lock_path = Path::new(db_path).join(Path::new(".zenith.lock"));
-    let db = if lock_path.exists(){
-        if !disable_history{
+    let db = if lock_path.exists() {
+        if !disable_history {
             print!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
             exit(1);
-        }
-        else{
+        } else {
             None
         }
-    }
-    else{
-        if !disable_history{
+    } else {
+        if !disable_history {
             let db = sled::open(Path::new(db_path))?;
             File::create(&lock_path)?;
             Some(db)
-        }
-        else{
+        } else {
             None
         }
     };
@@ -91,21 +87,21 @@ fn start_zenith(
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
     terminal.hide_cursor().expect("Hiding cursor failed.");
-    
 
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
-    let mut r = TerminalRenderer::new(rate,
-                                      cpu_height as i16,
-                                      net_height as i16,
-                                      disk_height as i16,
-                                      process_height as i16,
-                                      sensor_height as i16,
-                                                    db
+    let mut r = TerminalRenderer::new(
+        rate,
+        cpu_height as i16,
+        net_height as i16,
+        disk_height as i16,
+        process_height as i16,
+        sensor_height as i16,
+        db,
     );
     let z = block_on(r.start());
-    if !disable_history && lock_path.exists(){
+    if !disable_history && lock_path.exists() {
         remove_file(lock_path)?
     }
     Ok(z)
@@ -136,16 +132,21 @@ fn validate_height(arg: String) -> Result<(), String> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-
-    let default_db_path = dirs::home_dir().unwrap_or(Path::new("./").to_owned()).join(".zenith");
-    let default_db_path = default_db_path.to_str().expect("Couldn't set default db path");
+    let default_db_path = dirs::home_dir()
+        .unwrap_or(Path::new("./").to_owned())
+        .join(".zenith");
+    let default_db_path = default_db_path
+        .to_str()
+        .expect("Couldn't set default db path");
     let matches = App::new("zenith")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Benjamin Vaisvil <ben@neuon.com>")
-        .about("Zenith, sort of like top but with histograms.
+        .about(
+            "Zenith, sort of like top but with histograms.
 Up/down arrow keys move around the process table. Return (enter) will focus on a process.
 Tab switches the active section. Active sections can be expanded (e) and minimized (m).
-Using this you can create the layout you want.")
+Using this you can create the layout you want.",
+        )
         .arg(
             Arg::with_name("refresh-rate")
                 .short("r")
@@ -208,9 +209,9 @@ Using this you can create the layout you want.")
         )
         .arg(
             Arg::with_name("disable-history")
-            .long("disable-history")
-            .help(format!("Disables history when flag is present").as_str())
-            .takes_value(false)
+                .long("disable-history")
+                .help(format!("Disables history when flag is present").as_str())
+                .takes_value(false),
         )
         .arg(
             Arg::with_name("db")
@@ -250,6 +251,6 @@ Using this you can create the layout you want.")
             .unwrap(),
         0,
         matches.is_present("disable-history"),
-        matches.value_of("db").unwrap()
+        matches.value_of("db").unwrap(),
     )
 }

@@ -35,7 +35,7 @@ use termion::input::TermRead;
 pub enum Event<I> {
     Input(I),
     Tick,
-    Save
+    Save,
 }
 
 #[allow(dead_code)]
@@ -97,11 +97,10 @@ impl Events {
                 loop {
                     tx.send(Event::Tick).expect("Couldn't send event.");
                     count += 1;
-                    if count % 5 == 0{
+                    if count % 5 == 0 {
                         tx.send(Event::Save).expect("Couldn't send event");
                     }
                     thread::sleep(config.tick_rate);
-
                 }
             })
         };

@@ -6,7 +6,7 @@ use crate::util::*;
 use crate::zprocess::*;
 use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
-use chrono::{Local, Datelike, Timelike};
+use chrono::{Datelike, Local, Timelike};
 use std::borrow::Cow;
 use std::io;
 use std::io::Stdout;
@@ -16,43 +16,43 @@ use termion::event::Key;
 use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
-use tui::backend::{TermionBackend};
+use tui::backend::TermionBackend;
 
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
-use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget};
-use tui::Frame;
-use tui::Terminal;
 use sled;
 use std::ops::Mul;
+use tui::layout::{Constraint, Direction, Layout, Rect};
+use tui::style::{Color, Modifier, Style};
+use tui::widgets::{
+    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget,
+};
+use tui::Frame;
+use tui::Terminal;
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
 
-macro_rules! float_to_byte_string{
-    ($x:expr, $unit:expr) =>{
-        match Byte::from_unit($x, $unit){
+macro_rules! float_to_byte_string {
+    ($x:expr, $unit:expr) => {
+        match Byte::from_unit($x, $unit) {
             Ok(b) => b.get_appropriate_unit(false).to_string().replace(" ", ""),
-            Err(_) => String::from("")
+            Err(_) => String::from(""),
         }
     };
 }
 
-macro_rules! set_section_height{
+macro_rules! set_section_height {
     ($x:expr, $val:expr) => {
-        if $x + $val > 0{
+        if $x + $val > 0 {
             $x += $val;
         }
     };
 }
 
-
-
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
-enum Section{
+enum Section {
     CPU = 0,
     Network = 1,
     Disk = 2,
-    Process = 3
+    Process = 3,
 }
 
 fn mem_title(app: &CPUTimeApp) -> String {
@@ -83,9 +83,9 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         Some(p) => p.user_name.as_str(),
         None => "",
     };
-    let top_pid = match &app.cum_cpu_process{
+    let top_pid = match &app.cum_cpu_process {
         Some(p) => p.pid,
-        None => 0
+        None => 0,
     };
     let h = match app.histogram_map.get("cpu_usage_histogram") {
         Some(h) => &h.data,
@@ -107,14 +107,14 @@ fn render_process_table<'a>(
     area: Rect,
     process_table_start: usize,
     f: &mut Frame<ZBackend>,
-    selected_section: &Section
+    selected_section: &Section,
 ) {
     if area.height < 5 {
         return; // not enough space to draw anything
     }
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
-        _ => Style::default()
+        _ => Style::default(),
     };
     let display_height = area.height as usize - 4; // 4 for the margins and table header
 
@@ -124,19 +124,35 @@ fn render_process_table<'a>(
         .processes
         .iter()
         .map(|pid| {
-            let p = app.process_map.get(pid).expect("Pid present in processes but not in map.");
+            let p = app
+                .process_map
+                .get(pid)
+                .expect("Pid present in processes but not in map.");
             vec![
                 format!("{: >5}", p.pid),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
                 format!("{:>5.1}", p.cpu_usage),
                 format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
-                format!("{:>8}", float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")),
-                format!("{: >8}", float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace("B", "")),
+                format!(
+                    "{:>8}",
+                    float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
+                ),
+                format!(
+                    "{: >8}",
+                    float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace("B", "")
+                ),
                 format!("{:1}", p.status.to_single_char()),
-                format!("{:>8}", float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B).replace("B", "")),
-                format!("{:>8}", float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B).replace("B", "")),
-                format!("{} - ", p.name) + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" "),
+                format!(
+                    "{:>8}",
+                    float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B).replace("B", "")
+                ),
+                format!(
+                    "{:>8}",
+                    float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B).replace("B", "")
+                ),
+                format!("{} - ", p.name)
+                    + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" "),
             ]
         })
         .collect();
@@ -190,15 +206,18 @@ fn render_process_table<'a>(
 
     Table::new(header.into_iter(), rows)
         .block(
-            Block::default().borders(Borders::ALL).border_style(style)
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(style)
                 .title(
-                format!(
-                    "Tasks [{}] Threads [{}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]",
-                    app.processes.len(),
-                    app.threads_total
+                    format!(
+                        "Tasks [{}] Threads [{}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]",
+                        app.processes.len(),
+                        app.threads_total
+                    )
+                    .as_str(),
                 )
-                .as_str(),
-            ).title_style(style),
+                .title_style(style),
         )
         .widths(widths.as_slice())
         .column_spacing(0)
@@ -206,13 +225,22 @@ fn render_process_table<'a>(
         .render(f, area);
 }
 
-fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>,
-     zf: &u32, update_number: &u32, offset: &usize) {
+fn render_cpu_histogram(
+    app: &CPUTimeApp,
+    area: Rect,
+    f: &mut Frame<ZBackend>,
+    zf: &u32,
+    update_number: &u32,
+    offset: &usize,
+) {
     let title = cpu_title(&app);
-    let h = match app
-        .histogram_map
-        .get_zoomed("cpu_usage_histogram", *zf, *update_number, area.width as usize, *offset)
-    {
+    let h = match app.histogram_map.get_zoomed(
+        "cpu_usage_histogram",
+        *zf,
+        *update_number,
+        area.width as usize,
+        *offset,
+    ) {
         Some(h) => h.data,
         None => return,
     };
@@ -224,11 +252,21 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>,
         .render(f, area);
 }
 
-fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, update_number: &u32, offset: &usize) {
-    let h = match app
-        .histogram_map
-        .get_zoomed("mem_utilization", *zf, *update_number, area.width as usize, *offset)
-    {
+fn render_memory_histogram(
+    app: &CPUTimeApp,
+    area: Rect,
+    f: &mut Frame<ZBackend>,
+    zf: &u32,
+    update_number: &u32,
+    offset: &usize,
+) {
+    let h = match app.histogram_map.get_zoomed(
+        "mem_utilization",
+        *zf,
+        *update_number,
+        area.width as usize,
+        *offset,
+    ) {
         Some(h) => h.data,
         None => return,
     };
@@ -241,7 +279,13 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>
         .render(f, area);
 }
 
-fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBackend>, style: &Style) {
+fn render_cpu_bars(
+    app: &CPUTimeApp,
+    area: Rect,
+    width: u16,
+    f: &mut Frame<ZBackend>,
+    style: &Style,
+) {
     let mut cpus = app.cpus.to_owned();
     let mut bars: Vec<(&str, u64)> = vec![];
     let mut bar_gap: u16 = 1;
@@ -280,7 +324,9 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBack
 
     Block::default()
         .title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str())
-        .borders(Borders::ALL).border_style(*style).title_style(*style)
+        .borders(Borders::ALL)
+        .border_style(*style)
+        .title_style(*style)
         .render(f, area);
     let cpu_bar_layout = Layout::default()
         .margin(1)
@@ -317,15 +363,24 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, width: u16, f: &mut Frame<ZBack
     }
 }
 
-fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, update_number: &u32, offset: &usize, selected_section: &Section) {
+fn render_net(
+    app: &CPUTimeApp,
+    area: Rect,
+    f: &mut Frame<ZBackend>,
+    zf: &u32,
+    update_number: &u32,
+    offset: &usize,
+    selected_section: &Section,
+) {
     let style = match selected_section {
         Section::Network => Style::default().fg(Color::Red),
-        _ => Style::default()
+        _ => Style::default(),
     };
     Block::default()
-    .title("Network")
-    .borders(Borders::ALL).border_style(style)
-    .render(f, area);
+        .title("Network")
+        .borders(Borders::ALL)
+        .border_style(style)
+        .render(f, area);
     let network_layout = Layout::default()
         .margin(0)
         .direction(Direction::Horizontal)
@@ -338,10 +393,13 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, u
         .split(network_layout[1]);
 
     let net_up = float_to_byte_string!(app.net_out as f64, ByteUnit::B);
-    let h_out = match app
-        .histogram_map
-        .get_zoomed("net_out", *zf, *update_number, net[0].width as usize, *offset)
-    {
+    let h_out = match app.histogram_map.get_zoomed(
+        "net_out",
+        *zf,
+        *update_number,
+        net[0].width as usize,
+        *offset,
+    ) {
         Some(h) => h.data,
         None => return,
     };
@@ -355,12 +413,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, u
     Sparkline::default()
         .block(
             Block::default().title(
-                format!(
-                    "↑ [{:^10}] Max [{:^10}]",
-                    net_up.to_string(),
-                    up_max_bytes
-                )
-                .as_str(),
+                format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(), up_max_bytes).as_str(),
             ),
         )
         .data(&h_out)
@@ -369,10 +422,13 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, u
         .render(f, net[0]);
 
     let net_down = float_to_byte_string!(app.net_in as f64, ByteUnit::B);
-    let h_in = match app
-        .histogram_map
-        .get_zoomed("net_in", *zf, *update_number, net[1].width as usize, *offset)
-    {
+    let h_in = match app.histogram_map.get_zoomed(
+        "net_in",
+        *zf,
+        *update_number,
+        net[1].width as usize,
+        *offset,
+    ) {
         Some(h) => h.data,
         None => return,
     };
@@ -384,14 +440,8 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, u
     let down_max_bytes = float_to_byte_string!(down_max as f64, ByteUnit::B);
     Sparkline::default()
         .block(
-            Block::default().title(
-                format!(
-                    "↓ [{:^10}] Max [{:^10}]",
-                    net_down,
-                    down_max_bytes
-                )
-                .as_str(),
-            ),
+            Block::default()
+                .title(format!("↓ [{:^10}] Max [{:^10}]", net_down, down_max_bytes).as_str()),
         )
         .data(&h_in)
         .style(Style::default().fg(Color::LightMagenta))
@@ -405,20 +455,35 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, u
         )
     });
     List::new(ips)
-        .block(Block::default().title("Network").borders(Borders::ALL).border_style(style).title_style(style))
+        .block(
+            Block::default()
+                .title("Network")
+                .borders(Borders::ALL)
+                .border_style(style)
+                .title_style(style),
+        )
         .render(f, network_layout[0]);
 }
 
-fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, _width: u16, selected_section: &Section, process_message: &Option<String>) {
+fn render_process(
+    app: &CPUTimeApp,
+    layout: Rect,
+    f: &mut Frame<ZBackend>,
+    _width: u16,
+    selected_section: &Section,
+    process_message: &Option<String>,
+) {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
-        _ => Style::default()
+        _ => Style::default(),
     };
     match &app.selected_process {
         Some(p) => {
             Block::default()
                 .title(format!("Process: {0}", p.name).as_str())
-                .borders(Borders::ALL).border_style(style).title_style(style)
+                .borders(Borders::ALL)
+                .border_style(style)
+                .title_style(style)
                 .render(f, layout);
             let v_sections = Layout::default()
                 .direction(Direction::Vertical)
@@ -437,7 +502,7 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, _widt
                     .as_ref(),
                 )
                 .split(v_sections[1]);
-            
+
             Block::default()
                 .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
                 .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
@@ -559,19 +624,29 @@ fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, _widt
     };
 }
 
-
-fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, 
-    zf: &u32, update_number: &u32, offset: &usize, selected_section: &Section) {
+fn render_disk(
+    app: &CPUTimeApp,
+    layout: Rect,
+    f: &mut Frame<ZBackend>,
+    zf: &u32,
+    update_number: &u32,
+    offset: &usize,
+    selected_section: &Section,
+) {
     let style = match selected_section {
         Section::Disk => Style::default().fg(Color::Red),
-        _ => Style::default()
+        _ => Style::default(),
     };
-    Block::default().title("Disk").borders(Borders::ALL).border_style(style).render(f, layout);
+    Block::default()
+        .title("Disk")
+        .borders(Borders::ALL)
+        .border_style(style)
+        .render(f, layout);
     let disk_layout = Layout::default()
-                        .margin(0)
-                        .direction(Direction::Horizontal)
-                        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
-                        .split(layout);
+        .margin(0)
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .split(layout);
     let area = Layout::default()
         .margin(1)
         .direction(Direction::Vertical)
@@ -579,10 +654,13 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>,
         .split(disk_layout[1]);
 
     let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
-    let h_read = match app
-        .histogram_map
-        .get_zoomed("disk_read", *zf, *update_number, area[0].width as usize, *offset)
-    {
+    let h_read = match app.histogram_map.get_zoomed(
+        "disk_read",
+        *zf,
+        *update_number,
+        area[0].width as usize,
+        *offset,
+    ) {
         Some(h) => h.data,
         None => return,
     };
@@ -594,14 +672,8 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>,
     let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
     Sparkline::default()
         .block(
-            Block::default().title(
-                format!(
-                    "R [{:^10}] Max [{:^10}]",
-                    read_up,
-                    read_max_bytes
-                )
-                .as_str(),
-            ),
+            Block::default()
+                .title(format!("R [{:^10}] Max [{:^10}]", read_up, read_max_bytes).as_str()),
         )
         .data(&h_read)
         .style(Style::default().fg(Color::LightYellow))
@@ -609,10 +681,13 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>,
         .render(f, area[0]);
 
     let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
-    let h_write = match app
-        .histogram_map
-        .get_zoomed("disk_write", *zf, *update_number, area[1].width as usize, *offset)
-    {
+    let h_write = match app.histogram_map.get_zoomed(
+        "disk_write",
+        *zf,
+        *update_number,
+        area[1].width as usize,
+        *offset,
+    ) {
         Some(h) => h.data,
         None => return,
     };
@@ -624,14 +699,8 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>,
     let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
     Sparkline::default()
         .block(
-            Block::default().title(
-                format!(
-                    "W [{:^10}] Max [{:^10}]",
-                    write_down,
-                    write_max_bytes
-                )
-                .as_str(),
-            ),
+            Block::default()
+                .title(format!("W [{:^10}] Max [{:^10}]", write_down, write_max_bytes).as_str()),
         )
         .data(&h_write)
         .style(Style::default().fg(Color::LightMagenta))
@@ -659,37 +728,68 @@ fn render_disk(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>,
         }
     });
     List::new(disks)
-        .block(Block::default().title("Disks").borders(Borders::ALL).border_style(style).title_style(style))
+        .block(
+            Block::default()
+                .title("Disks")
+                .borders(Borders::ALL)
+                .border_style(style)
+                .title_style(style),
+        )
         .render(f, disk_layout[0]);
 }
 
 fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
     if start.day() == end.day() && start.month() == end.month() {
-        return format!(" ({:02}:{:02}:{:02} - {:02}:{:02}:{:02})",
-                       start.hour(), start.minute(), start.second(),
-                       end.hour(), end.minute(), end.second()
+        return format!(
+            " ({:02}:{:02}:{:02} - {:02}:{:02}:{:02})",
+            start.hour(),
+            start.minute(),
+            start.second(),
+            end.hour(),
+            end.minute(),
+            end.second()
         );
     }
-    format!(" ({:} {:02}:{:02}:{:02} - {:} {:02}:{:02}:{:02})",
-            start.date(), start.hour(), start.minute(), start.second(),
-            end.date(), end.hour(), end.minute(), end.second() )
+    format!(
+        " ({:} {:02}:{:02}:{:02} - {:} {:02}:{:02}:{:02})",
+        start.date(),
+        start.hour(),
+        start.minute(),
+        start.second(),
+        end.date(),
+        end.hour(),
+        end.minute(),
+        end.second()
+    )
 }
 
-fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, offset: &usize, tick: &Duration) {
+fn render_top_title_bar(
+    app: &CPUTimeApp,
+    area: Rect,
+    f: &mut Frame<ZBackend>,
+    zf: &u32,
+    offset: &usize,
+    tick: &Duration,
+) {
     let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
-    let offset_duration = chrono::Duration::from_std(tick.mul(*offset as u32).mul(*zf)).expect("Couldn't convert from std");
+    let offset_duration = chrono::Duration::from_std(tick.mul(*offset as u32).mul(*zf))
+        .expect("Couldn't convert from std");
     let now = Local::now();
-    let start = now.checked_sub_signed(hist_duration + offset_duration).expect("Couldn't compute time");
-    let end = now.checked_sub_signed(offset_duration).expect("Couldn't add time");
+    let start = now
+        .checked_sub_signed(hist_duration + offset_duration)
+        .expect("Couldn't compute time");
+    let end = now
+        .checked_sub_signed(offset_duration)
+        .expect("Couldn't add time");
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
-    let back_in_time = if offset_duration.num_seconds() > 0{
-        format!("(-{:02}:{:02}:{:02})", 
-        offset_duration.num_hours(), 
-        offset_duration.num_minutes() % 60, 
-        offset_duration.num_seconds() % 60)
-    }
-    else
-    {
+    let back_in_time = if offset_duration.num_seconds() > 0 {
+        format!(
+            "(-{:02}:{:02}:{:02})",
+            offset_duration.num_hours(),
+            offset_duration.num_minutes() % 60,
+            offset_duration.num_seconds() % 60
+        )
+    } else {
         String::from("")
     };
     let line = vec![
@@ -697,7 +797,10 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
             format!(" {:}", app.hostname),
             default_style.modifier(Modifier::BOLD),
         ),
-        Text::styled(format!(" [{:} {:}]", app.osname, app.release), default_style),
+        Text::styled(
+            format!(" [{:} {:}]", app.osname, app.release),
+            default_style,
+        ),
         Text::styled("[Showing: ", default_style),
         Text::styled(
             format!("{:} mins", hist_duration.num_minutes()),
@@ -706,7 +809,10 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
         Text::styled(display_time(start, end), default_style),
         Text::styled(back_in_time, default_style.modifier(Modifier::BOLD)),
         Text::styled("]", default_style),
-        Text::styled(" <tab> sections, (e)pand (m)inimize [+/-] zoom [←/→] scroll histogram (`) reset", default_style),
+        Text::styled(
+            " <tab> sections, (e)pand (m)inimize [+/-] zoom [←/→] scroll histogram (`) reset",
+            default_style,
+        ),
         Text::styled(" (q)uit", default_style),
         Text::styled(
             format!("{: >width$}", "", width = area.width as usize),
@@ -716,15 +822,24 @@ fn render_top_title_bar(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, z
     Paragraph::new(line.iter()).render(f, area);
 }
 
-fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, update_number: &u32, offset: &usize, selected_section: &Section){
+fn render_cpu(
+    app: &CPUTimeApp,
+    area: Rect,
+    f: &mut Frame<ZBackend>,
+    zf: &u32,
+    update_number: &u32,
+    offset: &usize,
+    selected_section: &Section,
+) {
     let style = match selected_section {
         Section::CPU => Style::default().fg(Color::Red),
-        _ => Style::default()
+        _ => Style::default(),
     };
     Block::default()
-    .title("")
-    .borders(Borders::ALL).border_style(style)
-    .render(f, area);
+        .title("")
+        .borders(Borders::ALL)
+        .border_style(style)
+        .render(f, area);
     let cpu_layout = Layout::default()
         .margin(0)
         .direction(Direction::Horizontal)
@@ -734,9 +849,7 @@ fn render_cpu(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, u
     let cpu_mem = Layout::default()
         .margin(1)
         .direction(Direction::Vertical)
-        .constraints(
-            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref(),
-        )
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(cpu_layout[1]);
     render_cpu_histogram(&app, cpu_mem[0], f, zf, update_number, offset);
     render_memory_histogram(&app, cpu_mem[1], f, zf, update_number, offset);
@@ -758,7 +871,7 @@ pub struct TerminalRenderer {
     hist_start_offset: usize,
     selected_section: Section,
     constraints: Vec<Constraint>,
-    process_message: Option<String>
+    process_message: Option<String>,
 }
 
 impl<'a> TerminalRenderer {
@@ -769,7 +882,7 @@ impl<'a> TerminalRenderer {
         disk_height: i16,
         process_height: i16,
         sensor_height: i16,
-        db: Option<sled::Db>
+        db: Option<sled::Db>,
     ) -> TerminalRenderer {
         let stdout = io::stdout()
             .into_raw_mode()
@@ -802,12 +915,11 @@ impl<'a> TerminalRenderer {
             selected_section: Section::Process,
             constraints,
             process_message: None,
-            hist_start_offset: 0
+            hist_start_offset: 0,
         }
     }
 
-
-    async fn set_constraints(&mut self){
+    async fn set_constraints(&mut self) {
         let mut constraints = vec![
             Constraint::Length(1),
             Constraint::Length(self.cpu_height as u16),
@@ -821,8 +933,8 @@ impl<'a> TerminalRenderer {
         self.constraints = constraints;
     }
 
-    async fn set_section_height(&mut self, val: i16){
-        match self.selected_section{
+    async fn set_section_height(&mut self, val: i16) {
+        match self.selected_section {
             Section::CPU => set_section_height!(self.cpu_height, val),
             Section::Disk => set_section_height!(self.disk_height, val),
             Section::Network => set_section_height!(self.net_height, val),
@@ -832,7 +944,6 @@ impl<'a> TerminalRenderer {
     }
 
     pub async fn start(&mut self) {
-        
         loop {
             let app = &self.app;
             let pst = &self.process_table_row_start;
@@ -859,11 +970,11 @@ impl<'a> TerminalRenderer {
                         .split(f.size());
 
                     render_top_title_bar(app, v_sections[0], &mut f, zf, offset, tick);
-                    render_cpu(app, v_sections[1], &mut f, zf, un, offset,  selected);
-                    render_net(&app, v_sections[2], &mut f, zf,un, offset, selected);
+                    render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
+                    render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
                     render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
-                    if *process_height > 0{
-                        if let Some(area) = v_sections.last(){
+                    if *process_height > 0 {
+                        if let Some(area) = v_sections.last() {
                             if app.selected_process.is_none() {
                                 render_process_table(&app, width, *area, *pst, &mut f, selected);
                                 if area.height > 4 {
@@ -871,21 +982,29 @@ impl<'a> TerminalRenderer {
                                     process_table_height = area.height - 5;
                                 }
                             } else if app.selected_process.is_some() {
-                                render_process(&app, *area, &mut f, width, selected, process_message);
+                                render_process(
+                                    &app,
+                                    *area,
+                                    &mut f,
+                                    width,
+                                    selected,
+                                    process_message,
+                                );
                             }
                         }
                     }
-                    
-                    
+
                     //render_sensors(&app, sensor_layout, &mut f, zf);
-                }).expect("Could not draw frame.");
+                })
+                .expect("Could not draw frame.");
 
             match self.events.next().expect("No new event.") {
                 Event::Input(input) => {
                     if input == Key::Char('q') {
                         break;
                     } else if input == Key::Up {
-                        if self.app.selected_process.is_some() {} else {
+                        if self.app.selected_process.is_some() {
+                        } else {
                             self.app.highlight_up();
                             if self.process_table_row_start > 0
                                 && self.app.highlighted_row < self.process_table_row_start
@@ -894,28 +1013,29 @@ impl<'a> TerminalRenderer {
                             }
                         }
                     } else if input == Key::Down {
-                        if self.app.selected_process.is_some() {} else {
+                        if self.app.selected_process.is_some() {
+                        } else {
                             self.app.highlight_down();
                             if self.process_table_row_start < self.app.process_map.len()
                                 && self.app.highlighted_row
-                                > (self.process_table_row_start + process_table_height as usize)
+                                    > (self.process_table_row_start + process_table_height as usize)
                             {
                                 self.process_table_row_start += 1;
                             }
                         }
                     } else if input == Key::Left {
-                        match self.app.histogram_map.histograms_width(){
+                        match self.app.histogram_map.histograms_width() {
                             Some(w) => {
                                 self.hist_start_offset += 1;
-                                if self.hist_start_offset > w + 1{
+                                if self.hist_start_offset > w + 1 {
                                     self.hist_start_offset = w - 1;
                                 }
-                            },
+                            }
                             None => {}
                         }
                         self.hist_start_offset += 1;
                     } else if input == Key::Right {
-                        if self.hist_start_offset > 0{
+                        if self.hist_start_offset > 0 {
                             self.hist_start_offset -= 1;
                         }
                     } else if input == Key::Char('.') || input == Key::Char('>') {
@@ -923,7 +1043,8 @@ impl<'a> TerminalRenderer {
                             self.app.psortby = ProcessTableSortBy::Pid;
                         } else {
                             self.app.psortby =
-                                num::FromPrimitive::from_u32(self.app.psortby as u32 + 1).expect("invalid value to set psortby");
+                                num::FromPrimitive::from_u32(self.app.psortby as u32 + 1)
+                                    .expect("invalid value to set psortby");
                         }
                         self.app.sort_process_table();
                     } else if input == Key::Char(',') || input == Key::Char('<') {
@@ -931,7 +1052,8 @@ impl<'a> TerminalRenderer {
                             self.app.psortby = ProcessTableSortBy::Cmd;
                         } else {
                             self.app.psortby =
-                                num::FromPrimitive::from_u32(self.app.psortby as u32 - 1).expect("invalid value to set psortby");
+                                num::FromPrimitive::from_u32(self.app.psortby as u32 - 1)
+                                    .expect("invalid value to set psortby");
                         }
                         self.app.sort_process_table();
                     } else if input == Key::Char('/') {
@@ -984,32 +1106,28 @@ impl<'a> TerminalRenderer {
                             Some(p) => Some(p.terminate().await),
                             None => None,
                         };
-                    }
-                    else if input == Key::Char('\t'){
+                    } else if input == Key::Char('\t') {
                         let mut i = self.selected_section as u32 + 1;
-                        if i > 3{
+                        if i > 3 {
                             i = 0;
                         }
-                        self.selected_section = num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
-                    }
-                    else if input == Key::Char('m'){
+                        self.selected_section =
+                            num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+                    } else if input == Key::Char('m') {
                         self.set_section_height(-2).await;
-                    }
-                    else if input == Key::Char('e'){
+                    } else if input == Key::Char('e') {
                         self.set_section_height(2).await;
-                    }
-                    else if input == Key::Char('`'){
+                    } else if input == Key::Char('`') {
                         self.zoom_factor = 1;
                         self.hist_start_offset = 0;
-                    }
-                    else if input == Key::Ctrl('c'){
+                    } else if input == Key::Ctrl('c') {
                         break;
                     }
                 }
                 Event::Tick => {
                     self.app.update(width).await;
                     self.update_number += 1;
-                    if self.update_number == self.zoom_factor{
+                    if self.update_number == self.zoom_factor {
                         self.update_number = 0;
                     }
                 }

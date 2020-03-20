@@ -7,18 +7,18 @@ use futures::StreamExt;
 use heim::host;
 use heim::net;
 use heim::net::Address;
+use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 use std::time::{Duration, SystemTime};
-use std::cmp::Ordering::{Equal};
 
-use sysinfo::{Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt, Process};
-use users::{Users, UsersCache};
-use sled;
-use serde_derive::{Serialize, Deserialize};
 use bincode;
+use serde_derive::{Deserialize, Serialize};
+use sled;
+use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use users::{Users, UsersCache};
 
-const ONE_WEEK: u64 = 60*60*24*7;
+const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
 const DSER_ERROR: &str = "Couldn't deserialize object";
 const SER_ERROR: &str = "Couldn't serialize object";
@@ -87,70 +87,76 @@ pub struct HistogramMap {
     map: HashMap<String, Histogram>,
     duration: Duration,
     pub tick: Duration,
-    db: Option<sled::Db>
+    db: Option<sled::Db>,
 }
 
 impl HistogramMap {
     fn new(dur: Duration, tick: Duration, db: Option<sled::Db>) -> HistogramMap {
         let mut map = HashMap::with_capacity(10);
         let current_time = SystemTime::now();
-        match &db{
+        match &db {
             Some(db) => {
-                
-                let previous_stop = match db.get("stop_time").expect(DB_ERROR){
+                let previous_stop = match db.get("stop_time").expect(DB_ERROR) {
                     Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
-                    None => current_time
+                    None => current_time,
                 };
 
-                let tick = match db.get("tick").expect(DB_ERROR){
+                let tick = match db.get("tick").expect(DB_ERROR) {
                     Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
-                    None => tick
+                    None => tick,
                 };
-                
-                if previous_stop < current_time{
-                    let d = current_time.duration_since(previous_stop)
-                                                .expect("Current time is before stored time. This should not happen.");
+
+                if previous_stop < current_time {
+                    let d = current_time
+                        .duration_since(previous_stop)
+                        .expect("Current time is before stored time. This should not happen.");
 
                     // restore previous histograms
-                    for k in db.iter().keys(){
+                    for k in db.iter().keys() {
                         let k = k.expect(DB_ERROR);
-                        let key = String::from_utf8(k.to_owned().to_vec()).expect("Couldn't make a utf8 string from that key.");
-                        if k == "stop_time"{ continue; }
-                        if k == "tick"{ continue; }
-                        if k == "start_time" { continue; }
-                        match db.get(&k).expect(DB_ERROR){
+                        let key = String::from_utf8(k.to_owned().to_vec())
+                            .expect("Couldn't make a utf8 string from that key.");
+                        if k == "stop_time" {
+                            continue;
+                        }
+                        if k == "tick" {
+                            continue;
+                        }
+                        if k == "start_time" {
+                            continue;
+                        }
+                        match db.get(&k).expect(DB_ERROR) {
                             Some(v) => {
-                                let mut v: Histogram = bincode::deserialize(&v).expect(format!("while loading previous data: {:?}", k).as_str());
+                                let mut v: Histogram = bincode::deserialize(&v).expect(
+                                    format!("while loading previous data: {:?}", k).as_str(),
+                                );
                                 let week_ticks = ONE_WEEK / tick.as_secs();
-                                if v.data.len() as u64 > week_ticks{
+                                if v.data.len() as u64 > week_ticks {
                                     let end = v.data.len() as u64 - week_ticks;
                                     v.data.drain(0..end as usize);
                                 }
                                 let mut dur = Duration::from(d);
                                 // add 0s between then and now.
                                 let zero_dur = Duration::from_secs(0);
-                                while dur > zero_dur + tick{
+                                while dur > zero_dur + tick {
                                     v.data.push(0);
                                     dur -= tick;
                                 }
                                 map.insert(key, v);
-                                
-                            },
+                            }
                             None => {}
                         }
                     }
                 }
-            },
-            None => {
-
             }
+            None => {}
         }
 
         HistogramMap {
             map,
             duration: dur,
             tick,
-            db
+            db,
         }
     }
 
@@ -158,31 +164,37 @@ impl HistogramMap {
         let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
         let names = name.to_owned();
         let _r = self.map.insert(names, Histogram::new(size));
-        self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
+        self.get_mut(name)
+            .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
-    pub fn get_zoomed(&self, name: &str, zoom_factor: u32, update_number: u32, width: usize, offset: usize) -> Option<Histogram> {
+    pub fn get_zoomed(
+        &self,
+        name: &str,
+        zoom_factor: u32,
+        update_number: u32,
+        width: usize,
+        offset: usize,
+    ) -> Option<Histogram> {
         match self.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
                 let mut h = h.clone();
-                for _i in 0..zoom_factor as usize * offset{
+                for _i in 0..zoom_factor as usize * offset {
                     h.data.pop();
                 }
                 let nh_len = nh.data.len();
                 let zf = zoom_factor as usize;
-                let mut si: usize = if (width * zf) > h.data.len(){
+                let mut si: usize = if (width * zf) > h.data.len() {
                     0
-                }
-                else{
+                } else {
                     h.data.len() - (width * zf) - update_number as usize
                 };
-                
-                for index in 0..nh_len{
-                    if si + zf <= h.data.len(){
+
+                for index in 0..nh_len {
+                    if si + zf <= h.data.len() {
                         nh.data[index] = h.data[si..si + zf].iter().sum::<u64>();
-                    }
-                    else{
+                    } else {
                         nh.data[index] = h.data[si..].iter().sum::<u64>();
                     }
                     si += zf;
@@ -224,34 +236,44 @@ impl HistogramMap {
         .expect("Unexpectedly large duration was out of range.")
     }
 
-    pub fn histograms_width(&self) -> Option<usize>{
-        match self.map.iter().next(){
+    pub fn histograms_width(&self) -> Option<usize> {
+        match self.map.iter().next() {
             Some((_k, h)) => Some(h.data.len()),
-            None => None
+            None => None,
         }
     }
 
-    fn save_histograms(&mut self){
-        match &self.db{
+    fn save_histograms(&mut self) {
+        match &self.db {
             Some(db) => {
                 let now = SystemTime::now();
-                db.insert("stop_time".as_bytes(), bincode::serialize(&now).expect(SER_ERROR)).expect(DB_ERROR);
-                db.insert("tick".as_bytes(), bincode::serialize(&self.tick).expect(SER_ERROR)).expect(DB_ERROR);
-                for k in self.map.keys(){
-                    match self.get(k){
-                        Some(v) => {db.insert(k.as_bytes(), bincode::serialize(&v).expect(SER_ERROR)).expect(DB_ERROR);},
+                db.insert(
+                    "stop_time".as_bytes(),
+                    bincode::serialize(&now).expect(SER_ERROR),
+                )
+                .expect(DB_ERROR);
+                db.insert(
+                    "tick".as_bytes(),
+                    bincode::serialize(&self.tick).expect(SER_ERROR),
+                )
+                .expect(DB_ERROR);
+                for k in self.map.keys() {
+                    match self.get(k) {
+                        Some(v) => {
+                            db.insert(k.as_bytes(), bincode::serialize(&v).expect(SER_ERROR))
+                                .expect(DB_ERROR);
+                        }
                         None => {}
                     }
                 }
-            },
+            }
             None => {}
         }
-        
     }
 }
 
-impl Drop for HistogramMap{
-    fn drop(&mut self){
+impl Drop for HistogramMap {
+    fn drop(&mut self) {
         self.save_histograms();
     }
 }
@@ -296,7 +318,6 @@ pub struct CPUTimeApp {
 
 impl CPUTimeApp {
     pub fn new(tick: Duration, db: Option<sled::Db>) -> CPUTimeApp {
-
         let mut s = CPUTimeApp {
             histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db),
             tick,
@@ -348,7 +369,7 @@ impl CPUTimeApp {
                 self.hostname = p.hostname().to_owned();
                 self.version = p.version().to_owned();
                 self.release = p.release().to_owned();
-            },
+            }
             Err(_) => {
                 self.osname = String::from("unknown");
                 self.arch = String::from("unknown");
@@ -378,8 +399,8 @@ impl CPUTimeApp {
                         Address::Inet(n) => n.to_string(),
                         _ => format!(""),
                     }
-                        .trim_end_matches(":0")
-                        .to_string();
+                    .trim_end_matches(":0")
+                    .to_string();
                     if ip.len() == 0 {
                         continue;
                     }
@@ -395,8 +416,8 @@ impl CPUTimeApp {
                         ip: ip,
                         dest: dest,
                     });
-                },
-                Err(_) => println!("Couldn't get information on a nic")
+                }
+                Err(_) => println!("Couldn't get information on a nic"),
             }
         }
     }
@@ -441,15 +462,15 @@ impl CPUTimeApp {
 
     pub fn select_process(&mut self) {
         match self.processes.get(self.highlighted_row) {
-            Some(p) => match self.process_map.get(p){
+            Some(p) => match self.process_map.get(p) {
                 Some(p) => self.selected_process = Some(p.clone()),
-                None => self.selected_process = None
-            }
-            None => self.selected_process = None
+                None => self.selected_process = None,
+            },
+            None => self.selected_process = None,
         };
     }
 
-    fn copy_to_zprocess(&self, process: &Process) -> ZProcess{
+    fn copy_to_zprocess(&self, process: &Process) -> ZProcess {
         let user_name = match self.user_cache.get_user_by_uid(process.uid) {
             Some(user) => user.name().to_string_lossy().to_string(),
             None => String::from(""),
@@ -483,15 +504,15 @@ impl CPUTimeApp {
         let process_list = self.system.get_process_list();
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
         let mut top_pid: Option<i32> = None;
-        let mut top_cum_cpu_usage: f64 = match &self.cum_cpu_process{
+        let mut top_cum_cpu_usage: f64 = match &self.cum_cpu_process {
             Some(p) => p.cum_cpu_usage,
-            None => 0.0
+            None => 0.0,
         };
         self.threads_total = 0;
 
         for (pid, process) in process_list {
             if let Some(zp) = self.process_map.get_mut(pid) {
-                if zp.start_time == process.start_time(){
+                if zp.start_time == process.start_time() {
                     zp.memory = process.memory();
                     zp.cpu_usage = process.cpu_usage();
                     zp.cum_cpu_usage += zp.cpu_usage as f64;
@@ -509,8 +530,7 @@ impl CPUTimeApp {
                     zp.read_bytes = process.read_bytes;
                     zp.write_bytes = process.write_bytes;
                     zp.last_updated = SystemTime::now();
-                }
-                else{
+                } else {
                     let zprocess = self.copy_to_zprocess(&process);
                     self.threads_total += zprocess.threads_total as usize;
                     if zprocess.cum_cpu_usage > top_cum_cpu_usage {
@@ -519,7 +539,6 @@ impl CPUTimeApp {
                     }
                     self.process_map.insert(zprocess.pid, zprocess);
                 }
-
             } else {
                 let zprocess = self.copy_to_zprocess(&process);
                 self.threads_total += zprocess.threads_total as usize;
@@ -533,47 +552,41 @@ impl CPUTimeApp {
             current_pids.insert(pid.clone());
         }
 
-
         // remove pids that are gone
         self.process_map.retain(|&k, _| current_pids.contains(&k));
 
         //set top cumulative process if we've changed it.
-        match top_pid{
-            Some(p) => {
-                match self.process_map.get(&p){
-                    Some(p) => self.cum_cpu_process = Some(p.clone()),
-                    None => ()
-                }
+        match top_pid {
+            Some(p) => match self.process_map.get(&p) {
+                Some(p) => self.cum_cpu_process = Some(p.clone()),
+                None => (),
             },
             None => {
-                match &mut self.cum_cpu_process{
+                match &mut self.cum_cpu_process {
                     Some(p) => {
-                        if self.process_map.contains_key(&p.pid){
-                            match self.process_map.get(&p.pid){
+                        if self.process_map.contains_key(&p.pid) {
+                            match self.process_map.get(&p.pid) {
                                 Some(cp) => {
                                     if cp.start_time == p.start_time {
                                         self.cum_cpu_process = Some(cp.clone());
                                     } else {
                                         p.set_end_time();
                                     }
-
-
-                                },
-                                None => ()
+                                }
+                                None => (),
                             }
-                        }
-                        else{
+                        } else {
                             // our cumulative winner is dead
                             p.set_end_time();
                         }
-                    },
-                    None => ()
+                    }
+                    None => (),
                 }
             }
         };
 
         // update selected process
-        if let Some(p) = self.selected_process.as_mut(){
+        if let Some(p) = self.selected_process.as_mut() {
             let pid = &p.pid;
             if self.process_map.contains_key(pid) {
                 self.selected_process = Some(self.process_map[pid].clone());
@@ -604,17 +617,22 @@ impl CPUTimeApp {
                 ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal),
                 ProcessTableSortBy::Mem => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
                 ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
-                ProcessTableSortBy::User => pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal),
+                ProcessTableSortBy::User => {
+                    pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal)
+                }
                 ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
                 ProcessTableSortBy::Status => pa
                     .status
                     .to_single_char()
                     .partial_cmp(pb.status.to_single_char())
                     .unwrap_or(Equal),
-                ProcessTableSortBy::Priority => pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal),
-                ProcessTableSortBy::Virt => {
-                    pa.virtual_memory.partial_cmp(&pb.virtual_memory).unwrap_or(Equal)
+                ProcessTableSortBy::Priority => {
+                    pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal)
                 }
+                ProcessTableSortBy::Virt => pa
+                    .virtual_memory
+                    .partial_cmp(&pb.virtual_memory)
+                    .unwrap_or(Equal),
                 ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap_or(Equal),
                 ProcessTableSortBy::DiskRead => pa
                     .get_read_bytes_sec()
@@ -720,7 +738,7 @@ impl CPUTimeApp {
         self.get_nics().await;
     }
 
-    pub async fn save_state(&mut self){
+    pub async fn save_state(&mut self) {
         self.histogram_map.save_histograms();
     }
 }

@@ -3,27 +3,27 @@
  */
 use crate::constants::DEFAULT_TICK;
 use heim::process;
+use heim::process::ProcessError;
 use std::time::{SystemTime, UNIX_EPOCH};
-use heim::process::{ProcessError};
 
 use sysinfo::ProcessStatus;
 
-macro_rules! convert_result_to_string{
+macro_rules! convert_result_to_string {
     ($x:expr) => {
-        match $x{
+        match $x {
             Ok(_r) => String::from("Signal Sent."),
-            Err(e) => convert_error_to_string!(e)
+            Err(e) => convert_error_to_string!(e),
         }
     };
 }
 
 macro_rules! convert_error_to_string {
     ($x:expr) => {
-        match $x{
-            ProcessError::NoSuchProcess {..} => String::from("No Such Process"),
-            ProcessError::ZombieProcess {..} => String::from("Zombie Process"),
-            ProcessError::AccessDenied {..} => String::from("Access Denied"),
-            _ => String::from("Unknow error")
+        match $x {
+            ProcessError::NoSuchProcess { .. } => String::from("No Such Process"),
+            ProcessError::ZombieProcess { .. } => String::from("Zombie Process"),
+            ProcessError::AccessDenied { .. } => String::from("Access Denied"),
+            _ => String::from("Unknow error"),
         }
     };
 }
@@ -60,36 +60,36 @@ impl ZProcess {
         (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
 
-    pub async fn suspend(&self) -> String{
-        match process::get(self.pid).await{
+    pub async fn suspend(&self) -> String {
+        match process::get(self.pid).await {
             Ok(p) => convert_result_to_string!(p.suspend().await),
-            Err(e) => convert_error_to_string!(e)
+            Err(e) => convert_error_to_string!(e),
         }
     }
 
     pub async fn resume(&self) -> String {
-        match process::get(self.pid).await{
+        match process::get(self.pid).await {
             Ok(p) => convert_result_to_string!(p.resume().await),
-            Err(e) => convert_error_to_string!(e)
+            Err(e) => convert_error_to_string!(e),
         }
     }
 
-    pub async fn kill(&self)  -> String{
-        match process::get(self.pid).await{
+    pub async fn kill(&self) -> String {
+        match process::get(self.pid).await {
             Ok(p) => convert_result_to_string!(p.kill().await),
-            Err(e) => convert_error_to_string!(e)
+            Err(e) => convert_error_to_string!(e),
         }
     }
 
-    pub async fn terminate(&self)  -> String{
-        match process::get(self.pid).await{
+    pub async fn terminate(&self) -> String {
+        match process::get(self.pid).await {
             Ok(p) => convert_result_to_string!(p.terminate().await),
-            Err(e) => convert_error_to_string!(e)
+            Err(e) => convert_error_to_string!(e),
         }
     }
 
-    pub fn set_end_time(&mut self){
-        if self.end_time.is_none(){
+    pub fn set_end_time(&mut self) {
+        if self.end_time.is_none() {
             self.end_time = match SystemTime::now().duration_since(UNIX_EPOCH) {
                 Ok(t) => Some(t.as_secs()),
                 Err(_) => panic!("System time before unix epoch??"),
