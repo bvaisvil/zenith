@@ -3,7 +3,7 @@
  */
 use crate::constants::DEFAULT_TICK;
 use heim::process;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use heim::process::{ProcessError};
 
 use sysinfo::ProcessStatus;
@@ -11,7 +11,7 @@ use sysinfo::ProcessStatus;
 macro_rules! convert_result_to_string{
     ($x:expr) => {
         match $x{
-            Ok(r) => String::from("Signal Sent."),
+            Ok(_r) => String::from("Signal Sent."),
             Err(e) => convert_error_to_string!(e)
         }
     };

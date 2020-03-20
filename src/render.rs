@@ -8,20 +8,19 @@ use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
 use chrono::{Local, Datelike, Timelike};
 use std::borrow::Cow;
-use std::fmt::Debug;
 use std::io;
 use std::io::Stdout;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::DiskExt;
 use termion::event::Key;
 use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
-use tui::backend::{TermionBackend, Backend};
+use tui::backend::{TermionBackend};
 
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget, Dataset};
+use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget};
 use tui::Frame;
 use tui::Terminal;
 use sled;
@@ -410,7 +409,7 @@ fn render_net(app: &CPUTimeApp, area: Rect, f: &mut Frame<ZBackend>, zf: &u32, u
         .render(f, network_layout[0]);
 }
 
-fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, width: u16, selected_section: &Section, process_message: &Option<String>) {
+fn render_process(app: &CPUTimeApp, layout: Rect, f: &mut Frame<ZBackend>, _width: u16, selected_section: &Section, process_message: &Option<String>) {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default()
@@ -753,7 +752,7 @@ pub struct TerminalRenderer {
     net_height: i16,
     disk_height: i16,
     process_height: i16,
-    sensor_height: i16,
+    _sensor_height: i16,
     zoom_factor: u32,
     update_number: u32,
     hist_start_offset: usize,
@@ -797,7 +796,7 @@ impl<'a> TerminalRenderer {
             net_height,
             disk_height,
             process_height,
-            sensor_height,
+            _sensor_height: sensor_height, // unused at the moment
             zoom_factor: 1,
             update_number: 0,
             selected_section: Section::Process,

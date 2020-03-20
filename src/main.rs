@@ -30,7 +30,7 @@ use sled;
 use dirs;
 use std::path::{Path};
 use std::process::exit;
-use std::fs::{File, remove_file, create_dir_all};
+use std::fs::{File, remove_file};
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some

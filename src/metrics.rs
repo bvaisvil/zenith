@@ -7,23 +7,16 @@ use futures::StreamExt;
 use heim::host;
 use heim::net;
 use heim::net::Address;
-use heim::{sensors};
 use std::collections::{HashMap, HashSet};
 use std::mem::swap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 use std::cmp::Ordering::{Equal};
 
-use sysinfo::{ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt, Process};
+use sysinfo::{Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt, Process};
 use users::{Users, UsersCache};
 use sled;
-use std::path::PathBuf;
-use std::borrow::Borrow;
 use serde_derive::{Serialize, Deserialize};
 use bincode;
-use sysinfo::Signal::Sys;
-use std::ops::Sub;
-use std::fs::{File, OpenOptions};
-use std::io::Write;
 
 const ONE_WEEK: u64 = 60*60*24*7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -94,7 +87,6 @@ pub struct HistogramMap {
     map: HashMap<String, Histogram>,
     duration: Duration,
     pub tick: Duration,
-    time: SystemTime,
     db: Option<sled::Db>
 }
 
@@ -102,7 +94,6 @@ impl HistogramMap {
     fn new(dur: Duration, tick: Duration, db: Option<sled::Db>) -> HistogramMap {
         let mut map = HashMap::with_capacity(10);
         let current_time = SystemTime::now();
-        let mut tick = tick;
         match &db{
             Some(db) => {
                 
@@ -159,7 +150,6 @@ impl HistogramMap {
             map,
             duration: dur,
             tick,
-            time: current_time,
             db
         }
     }
@@ -167,13 +157,11 @@ impl HistogramMap {
     fn add(&mut self, name: &str) -> &mut Histogram {
         let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
         let names = name.to_owned();
-        let r = self.map.insert(names, Histogram::new(size));
+        let _r = self.map.insert(names, Histogram::new(size));
         self.get_mut(name) .expect("Unexpectedly couldn't get mutable reference to value we just added.")
     }
 
     pub fn get_zoomed(&self, name: &str, zoom_factor: u32, update_number: u32, width: usize, offset: usize) -> Option<Histogram> {
-        let mut log = OpenOptions::new().create(true).append(true).open("log.txt").unwrap();
-        
         match self.get(name) {
             Some(h) => {
                 let mut nh = Histogram::new(width);
@@ -190,7 +178,7 @@ impl HistogramMap {
                     h.data.len() - (width * zf) - update_number as usize
                 };
                 
-                for index in (0..nh_len){
+                for index in 0..nh_len{
                     if si + zf <= h.data.len(){
                         nh.data[index] = h.data[si..si + zf].iter().sum::<u64>();
                     }
@@ -238,7 +226,7 @@ impl HistogramMap {
 
     pub fn histograms_width(&self) -> Option<usize>{
         match self.map.iter().next(){
-            Some((k, h)) => Some(h.data.len()),
+            Some((_k, h)) => Some(h.data.len()),
             None => None
         }
     }
@@ -644,7 +632,7 @@ impl CPUTimeApp {
         self.frequency = sys_info::cpu_speed().unwrap_or(0);
     }
 
-    fn update_disk(&mut self, width: u16) {
+    fn update_disk(&mut self, _width: u16) {
         self.disk_available = 0;
         self.disk_total = 0;
         self.disks.clear();
