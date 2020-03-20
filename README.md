@@ -21,7 +21,7 @@
 - MacOS
 
 ## Planned Platforms
-- Other BSD systems may work, I have not tested.
+- BSD (OpenBSD/FreeBSD)
 - Perhaps Redox OS.
 
 ## Installation
