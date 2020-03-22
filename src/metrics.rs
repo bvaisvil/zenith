@@ -19,7 +19,7 @@ use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, Syst
 use users::{Users, UsersCache};
 use std::fs;
 use std::path::Path;
-use std::io;
+
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
