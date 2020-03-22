@@ -17,6 +17,9 @@ use serde_derive::{Deserialize, Serialize};
 use sled;
 use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use users::{Users, UsersCache};
+use std::fs;
+use std::path::Path;
+use std::io;
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -278,6 +281,30 @@ impl Drop for HistogramMap {
     }
 }
 
+fn get_max_pid() -> u64{
+    if cfg!(target_os = "macos"){
+        return 99999;
+    }
+    else if cfg!(target_os = "linux"){
+        let pid_max = match fs::read(&Path::new("/proc/sys/kernel/pid_max")){
+            Ok(data) => {
+                let r = String::from_utf8_lossy(data.as_slice());
+                let r= r.trim().parse::<u64>().unwrap_or(32768);
+                r
+            },
+            Err(_) => 32768
+        };
+        return pid_max;
+    }
+    else{
+        32768
+    }
+}
+
+fn get_max_pid_length() -> usize{
+    format!("{:}", get_max_pid()).len()
+}
+
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
     pub cpu_utilization: u64,
@@ -314,6 +341,7 @@ pub struct CPUTimeApp {
     pub processor_name: String,
     pub started: chrono::DateTime<chrono::Local>,
     pub selected_process: Option<ZProcess>,
+    pub max_pid_len: usize
 }
 
 impl CPUTimeApp {
@@ -354,6 +382,7 @@ impl CPUTimeApp {
             processor_name: String::from(""),
             started: chrono::Local::now(),
             selected_process: None,
+            max_pid_len: get_max_pid_length()
         };
         s.system.refresh_all();
         s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.

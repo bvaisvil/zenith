@@ -108,6 +108,7 @@ fn render_process_table<'a>(
     process_table_start: usize,
     f: &mut Frame<ZBackend>,
     selected_section: &Section,
+    max_pid_len: &usize
 ) {
     if area.height < 5 {
         return; // not enough space to draw anything
@@ -119,7 +120,6 @@ fn render_process_table<'a>(
     let display_height = area.height as usize - 4; // 4 for the margins and table header
 
     let end = process_table_start + display_height;
-
     let rows: Vec<Vec<String>> = app
         .processes
         .iter()
@@ -129,7 +129,7 @@ fn render_process_table<'a>(
                 .get(pid)
                 .expect("Pid present in processes but not in map.");
             vec![
-                format!("{: >5}", p.pid),
+                format!("{: >width$}", p.pid, width=*max_pid_len),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
                 format!("{:>5.1}", p.cpu_usage),
@@ -158,7 +158,7 @@ fn render_process_table<'a>(
         .collect();
 
     let mut header = vec![
-        String::from("PID   "),
+        format!("{:<width$}", "PID", width=*max_pid_len + 1),
         String::from("USER       "),
         String::from("P   "),
         String::from("CPU%  "),
@@ -472,6 +472,7 @@ fn render_process(
     _width: u16,
     selected_section: &Section,
     process_message: &Option<String>,
+    max_pid_len: &usize
 ) {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
@@ -537,7 +538,7 @@ fn render_process(
                 Text::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
                 Text::raw("\n"),
                 Text::raw("PID:                   "),
-                Text::styled(format!("{:>7}", &p.pid), rhs_style),
+                Text::styled(format!("{:>width$}", &p.pid, width=*max_pid_len), rhs_style),
                 Text::raw("\n"),
                 Text::raw("Command:               "),
                 Text::styled(p.command.join(" "), rhs_style),
@@ -957,6 +958,7 @@ impl<'a> TerminalRenderer {
             let offset = &self.hist_start_offset;
             let tick = &self.app.histogram_map.tick;
             let un = &self.update_number;
+            let max_pid_len = &self.app.max_pid_len;
 
             self.terminal
                 .draw(|mut f| {
@@ -976,7 +978,7 @@ impl<'a> TerminalRenderer {
                     if *process_height > 0 {
                         if let Some(area) = v_sections.last() {
                             if app.selected_process.is_none() {
-                                render_process_table(&app, width, *area, *pst, &mut f, selected);
+                                render_process_table(&app, width, *area, *pst, &mut f, selected, max_pid_len);
                                 if area.height > 4 {
                                     // account for table border & margins.
                                     process_table_height = area.height - 5;
@@ -989,6 +991,7 @@ impl<'a> TerminalRenderer {
                                     width,
                                     selected,
                                     process_message,
+                                    max_pid_len
                                 );
                             }
                         }
