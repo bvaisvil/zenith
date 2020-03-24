@@ -18,8 +18,8 @@ use crate::render::TerminalRenderer;
 use clap::{App, Arg};
 use dirs;
 use futures::executor::block_on;
-use sled;
 use std::error::Error;
+use std::fs;
 use std::fs::{remove_file, File};
 use std::io;
 use std::panic;
@@ -31,7 +31,6 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::Terminal;
-use std::fs;
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -73,7 +72,7 @@ fn start_zenith(
         if !disable_history {
             //let db = sled::open(Path::new(db_path))?;
             let p = Path::new(db_path);
-            if !p.exists(){
+            if !p.exists() {
                 fs::create_dir(p).expect("Couldn't Create DB dir.");
             }
             File::create(&lock_path)?;
