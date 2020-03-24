@@ -83,6 +83,5 @@ Using this you can create the layout you want.
 - [tui-rs](https://github.com/fdehau/tui-rs)
 - [sysinfo](https://github.com/GuillaumeGomez/sysinfo)
 - [heim](https://github.com/heim-rs/heim)
-- [sled](https://github.com/spacejam/sled)
 - [serde](https://github.com/serde-rs/serde)
 - [clap](https://github.com/clap-rs/clap)
