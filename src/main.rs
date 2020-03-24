@@ -31,6 +31,7 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::Terminal;
+use std::fs;
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -70,9 +71,13 @@ fn start_zenith(
         }
     } else {
         if !disable_history {
-            let db = sled::open(Path::new(db_path))?;
+            //let db = sled::open(Path::new(db_path))?;
+            let p = Path::new(db_path);
+            if !p.exists(){
+                fs::create_dir(p).expect("Couldn't Create DB dir.");
+            }
             File::create(&lock_path)?;
-            Some(db)
+            Some(p.to_path_buf())
         } else {
             None
         }

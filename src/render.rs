@@ -17,8 +17,8 @@ use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
+use std::path::PathBuf;
 
-use sled;
 use std::ops::Mul;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
@@ -883,7 +883,7 @@ impl<'a> TerminalRenderer {
         disk_height: i16,
         process_height: i16,
         sensor_height: i16,
-        db: Option<sled::Db>,
+        db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
         let stdout = io::stdout()
             .into_raw_mode()
@@ -903,7 +903,7 @@ impl<'a> TerminalRenderer {
         }
         TerminalRenderer {
             terminal: Terminal::new(backend).expect("Couldn't create new terminal with backend"),
-            app: CPUTimeApp::new(Duration::from_millis(tick_rate), db),
+            app: CPUTimeApp::new(Duration::from_millis(tick_rate), db_path),
             events: Events::new(tick_rate),
             process_table_row_start: 0,
             cpu_height,
