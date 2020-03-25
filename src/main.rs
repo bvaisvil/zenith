@@ -18,8 +18,8 @@ use crate::render::TerminalRenderer;
 use clap::{App, Arg};
 use dirs;
 use futures::executor::block_on;
-use sled;
 use std::error::Error;
+use std::fs;
 use std::fs::{remove_file, File};
 use std::io;
 use std::panic;
@@ -70,9 +70,13 @@ fn start_zenith(
         }
     } else {
         if !disable_history {
-            let db = sled::open(Path::new(db_path))?;
+            //let db = sled::open(Path::new(db_path))?;
+            let p = Path::new(db_path);
+            if !p.exists() {
+                fs::create_dir(p).expect("Couldn't Create DB dir.");
+            }
             File::create(&lock_path)?;
-            Some(db)
+            Some(p.to_path_buf())
         } else {
             None
         }

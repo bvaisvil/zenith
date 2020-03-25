@@ -10,6 +10,7 @@ use chrono::{Datelike, Local, Timelike};
 use std::borrow::Cow;
 use std::io;
 use std::io::Stdout;
+use std::path::PathBuf;
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::DiskExt;
 use termion::event::Key;
@@ -18,7 +19,6 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 
-use sled;
 use std::ops::Mul;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
@@ -108,7 +108,7 @@ fn render_process_table<'a>(
     process_table_start: usize,
     f: &mut Frame<ZBackend>,
     selected_section: &Section,
-    max_pid_len: &usize
+    max_pid_len: &usize,
 ) {
     if area.height < 5 {
         return; // not enough space to draw anything
@@ -129,7 +129,7 @@ fn render_process_table<'a>(
                 .get(pid)
                 .expect("Pid present in processes but not in map.");
             vec![
-                format!("{: >width$}", p.pid, width=*max_pid_len),
+                format!("{: >width$}", p.pid, width = *max_pid_len),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
                 format!("{:>5.1}", p.cpu_usage),
@@ -158,7 +158,7 @@ fn render_process_table<'a>(
         .collect();
 
     let mut header = vec![
-        format!("{:<width$}", "PID", width=*max_pid_len + 1),
+        format!("{:<width$}", "PID", width = *max_pid_len + 1),
         String::from("USER       "),
         String::from("P   "),
         String::from("CPU%  "),
@@ -472,7 +472,7 @@ fn render_process(
     _width: u16,
     selected_section: &Section,
     process_message: &Option<String>,
-    max_pid_len: &usize
+    max_pid_len: &usize,
 ) {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
@@ -538,7 +538,10 @@ fn render_process(
                 Text::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
                 Text::raw("\n"),
                 Text::raw("PID:                   "),
-                Text::styled(format!("{:>width$}", &p.pid, width=*max_pid_len), rhs_style),
+                Text::styled(
+                    format!("{:>width$}", &p.pid, width = *max_pid_len),
+                    rhs_style,
+                ),
                 Text::raw("\n"),
                 Text::raw("Command:               "),
                 Text::styled(p.command.join(" "), rhs_style),
@@ -883,7 +886,7 @@ impl<'a> TerminalRenderer {
         disk_height: i16,
         process_height: i16,
         sensor_height: i16,
-        db: Option<sled::Db>,
+        db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
         let stdout = io::stdout()
             .into_raw_mode()
@@ -903,7 +906,7 @@ impl<'a> TerminalRenderer {
         }
         TerminalRenderer {
             terminal: Terminal::new(backend).expect("Couldn't create new terminal with backend"),
-            app: CPUTimeApp::new(Duration::from_millis(tick_rate), db),
+            app: CPUTimeApp::new(Duration::from_millis(tick_rate), db_path),
             events: Events::new(tick_rate),
             process_table_row_start: 0,
             cpu_height,
@@ -978,7 +981,15 @@ impl<'a> TerminalRenderer {
                     if *process_height > 0 {
                         if let Some(area) = v_sections.last() {
                             if app.selected_process.is_none() {
-                                render_process_table(&app, width, *area, *pst, &mut f, selected, max_pid_len);
+                                render_process_table(
+                                    &app,
+                                    width,
+                                    *area,
+                                    *pst,
+                                    &mut f,
+                                    selected,
+                                    max_pid_len,
+                                );
                                 if area.height > 4 {
                                     // account for table border & margins.
                                     process_table_height = area.height - 5;
@@ -991,7 +1002,7 @@ impl<'a> TerminalRenderer {
                                     width,
                                     selected,
                                     process_message,
-                                    max_pid_len
+                                    max_pid_len,
                                 );
                             }
                         }

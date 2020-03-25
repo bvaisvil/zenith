@@ -15,11 +15,12 @@ use std::time::{Duration, SystemTime};
 use bincode;
 use serde_derive::{Deserialize, Serialize};
 use sled;
+use std::error::Error;
+use std::fs;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use users::{Users, UsersCache};
-use std::fs;
-use std::path::Path;
-
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -86,80 +87,174 @@ impl Histogram {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistogramMap {
     map: HashMap<String, Histogram>,
     duration: Duration,
     pub tick: Duration,
-    db: Option<sled::Db>,
+    db: Option<PathBuf>,
+    previous_stop: Option<SystemTime>,
 }
 
-impl HistogramMap {
-    fn new(dur: Duration, tick: Duration, db: Option<sled::Db>) -> HistogramMap {
-        let mut map = HashMap::with_capacity(10);
-        let current_time = SystemTime::now();
-        match &db {
-            Some(db) => {
-                let previous_stop = match db.get("stop_time").expect(DB_ERROR) {
-                    Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
-                    None => current_time,
-                };
+fn load_sled_db(
+    dur: Duration,
+    path: &PathBuf,
+    current_time: SystemTime,
+    tick: Duration,
+) -> Result<HistogramMap, Box<dyn Error>> {
+    let db = sled::open(path)?;
+    let mut map = HashMap::with_capacity(5);
+    let previous_stop = match db.get("stop_time").expect(DB_ERROR) {
+        Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
+        None => current_time,
+    };
 
-                let tick = match db.get("tick").expect(DB_ERROR) {
-                    Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
-                    None => tick,
-                };
+    let tick = match db.get("tick")? {
+        Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
+        None => tick,
+    };
 
-                if previous_stop < current_time {
-                    let d = current_time
-                        .duration_since(previous_stop)
-                        .expect("Current time is before stored time. This should not happen.");
+    if previous_stop < current_time {
+        let d = current_time
+            .duration_since(previous_stop)
+            .expect("Current time is before stored time. This should not happen.");
 
-                    // restore previous histograms
-                    for k in db.iter().keys() {
-                        let k = k.expect(DB_ERROR);
-                        let key = String::from_utf8(k.to_owned().to_vec())
-                            .expect("Couldn't make a utf8 string from that key.");
-                        if k == "stop_time" {
-                            continue;
-                        }
-                        if k == "tick" {
-                            continue;
-                        }
-                        if k == "start_time" {
-                            continue;
-                        }
-                        match db.get(&k).expect(DB_ERROR) {
-                            Some(v) => {
-                                let mut v: Histogram = bincode::deserialize(&v).expect(
-                                    format!("while loading previous data: {:?}", k).as_str(),
-                                );
-                                let week_ticks = ONE_WEEK / tick.as_secs();
-                                if v.data.len() as u64 > week_ticks {
-                                    let end = v.data.len() as u64 - week_ticks;
-                                    v.data.drain(0..end as usize);
-                                }
-                                let mut dur = Duration::from(d);
-                                // add 0s between then and now.
-                                let zero_dur = Duration::from_secs(0);
-                                while dur > zero_dur + tick {
-                                    v.data.push(0);
-                                    dur -= tick;
-                                }
-                                map.insert(key, v);
-                            }
-                            None => {}
-                        }
+        // restore previous histograms
+        for k in db.iter().keys() {
+            let k = k.expect(DB_ERROR);
+            let key = String::from_utf8(k.to_owned().to_vec())
+                .expect("Couldn't make a utf8 string from that key.");
+            if k == "stop_time" {
+                continue;
+            }
+            if k == "tick" {
+                continue;
+            }
+            if k == "start_time" {
+                continue;
+            }
+            match db.get(&k)? {
+                Some(v) => {
+                    let mut v: Histogram = bincode::deserialize(&v)
+                        .expect(format!("while loading previous data: {:?}", k).as_str());
+                    let week_ticks = ONE_WEEK / tick.as_secs();
+                    if v.data.len() as u64 > week_ticks {
+                        let end = v.data.len() as u64 - week_ticks;
+                        v.data.drain(0..end as usize);
+                    }
+                    let mut dur = Duration::from(d);
+                    // add 0s between then and now.
+                    let zero_dur = Duration::from_secs(0);
+                    while dur > zero_dur + tick {
+                        v.data.push(0);
+                        dur -= tick;
+                    }
+                    map.insert(key, v);
+                }
+                None => {}
+            }
+        }
+    }
+    Ok(HistogramMap {
+        map,
+        duration: dur,
+        tick,
+        db: Some(path.to_owned()),
+        previous_stop: Some(previous_stop),
+    })
+}
+
+fn load_and_migrate(
+    dur: Duration,
+    path: &PathBuf,
+    current_time: SystemTime,
+    tick: Duration,
+) -> Option<HistogramMap> {
+    let db = load_sled_db(dur, path, current_time, tick);
+    match db {
+        Ok(mut map) => {
+            fs::remove_dir_all(path)
+                .expect("Couldn't remove database dir during migration. Is it in use?");
+            fs::create_dir(path).expect("Couldn't create database dir.");
+            map.save_histograms();
+            Some(map)
+        }
+        Err(_) => None,
+    }
+}
+
+fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramMap {
+    // need to fill in time between when it was last stored and now, like the sled DB
+    let data = std::fs::read(path).expect(DB_ERROR);
+    let mut hm: HistogramMap = bincode::deserialize(&data).expect(DSER_ERROR);
+    match hm.previous_stop {
+        Some(previous_stop) => {
+            if previous_stop < *current_time {
+                let d = current_time
+                    .duration_since(previous_stop)
+                    .expect("Current time is before stored time. This should not happen.");
+                let week_ticks = ONE_WEEK / hm.tick.as_secs();
+                for (_k, v) in hm.map.iter_mut() {
+                    if v.data.len() as u64 > week_ticks {
+                        let end = v.data.len() as u64 - week_ticks;
+                        v.data.drain(0..end as usize);
+                    }
+                    let mut dur = Duration::from(d);
+                    // add 0s between then and now.
+                    let zero_dur = Duration::from_secs(0);
+                    while dur > zero_dur + hm.tick {
+                        v.data.push(0);
+                        dur -= hm.tick;
                     }
                 }
             }
-            None => {}
+            hm
         }
+        None => hm,
+    }
+}
 
-        HistogramMap {
-            map,
-            duration: dur,
-            tick,
-            db,
+impl HistogramMap {
+    fn new(dur: Duration, tick: Duration, db: Option<PathBuf>) -> HistogramMap {
+        let current_time = SystemTime::now();
+        let path = match &db {
+            Some(db) => Some(db.to_owned()),
+            None => None,
+        };
+        match &db {
+            Some(db) => {
+                let dbfile = Path::new(db).join(Path::new("store"));
+                let sleddb = Path::new(db).join(Path::new("conf"));
+                if sleddb.exists() {
+                    match load_and_migrate(dur, db, current_time, tick) {
+                        Some(hm) => hm,
+                        None => HistogramMap {
+                            map: HashMap::with_capacity(5),
+                            duration: dur,
+                            tick,
+                            db: path,
+                            previous_stop: None,
+                        },
+                    }
+                } else if dbfile.exists() {
+                    load_zenith_store(dbfile, &current_time)
+                } else {
+                    HistogramMap {
+                        map: HashMap::with_capacity(5),
+                        duration: dur,
+                        tick,
+                        db: path,
+                        previous_stop: None,
+                    }
+                }
+            }
+            None => HistogramMap {
+                map: HashMap::with_capacity(5),
+                duration: dur,
+                tick,
+                db: path,
+                previous_stop: None,
+            },
         }
     }
 
@@ -249,26 +344,25 @@ impl HistogramMap {
     fn save_histograms(&mut self) {
         match &self.db {
             Some(db) => {
-                let now = SystemTime::now();
-                db.insert(
-                    "stop_time".as_bytes(),
-                    bincode::serialize(&now).expect(SER_ERROR),
-                )
-                .expect(DB_ERROR);
-                db.insert(
-                    "tick".as_bytes(),
-                    bincode::serialize(&self.tick).expect(SER_ERROR),
-                )
-                .expect(DB_ERROR);
-                for k in self.map.keys() {
-                    match self.get(k) {
-                        Some(v) => {
-                            db.insert(k.as_bytes(), bincode::serialize(&v).expect(SER_ERROR))
-                                .expect(DB_ERROR);
-                        }
-                        None => {}
-                    }
-                }
+                self.previous_stop = Some(SystemTime::now());
+                let dbfile = Path::new(db).join(Path::new("store"));
+                let mut database = fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .open(dbfile)
+                    .expect("Couldn't Open DB");
+                database
+                    .write(&bincode::serialize(self).expect(SER_ERROR))
+                    .expect("Failed to write file.");
+                let configuration = Path::new(db).join(Path::new(".configuration"));
+                let mut configuration = fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .open(configuration)
+                    .expect("Couldn't open Configuration");
+                configuration
+                    .write(format!("version={:}\n", env!("CARGO_PKG_VERSION")).as_bytes())
+                    .expect("Failed to write file.");
             }
             None => {}
         }
@@ -281,27 +375,25 @@ impl Drop for HistogramMap {
     }
 }
 
-fn get_max_pid() -> u64{
-    if cfg!(target_os = "macos"){
+fn get_max_pid() -> u64 {
+    if cfg!(target_os = "macos") {
         return 99999;
-    }
-    else if cfg!(target_os = "linux"){
-        let pid_max = match fs::read(&Path::new("/proc/sys/kernel/pid_max")){
+    } else if cfg!(target_os = "linux") {
+        let pid_max = match fs::read(&Path::new("/proc/sys/kernel/pid_max")) {
             Ok(data) => {
                 let r = String::from_utf8_lossy(data.as_slice());
-                let r= r.trim().parse::<u64>().unwrap_or(32768);
+                let r = r.trim().parse::<u64>().unwrap_or(32768);
                 r
-            },
-            Err(_) => 32768
+            }
+            Err(_) => 32768,
         };
         return pid_max;
-    }
-    else{
+    } else {
         32768
     }
 }
 
-fn get_max_pid_length() -> usize{
+fn get_max_pid_length() -> usize {
     format!("{:}", get_max_pid()).len()
 }
 
@@ -341,11 +433,11 @@ pub struct CPUTimeApp {
     pub processor_name: String,
     pub started: chrono::DateTime<chrono::Local>,
     pub selected_process: Option<ZProcess>,
-    pub max_pid_len: usize
+    pub max_pid_len: usize,
 }
 
 impl CPUTimeApp {
-    pub fn new(tick: Duration, db: Option<sled::Db>) -> CPUTimeApp {
+    pub fn new(tick: Duration, db: Option<PathBuf>) -> CPUTimeApp {
         let mut s = CPUTimeApp {
             histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db),
             tick,
@@ -382,7 +474,7 @@ impl CPUTimeApp {
             processor_name: String::from(""),
             started: chrono::Local::now(),
             selected_process: None,
-            max_pid_len: get_max_pid_length()
+            max_pid_len: get_max_pid_length(),
         };
         s.system.refresh_all();
         s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.
