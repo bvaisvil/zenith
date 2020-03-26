@@ -48,7 +48,7 @@ cargo build --release
 
 ## Usage
 
-Running with no arguments starts zenith with the default visualizations for CPU, Disk, and Netowrk and a refresh rate of 2000 ms (2 seconds). These can be changed with command line parameters:
+Running with no arguments starts zenith with the default visualizations for CPU, Disk, and Network and a refresh rate of 2000 ms (2 seconds). These can be changed with command line parameters:
 
 ```USAGE:
     zenith [OPTIONS]
