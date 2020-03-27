@@ -7,6 +7,7 @@ use crate::zprocess::*;
 use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
 use chrono::{Datelike, Local, Timelike};
+use chrono::Duration as CDuration;
 use std::borrow::Cow;
 use std::io;
 use std::io::Stdout;
@@ -18,6 +19,9 @@ use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
+use battery;
+use battery::units::ratio::percent;
+use battery::units::time::second;
 
 use std::ops::Mul;
 use tui::layout::{Constraint, Direction, Layout, Rect};
@@ -774,6 +778,7 @@ fn render_top_title_bar(
     zf: &u32,
     offset: &usize,
     tick: &Duration,
+    batteries: &Vec<battery::Battery>
 ) {
     let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
     let offset_duration = chrono::Duration::from_std(tick.mul(*offset as u32).mul(*zf))
@@ -796,6 +801,44 @@ fn render_top_title_bar(
     } else {
         String::from("")
     };
+    let battery_style = default_style;
+    let battery_perc = if batteries.len() > 0{
+        let b: &battery::Battery = batteries.get(0).expect("no battery");
+        let charge_state = match b.state(){
+            battery::State::Unknown => "?",
+            battery::State::Charging => "🔌",
+            battery::State::Discharging => "🔋",
+            battery::State::Empty => "E",
+            battery::State::Full => "F",
+            _ => ""
+        };
+        let t = match b.state(){
+            battery::State::Charging => {
+                match b.time_to_full(){
+                    Some(t) => {
+                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
+                        format!("{:}:{:}", t.num_hours(), t.num_minutes())
+                    },
+                    None => String::from("")
+                    
+                }
+            },
+            battery::State::Discharging => {
+                match b.time_to_empty(){
+                    Some(t) => {
+                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
+                        format!("{:}:{:}", t.num_hours(), t.num_minutes())
+                    },
+                    None => String::from("")
+                }
+            },
+            _ => String::from("")
+        };
+        format!(" [{:} {:03.2}% {:}]", charge_state, b.state_of_charge().get::<percent>(), t)
+    }
+    else{
+        format!("")
+    };
     let line = vec![
         Text::styled(
             format!(" {:}", app.hostname),
@@ -805,7 +848,8 @@ fn render_top_title_bar(
             format!(" [{:} {:}]", app.osname, app.release),
             default_style,
         ),
-        Text::styled("[Showing: ", default_style),
+        Text::styled(battery_perc, default_style),
+        Text::styled(" [Showing: ", default_style),
         Text::styled(
             format!("{:} mins", hist_duration.num_minutes()),
             default_style.fg(Color::Green),
@@ -962,6 +1006,7 @@ impl<'a> TerminalRenderer {
             let tick = &self.app.histogram_map.tick;
             let un = &self.update_number;
             let max_pid_len = &self.app.max_pid_len;
+            let batteries = &self.app.batteries;
 
             self.terminal
                 .draw(|mut f| {
@@ -974,7 +1019,7 @@ impl<'a> TerminalRenderer {
                         .constraints(constraints.as_ref())
                         .split(f.size());
 
-                    render_top_title_bar(app, v_sections[0], &mut f, zf, offset, tick);
+                    render_top_title_bar(app, v_sections[0], &mut f, zf, offset, tick, batteries);
                     render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
                     render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
                     render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);

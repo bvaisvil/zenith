@@ -7,6 +7,7 @@ use futures::StreamExt;
 use heim::host;
 use heim::net;
 use heim::net::Address;
+use battery;
 use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
 use std::mem::swap;
@@ -434,6 +435,7 @@ pub struct CPUTimeApp {
     pub started: chrono::DateTime<chrono::Local>,
     pub selected_process: Option<ZProcess>,
     pub max_pid_len: usize,
+    pub batteries: Vec<battery::Battery>
 }
 
 impl CPUTimeApp {
@@ -475,6 +477,7 @@ impl CPUTimeApp {
             started: chrono::Local::now(),
             selected_process: None,
             max_pid_len: get_max_pid_length(),
+            batteries: vec![]
         };
         s.system.refresh_all();
         s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.
@@ -499,6 +502,17 @@ impl CPUTimeApp {
                 self.release = String::from("unknown");
             }
         };
+    }
+
+    fn get_batteries(&mut self){
+        let manager = battery::Manager::new().expect("Couldn't create battery manager");
+        self.batteries.clear();
+        for b in manager.batteries().expect("Couldn't get batteries"){
+            match b{
+                Ok(b) => self.batteries.push(b),
+                Err(_) => {}
+            }
+        }
     }
 
     async fn get_nics(&mut self) {
@@ -874,6 +888,7 @@ impl CPUTimeApp {
         self.update_disk(width);
         self.get_platform().await;
         self.get_nics().await;
+        self.get_batteries();
     }
 
     pub async fn save_state(&mut self) {

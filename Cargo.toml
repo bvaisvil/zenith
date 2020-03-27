@@ -30,4 +30,5 @@ dirs = "2.0.*"
 serde = {version="1.0.104", features=["derive"]}
 serde_derive = "1.0.104"
 bincode = "1.2.1"
+battery = "0.7.*"
 #sysinfo = {path = "../sysinfo"}

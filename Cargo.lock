@@ -45,6 +45,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
 
 [[package]]
+name = "battery"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36a698e449024a5d18994a815998bf5e2e4bc1883e35a7d7ba95b6b69ee45907"
+dependencies = [
+ "cfg-if",
+ "core-foundation 0.6.4",
+ "lazycell",
+ "libc",
+ "mach 0.2.3",
+ "nix 0.15.0",
+ "num-traits",
+ "uom",
+ "winapi",
+]
+
+[[package]]
 name = "bincode"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -144,13 +161,29 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "core-foundation"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25b9e03f145fd4f2bf705e07b900cd41fc636598fe5dc452fd0db1441c3f496d"
+dependencies = [
+ "core-foundation-sys 0.6.2",
+ "libc",
+]
+
+[[package]]
+name = "core-foundation"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57d24c7a13c43e870e37c1556b74555437870a04514f7685f5b354e090567171"
 dependencies = [
- "core-foundation-sys",
+ "core-foundation-sys 0.7.0",
  "libc",
 ]
+
+[[package]]
+name = "core-foundation-sys"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7ca8a5221364ef15ce201e8ed2f609fc312682a8f4e0e3d4aa5879764e0fa3b"
 
 [[package]]
 name = "core-foundation-sys"
@@ -415,13 +448,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f97d185137ab6437750cb22a115d4c64027620d48c57893d31720abcba42c388"
 dependencies = [
  "cfg-if",
- "core-foundation",
+ "core-foundation 0.7.0",
  "futures-core",
  "futures-util",
  "lazy_static",
  "libc",
- "mach",
- "nix",
+ "mach 0.3.2",
+ "nix 0.16.1",
  "pin-utils",
  "uom",
  "winapi",
@@ -439,7 +472,7 @@ dependencies = [
  "heim-runtime",
  "lazy_static",
  "libc",
- "mach",
+ "mach 0.3.2",
  "winapi",
 ]
 
@@ -462,12 +495,12 @@ checksum = "82179359c7b215ae46fe8ac0f9015b8e5dfd6368cd0d113f261b28cb8993713f"
 dependencies = [
  "bitflags",
  "cfg-if",
- "core-foundation",
+ "core-foundation 0.7.0",
  "heim-common",
  "heim-derive",
  "heim-runtime",
  "libc",
- "mach",
+ "mach 0.3.2",
  "widestring",
  "winapi",
 ]
@@ -484,7 +517,7 @@ dependencies = [
  "heim-runtime",
  "lazy_static",
  "libc",
- "mach",
+ "mach 0.3.2",
  "platforms",
  "winapi",
 ]
@@ -501,7 +534,7 @@ dependencies = [
  "heim-runtime",
  "lazy_static",
  "libc",
- "mach",
+ "mach 0.3.2",
  "winapi",
 ]
 
@@ -519,7 +552,7 @@ dependencies = [
  "hex",
  "libc",
  "macaddr",
- "nix",
+ "nix 0.16.1",
 ]
 
 [[package]]
@@ -538,7 +571,7 @@ dependencies = [
  "heim-runtime",
  "lazy_static",
  "libc",
- "mach",
+ "mach 0.3.2",
  "memchr",
  "ntapi",
  "ordered-float",
@@ -613,6 +646,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
+name = "lazycell"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b294d6fa9ee409a054354afc4352b0b9ef7ca222c69b8812cbea9e7d2bf3783f"
+
+[[package]]
 name = "libc"
 version = "0.2.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -644,6 +683,15 @@ checksum = "bee538cb1031f87f970ba28f0e5ebfcdaf63ed1a000a4176b4117537c33d19fb"
 
 [[package]]
 name = "mach"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86dd2487cdfea56def77b88438a2c915fb45113c5319bfe7e14306ca4cd0b0e1"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "mach"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b823e83b2affd8f40a9ee8c29dbc56404c1e34cd2710921f2801e2cf29527afa"
@@ -670,6 +718,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4fc2c02a7e374099d4ee95a193111f72d2110197fe200272371758f6c3643d8"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "nix"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b2e0b4f3320ed72aaedb9a5ac838690a8047c7b275da22711fddff4f8a14229"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if",
+ "libc",
+ "void",
 ]
 
 [[package]]
@@ -1222,6 +1283,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 name = "zenith"
 version = "0.7.7"
 dependencies = [
+ "battery",
  "bincode",
  "byte-unit",
  "chrono",
