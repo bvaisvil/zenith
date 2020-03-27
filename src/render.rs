@@ -714,7 +714,7 @@ fn render_disk(
         if d.get_perc_free_space() < 10.0 {
             Text::Styled(
                 Cow::Owned(format!(
-                    "{:.2}%(!): {}",
+                    "{:3.0}%: {}",
                     d.get_perc_free_space(),
                     d.get_mount_point().display()
                 )),
@@ -723,7 +723,7 @@ fn render_disk(
         } else {
             Text::Styled(
                 Cow::Owned(format!(
-                    "{:.2}%: {}",
+                    "{:3.0}%: {}",
                     d.get_perc_free_space(),
                     d.get_mount_point().display()
                 )),
@@ -734,7 +734,7 @@ fn render_disk(
     List::new(disks)
         .block(
             Block::default()
-                .title("Disks")
+                .title("Disks / File Systems")
                 .borders(Borders::ALL)
                 .border_style(style)
                 .title_style(style),
