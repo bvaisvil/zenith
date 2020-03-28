@@ -22,6 +22,7 @@ use tui::backend::TermionBackend;
 use battery;
 use battery::units::ratio::percent;
 use battery::units::time::second;
+use battery::units::power::watt;
 
 use std::ops::Mul;
 use tui::layout::{Constraint, Direction, Layout, Rect};
@@ -771,6 +772,70 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
     )
 }
 
+fn render_battery_widget(batteries: &Vec<battery::Battery>) -> (Text, Text, Text, Text){
+    let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
+    if batteries.len() > 0{
+        let b: &battery::Battery = batteries.get(0).expect("no battery");
+        let charge_state = match b.state(){
+            battery::State::Unknown => " ",
+            battery::State::Charging => "⚡︎",
+            battery::State::Discharging => "🁢",
+            battery::State::Empty => "🁢",
+            battery::State::Full => "🁢",
+            _ => ""
+        };
+        let charge_state_color = match b.state(){
+            battery::State::Charging => Color::Green,
+            battery::State::Discharging => Color::Yellow,
+            battery::State::Empty => Color::Red,
+            battery::State::Full => Color::Green,
+            _ => Color::White
+        };
+        let t = match b.state(){
+            battery::State::Charging => {
+                match b.time_to_full(){
+                    Some(t) => {
+                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
+                        format!("{:}:{:}", t.num_hours(), t.num_minutes() % 60)
+                    },
+                    None => String::from("")
+                    
+                }
+            },
+            battery::State::Discharging => {
+                match b.time_to_empty(){
+                    Some(t) => {
+                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
+                        format!("{:02}:{:02}", t.num_hours(), t.num_minutes() % 60)
+                    },
+                    None => String::from("")
+                }
+            },
+            _ => String::from("")
+        };
+        let charged = b.state_of_charge().get::<percent>();
+        let charged_color = if charged > 0.75{
+            Color::Green
+        }
+        else if charged > 50.0{
+            Color::Yellow
+        }
+        else{
+            Color::Red
+        };
+        (Text::styled(charge_state, default_style.fg(charge_state_color)),
+         Text::styled(format!(" {:03.2}%", charged), default_style.fg(charged_color)),
+         Text::styled(format!(" {:}", t), default_style),
+         Text::styled(format!(" {:03.2}w", b.energy_rate().get::<watt>()), default_style))
+    }
+    else{
+        (Text::styled("", default_style),
+         Text::styled("", default_style),
+         Text::styled("", default_style),
+         Text::styled("", default_style))
+    }
+}
+
 fn render_top_title_bar(
     app: &CPUTimeApp,
     area: Rect,
@@ -801,43 +866,18 @@ fn render_top_title_bar(
     } else {
         String::from("")
     };
-    let battery_style = default_style;
-    let battery_perc = if batteries.len() > 0{
-        let b: &battery::Battery = batteries.get(0).expect("no battery");
-        let charge_state = match b.state(){
-            battery::State::Unknown => "?",
-            battery::State::Charging => "🔌",
-            battery::State::Discharging => "🔋",
-            battery::State::Empty => "E",
-            battery::State::Full => "F",
-            _ => ""
-        };
-        let t = match b.state(){
-            battery::State::Charging => {
-                match b.time_to_full(){
-                    Some(t) => {
-                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
-                        format!("{:}:{:}", t.num_hours(), t.num_minutes())
-                    },
-                    None => String::from("")
-                    
-                }
-            },
-            battery::State::Discharging => {
-                match b.time_to_empty(){
-                    Some(t) => {
-                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
-                        format!("{:}:{:}", t.num_hours(), t.num_minutes())
-                    },
-                    None => String::from("")
-                }
-            },
-            _ => String::from("")
-        };
-        format!(" [{:} {:03.2}% {:}]", charge_state, b.state_of_charge().get::<percent>(), t)
+    let battery_widets = render_battery_widget(batteries);
+    let battery_start = if batteries.len() > 0{
+        " ["
     }
     else{
-        format!("")
+        ""
+    };
+    let battery_end = if batteries.len() > 0{
+        "]"
+    }
+    else{
+        ""
     };
     let line = vec![
         Text::styled(
@@ -848,7 +888,12 @@ fn render_top_title_bar(
             format!(" [{:} {:}]", app.osname, app.release),
             default_style,
         ),
-        Text::styled(battery_perc, default_style),
+        Text::styled(battery_start, default_style),
+        battery_widets.0,
+        battery_widets.1,
+        battery_widets.2,
+        battery_widets.3,
+        Text::styled(battery_end, default_style),
         Text::styled(" [Showing: ", default_style),
         Text::styled(
             format!("{:} mins", hist_duration.num_minutes()),
