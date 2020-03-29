@@ -7,6 +7,7 @@ use futures::StreamExt;
 use heim::host;
 use heim::net;
 use heim::net::Address;
+use heim::units::frequency::megahertz;
 use battery;
 use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
@@ -781,8 +782,19 @@ impl CPUTimeApp {
         });
     }
 
-    fn update_frequency(&mut self) {
-        self.frequency = sys_info::cpu_speed().unwrap_or(0);
+    // fn update_frequency(&mut self) {
+    //     self.frequency = sys_info::cpu_speed().unwrap_or(0);
+    // }
+
+    async fn update_frequency(&mut self){
+        let f =  heim::cpu::frequency().await;
+        match f {
+            Ok(f) => {
+                self.frequency = f.current().get::<megahertz>();
+            },
+            Err(_) => {}
+        }
+
     }
 
     fn update_disk(&mut self, _width: u16) {
@@ -884,7 +896,7 @@ impl CPUTimeApp {
         self.histogram_map.add_value_to("net_in", self.net_in);
         self.histogram_map.add_value_to("net_out", self.net_out);
         self.update_process_list();
-        self.update_frequency();
+        self.update_frequency().await;
         self.update_disk(width);
         self.get_platform().await;
         self.get_nics().await;
