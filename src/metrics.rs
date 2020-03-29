@@ -782,10 +782,6 @@ impl CPUTimeApp {
         });
     }
 
-    // fn update_frequency(&mut self) {
-    //     self.frequency = sys_info::cpu_speed().unwrap_or(0);
-    // }
-
     async fn update_frequency(&mut self){
         let f =  heim::cpu::frequency().await;
         match f {

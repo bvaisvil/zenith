@@ -1109,16 +1109,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sys-info"
-version = "0.5.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58283a48c9212afcade2069f8bbf7ded6a7bdbf4888d2defba72244c8e5f423c"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "sysinfo"
 version = "0.10.5"
 source = "git+https://github.com/bvaisvil/sysinfo?branch=zenith_changes#18e0f0663440b5cc0c424485172d59b795e044e6"
@@ -1297,7 +1287,6 @@ dependencies = [
  "serde",
  "serde_derive",
  "sled",
- "sys-info",
  "sysinfo",
  "termion",
  "tui",
