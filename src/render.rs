@@ -25,10 +25,10 @@ use battery::units::time::second;
 use battery::units::power::watt;
 
 use std::ops::Mul;
-use tui::layout::{Constraint, Direction, Layout, Rect};
+use tui::layout::{Constraint, Direction, Layout, Rect, Alignment};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{
-    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget,
+    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget
 };
 use tui::Frame;
 use tui::Terminal;
@@ -841,10 +841,9 @@ fn render_top_title_bar(
     area: Rect,
     f: &mut Frame<ZBackend>,
     zf: &u32,
-    offset: &usize,
-    tick: &Duration,
-    batteries: &Vec<battery::Battery>
+    offset: &usize
 ) {
+    let tick = app.histogram_map.tick;
     let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
     let offset_duration = chrono::Duration::from_std(tick.mul(*offset as u32).mul(*zf))
         .expect("Couldn't convert from std");
@@ -866,14 +865,14 @@ fn render_top_title_bar(
     } else {
         String::from("")
     };
-    let battery_widets = render_battery_widget(batteries);
-    let battery_start = if batteries.len() > 0{
+    let battery_widets = render_battery_widget(&app.batteries);
+    let battery_start = if app.batteries.len() > 0{
         " ["
     }
     else{
         ""
     };
-    let battery_end = if batteries.len() > 0{
+    let battery_end = if app.batteries.len() > 0{
         "]"
     }
     else{
@@ -903,7 +902,7 @@ fn render_top_title_bar(
         Text::styled(back_in_time, default_style.modifier(Modifier::BOLD)),
         Text::styled("]", default_style),
         Text::styled(
-            " <tab> sections, (e)pand (m)inimize [+/-] zoom [←/→] scroll histogram (`) reset",
+            " (h)elp",
             default_style,
         ),
         Text::styled(" (q)uit", default_style),
@@ -949,6 +948,67 @@ fn render_cpu(
     render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
 }
 
+fn render_help(area: Rect, f: &mut Frame<ZBackend>){
+    let help_layout = Layout::default().margin(5)
+                                               .direction(Direction::Vertical)
+                                               .constraints([
+                                                   Constraint::Length(1),
+                                                   Constraint::Percentage(80),
+                                                   Constraint::Length(5),
+                                               ].as_ref())
+                                               .split(area);
+    let header_style = Style::default().fg(Color::Green);
+    let t = vec![
+        Text::styled(format!("zenith v{:}", env!("CARGO_PKG_VERSION")), header_style),
+        ];
+    Paragraph::new(t.iter()).wrap(true).alignment(Alignment::Center)
+                                  .render(f, help_layout[0]); 
+    let main_style = Style::default();
+    let key_style = main_style.fg(Color::Cyan);
+    let t = vec![
+        Text::styled("Primary Interface\n", header_style),
+        Text::styled("h    ", key_style),
+        Text::styled("    Toggle this help screen\n", main_style), 
+        Text::styled("q    ", key_style),
+        Text::styled("    Quit and exit zenith\n", main_style),         
+        Text::styled("<TAB>", key_style),
+        Text::styled("    Changes highlighted section\n", main_style),        
+        Text::styled("e    ", key_style),
+        Text::styled("    Expands highlighted section\n", main_style),
+        Text::styled("m    ", key_style),
+        Text::styled("    Shrinks highlighted section\n", main_style),
+        Text::styled("-    ", key_style),
+        Text::styled("    Zoom Chart Out\n", main_style),
+        Text::styled("+    ", key_style),
+        Text::styled("    Zoom Chart In\n", main_style),
+        Text::styled("←    ", key_style),
+        Text::styled("    Move Back In Time\n", main_style),
+        Text::styled("→    ", key_style),
+        Text::styled("    Move Forward In Time\n", main_style),
+        Text::styled("`    ", key_style),
+        Text::styled("    Reset Charts To Current\n", main_style),
+        Text::styled("\n", header_style),
+        Text::styled("Process Table\n", header_style),
+        Text::styled("<RET> ", key_style),
+        Text::styled("    Focus on Process\n", main_style),
+        Text::styled("↓     ", key_style),
+        Text::styled("    Move Down Process Table\n", main_style),
+        Text::styled("↑     ", key_style),
+        Text::styled("    Move Up Process Table\n", main_style),
+        Text::styled("/     ", key_style),
+        Text::styled("    Change sort between ascending/descending\n", main_style),
+        Text::styled(",     ", key_style),
+        Text::styled("    Move Sorted Column Left\n", main_style),
+        Text::styled(".     ", key_style),
+        Text::styled("    Move Sorted Column Right\n", main_style),
+    ];
+    let b = Block::default().borders(Borders::ALL);
+    Paragraph::new(t.iter()).wrap(true)
+                                  .alignment(Alignment::Left)
+                                  .block(b)
+                                  .render(f, help_layout[1]); 
+}
+
 pub struct TerminalRenderer {
     terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
     app: CPUTimeApp,
@@ -965,6 +1025,7 @@ pub struct TerminalRenderer {
     selected_section: Section,
     constraints: Vec<Constraint>,
     process_message: Option<String>,
+    show_help: bool
 }
 
 impl<'a> TerminalRenderer {
@@ -1009,6 +1070,7 @@ impl<'a> TerminalRenderer {
             constraints,
             process_message: None,
             hist_start_offset: 0,
+            show_help: false
         }
     }
 
@@ -1051,52 +1113,66 @@ impl<'a> TerminalRenderer {
             let tick = &self.app.histogram_map.tick;
             let un = &self.update_number;
             let max_pid_len = &self.app.max_pid_len;
-            let batteries = &self.app.batteries;
+            let show_help = self.show_help;
 
             self.terminal
                 .draw(|mut f| {
                     width = f.size().width;
-                    // create layouts
-                    // primary vertical
-                    let v_sections = Layout::default()
-                        .direction(Direction::Vertical)
-                        .margin(0)
-                        .constraints(constraints.as_ref())
-                        .split(f.size());
+                    if show_help{
+                        let v_sections = Layout::default()
+                            .direction(Direction::Vertical)
+                            .margin(0)
+                            .constraints([
+                                Constraint::Length(1),
+                                Constraint::Length(40),
+                            ].as_ref())
+                            .split(f.size());
 
-                    render_top_title_bar(app, v_sections[0], &mut f, zf, offset, tick, batteries);
-                    render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
-                    render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
-                    render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
-                    if *process_height > 0 {
-                        if let Some(area) = v_sections.last() {
-                            if app.selected_process.is_none() {
-                                render_process_table(
-                                    &app,
-                                    width,
-                                    *area,
-                                    *pst,
-                                    &mut f,
-                                    selected,
-                                    max_pid_len,
-                                );
-                                if area.height > 4 {
-                                    // account for table border & margins.
-                                    process_table_height = area.height - 5;
+                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        render_help(v_sections[1], &mut f);
+                    } else {
+                        // create layouts
+                        // primary vertical
+                        let v_sections = Layout::default()
+                            .direction(Direction::Vertical)
+                            .margin(0)
+                            .constraints(constraints.as_ref())
+                            .split(f.size());
+
+                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
+                        render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
+                        render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
+                        if *process_height > 0 {
+                            if let Some(area) = v_sections.last() {
+                                if app.selected_process.is_none() {
+                                    render_process_table(
+                                        &app,
+                                        width,
+                                        *area,
+                                        *pst,
+                                        &mut f,
+                                        selected,
+                                        max_pid_len,
+                                    );
+                                    if area.height > 4 {
+                                        // account for table border & margins.
+                                        process_table_height = area.height - 5;
+                                    }
+                                } else if app.selected_process.is_some() {
+                                    render_process(
+                                        &app,
+                                        *area,
+                                        &mut f,
+                                        width,
+                                        selected,
+                                        process_message,
+                                        max_pid_len,
+                                    );
                                 }
-                            } else if app.selected_process.is_some() {
-                                render_process(
-                                    &app,
-                                    *area,
-                                    &mut f,
-                                    width,
-                                    selected,
-                                    process_message,
-                                    max_pid_len,
-                                );
                             }
                         }
-                    }
+                }
 
                     //render_sensors(&app, sensor_layout, &mut f, zf);
                 })
@@ -1224,6 +1300,8 @@ impl<'a> TerminalRenderer {
                     } else if input == Key::Char('`') {
                         self.zoom_factor = 1;
                         self.hist_start_offset = 0;
+                    } else if input == Key::Char('h') {
+                        self.show_help = !self.show_help;
                     } else if input == Key::Ctrl('c') {
                         break;
                     }
