@@ -30,4 +30,5 @@ serde = {version="1.0.104", features=["derive"]}
 serde_derive = "1.0.104"
 bincode = "1.2.1"
 battery = "0.7.*"
+signal-hook = "0.1.*"
 #sysinfo = {path = "../sysinfo"}

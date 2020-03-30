@@ -1238,6 +1238,9 @@ impl<'a> TerminalRenderer {
                 Event::Save => {
                     self.app.save_state().await;
                 }
+                Event::Terminate => {
+                    break;
+                }
             }
         }
     }
