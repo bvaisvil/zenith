@@ -114,6 +114,7 @@ fn render_process_table<'a>(
     f: &mut Frame<ZBackend>,
     selected_section: &Section,
     max_pid_len: &usize,
+    show_paths: bool
 ) {
     if area.height < 5 {
         return; // not enough space to draw anything
@@ -133,6 +134,12 @@ fn render_process_table<'a>(
                 .process_map
                 .get(pid)
                 .expect("Pid present in processes but not in map.");
+            let cmd_string = if show_paths{
+                format!(" - {:}", [p.exe.as_str(), p.command.join(" ").as_str()].join(" "))
+            }
+            else{
+                String::from("")
+            };
             vec![
                 format!("{: >width$}", p.pid, width = *max_pid_len),
                 format!("{: <10}", p.user_name),
@@ -156,8 +163,7 @@ fn render_process_table<'a>(
                     "{:>8}",
                     float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B).replace("B", "")
                 ),
-                format!("{} - ", p.name)
-                    + &[p.exe.as_str(), p.command.join(" ").as_str()].join(" "),
+                format!("{:}{:}", p.name, cmd_string),
             ]
         })
         .collect();
@@ -1025,7 +1031,8 @@ pub struct TerminalRenderer {
     selected_section: Section,
     constraints: Vec<Constraint>,
     process_message: Option<String>,
-    show_help: bool
+    show_help: bool,
+    show_paths: bool
 }
 
 impl<'a> TerminalRenderer {
@@ -1070,7 +1077,8 @@ impl<'a> TerminalRenderer {
             constraints,
             process_message: None,
             hist_start_offset: 0,
-            show_help: false
+            show_help: false,
+            show_paths: true
         }
     }
 
@@ -1114,6 +1122,7 @@ impl<'a> TerminalRenderer {
             let un = &self.update_number;
             let max_pid_len = &self.app.max_pid_len;
             let show_help = self.show_help;
+            let show_paths = self.show_paths;
 
             self.terminal
                 .draw(|mut f| {
@@ -1154,6 +1163,7 @@ impl<'a> TerminalRenderer {
                                         &mut f,
                                         selected,
                                         max_pid_len,
+                                        show_paths
                                     );
                                     if area.height > 4 {
                                         // account for table border & margins.
@@ -1302,6 +1312,8 @@ impl<'a> TerminalRenderer {
                         self.hist_start_offset = 0;
                     } else if input == Key::Char('h') {
                         self.show_help = !self.show_help;
+                    } else if input == Key::Char('p') {
+                        self.show_paths = !self.show_paths;
                     } else if input == Key::Ctrl('c') {
                         break;
                     }
