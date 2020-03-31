@@ -1004,9 +1004,11 @@ fn render_help(area: Rect, f: &mut Frame<ZBackend>){
         Text::styled("/     ", key_style),
         Text::styled("    Change sort between ascending/descending\n", main_style),
         Text::styled(",     ", key_style),
-        Text::styled("    Move Sorted Column Left\n", main_style),
+        Text::styled("    Cycle Columns Left\n", main_style),
         Text::styled(".     ", key_style),
-        Text::styled("    Move Sorted Column Right\n", main_style),
+        Text::styled("    Cycle Columns Right\n", main_style),
+        Text::styled("p     ", key_style),
+        Text::styled("    Toggle Paths On/Off\n", main_style),
     ];
     let b = Block::default().borders(Borders::ALL);
     Paragraph::new(t.iter()).wrap(true)
