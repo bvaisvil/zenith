@@ -114,7 +114,9 @@ fn render_process_table<'a>(
     f: &mut Frame<ZBackend>,
     selected_section: &Section,
     max_pid_len: &usize,
-    show_paths: bool
+    show_paths: bool,
+    show_find: bool,
+    filter: &String
 ) {
     if area.height < 5 {
         return; // not enough space to draw anything
@@ -126,9 +128,20 @@ fn render_process_table<'a>(
     let display_height = area.height as usize - 4; // 4 for the margins and table header
 
     let end = process_table_start + display_height;
+    let filter_lc = filter.to_lowercase();
     let rows: Vec<Vec<String>> = app
         .processes
         .iter()
+        .filter(|pid| {
+            let p = app
+                .process_map
+                .get(pid)
+                .expect("Pid present in processes but not in map.");
+            filter.len() == 0 || 
+            p.name.to_lowercase().contains(&filter_lc) || 
+            p.exe.to_lowercase().contains(&filter_lc) || 
+            p.command.join(" ").to_lowercase().contains(&filter_lc)
+        })
         .map(|pid| {
             let p = app
                 .process_map
@@ -215,19 +228,22 @@ fn render_process_table<'a>(
         }
     });
 
+    let title = if show_find{
+        format!("Find: {:}", filter)
+    }
+    else{
+        format!("Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]",
+            app.processes.len(),
+            app.threads_total
+        )
+    };
+
     Table::new(header.into_iter(), rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(style)
-                .title(
-                    format!(
-                        "Tasks [{}] Threads [{}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]",
-                        app.processes.len(),
-                        app.threads_total
-                    )
-                    .as_str(),
-                )
+                .title(title.as_str())
                 .title_style(style),
         )
         .widths(widths.as_slice())
@@ -1034,7 +1050,9 @@ pub struct TerminalRenderer {
     constraints: Vec<Constraint>,
     process_message: Option<String>,
     show_help: bool,
-    show_paths: bool
+    show_paths: bool,
+    show_find: bool,
+    filter: String
 }
 
 impl<'a> TerminalRenderer {
@@ -1080,7 +1098,9 @@ impl<'a> TerminalRenderer {
             process_message: None,
             hist_start_offset: 0,
             show_help: false,
-            show_paths: true
+            show_paths: true,
+            show_find: false,
+            filter: String::from("")
         }
     }
 
@@ -1120,11 +1140,12 @@ impl<'a> TerminalRenderer {
             let selected = &self.selected_section;
             let process_message = &self.process_message;
             let offset = &self.hist_start_offset;
-            let tick = &self.app.histogram_map.tick;
             let un = &self.update_number;
             let max_pid_len = &self.app.max_pid_len;
             let show_help = self.show_help;
             let show_paths = self.show_paths;
+            let filter = &self.filter;
+            let show_find = self.show_find;
 
             self.terminal
                 .draw(|mut f| {
@@ -1165,7 +1186,9 @@ impl<'a> TerminalRenderer {
                                         &mut f,
                                         selected,
                                         max_pid_len,
-                                        show_paths
+                                        show_paths,
+                                        show_find,
+                                        filter
                                     );
                                     if area.height > 4 {
                                         // account for table border & margins.
@@ -1192,7 +1215,30 @@ impl<'a> TerminalRenderer {
 
             match self.events.next().expect("No new event.") {
                 Event::Input(input) => {
-                    if input == Key::Char('q') {
+                    if show_find && input == Key::Esc{
+                        self.show_find = false;
+                        self.filter = String::from("");
+                    }
+                    else if show_find && input != Key::Char('\n'){
+                        match input{
+                            Key::Char(c) => self.filter.push(c),
+                            Key::Delete => {
+                                match self.filter.pop(){
+                                    Some(_c) => {},
+                                    None => self.show_find = false
+                                }
+                            },
+                            Key::Backspace => {
+                                match self.filter.pop(){
+                                    Some(_c) => {},
+                                    None => self.show_find = false
+                                }
+                            },
+                            _ => {}
+                        }
+                        
+                    }
+                    if !self.show_find && input == Key::Char('q') {
                         break;
                     } else if input == Key::Up {
                         if self.app.selected_process.is_some() {
@@ -1230,7 +1276,7 @@ impl<'a> TerminalRenderer {
                         if self.hist_start_offset > 0 {
                             self.hist_start_offset -= 1;
                         }
-                    } else if input == Key::Char('.') || input == Key::Char('>') {
+                    } else if !self.show_find && (input == Key::Char('.') || input == Key::Char('>')) {
                         if self.app.psortby == ProcessTableSortBy::Cmd {
                             self.app.psortby = ProcessTableSortBy::Pid;
                         } else {
@@ -1239,7 +1285,7 @@ impl<'a> TerminalRenderer {
                                     .expect("invalid value to set psortby");
                         }
                         self.app.sort_process_table();
-                    } else if input == Key::Char(',') || input == Key::Char('<') {
+                    } else if !self.show_find && (input == Key::Char(',') || input == Key::Char('<')) {
                         if self.app.psortby == ProcessTableSortBy::Pid {
                             self.app.psortby = ProcessTableSortBy::Cmd;
                         } else {
@@ -1248,7 +1294,7 @@ impl<'a> TerminalRenderer {
                                     .expect("invalid value to set psortby");
                         }
                         self.app.sort_process_table();
-                    } else if input == Key::Char('/') {
+                    } else if !self.show_find && input == Key::Char('/') {
                         match self.app.psortorder {
                             ProcessTableSortOrder::Ascending => {
                                 self.app.psortorder = ProcessTableSortOrder::Descending
@@ -1258,12 +1304,12 @@ impl<'a> TerminalRenderer {
                             }
                         }
                         self.app.sort_process_table();
-                    } else if input == Key::Char('+') || input == Key::Char('=') {
+                    } else if !self.show_find && input == Key::Char('+') || input == Key::Char('=') {
                         if self.zoom_factor > 1 {
                             self.zoom_factor -= 1;
                         }
                         self.update_number = 0;
-                    } else if input == Key::Char('-') {
+                    } else if !self.show_find && input == Key::Char('-') {
                         if self.zoom_factor < 100 {
                             self.zoom_factor += 1;
                         }
@@ -1271,51 +1317,54 @@ impl<'a> TerminalRenderer {
                     } else if input == Key::Char('\n') {
                         self.app.select_process();
                         self.process_message = None;
-                    } else if input == Key::Esc || input == Key::Char('b') {
+                        self.show_find = false;
+                    } else if !self.show_find && (input == Key::Esc || input == Key::Char('b')) {
                         self.app.selected_process = None;
                         self.process_message = None;
-                    } else if input == Key::Char('s') {
+                    } else if !self.show_find && input == Key::Char('s') {
                         self.process_message = None;
                         self.process_message = match &self.app.selected_process {
                             Some(p) => Some(p.suspend().await),
                             None => None,
                         };
-                    } else if input == Key::Char('r') {
+                    } else if !self.show_find && input == Key::Char('r') {
                         self.process_message = None;
                         self.process_message = match &self.app.selected_process {
                             Some(p) => Some(p.resume().await),
                             None => None,
                         };
-                    } else if input == Key::Char('k') {
+                    } else if !self.show_find && input == Key::Char('k') {
                         self.process_message = None;
                         self.process_message = match &self.app.selected_process {
                             Some(p) => Some(p.kill().await),
                             None => None,
                         };
-                    } else if input == Key::Char('t') {
+                    } else if !self.show_find && input == Key::Char('t') {
                         self.process_message = None;
                         self.process_message = match &self.app.selected_process {
                             Some(p) => Some(p.terminate().await),
                             None => None,
                         };
-                    } else if input == Key::Char('\t') {
+                    } else if !self.show_find && input == Key::Char('\t') {
                         let mut i = self.selected_section as u32 + 1;
                         if i > 3 {
                             i = 0;
                         }
                         self.selected_section =
                             num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
-                    } else if input == Key::Char('m') {
+                    } else if !self.show_find && input == Key::Char('m') {
                         self.set_section_height(-2).await;
-                    } else if input == Key::Char('e') {
+                    } else if !self.show_find && input == Key::Char('e') {
                         self.set_section_height(2).await;
                     } else if input == Key::Char('`') {
                         self.zoom_factor = 1;
                         self.hist_start_offset = 0;
-                    } else if input == Key::Char('h') {
+                    } else if !self.show_find && input == Key::Char('h') {
                         self.show_help = !self.show_help;
-                    } else if input == Key::Char('p') {
+                    } else if !self.show_find && input == Key::Char('p') {
                         self.show_paths = !self.show_paths;
+                    } else if !self.show_find && input == Key::Char('f') {
+                        self.show_find = true;
                     } else if input == Key::Ctrl('c') {
                         break;
                     }
