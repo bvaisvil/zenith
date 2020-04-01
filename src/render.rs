@@ -232,7 +232,7 @@ fn render_process_table<'a>(
         format!("Find: {:}", filter)
     }
     else{
-        format!("Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/]",
+        format!("Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/] Filter [f]",
             app.processes.len(),
             app.threads_total
         )
@@ -1025,6 +1025,10 @@ fn render_help(area: Rect, f: &mut Frame<ZBackend>){
         Text::styled("    Cycle Columns Right\n", main_style),
         Text::styled("p     ", key_style),
         Text::styled("    Toggle Paths On/Off\n", main_style),
+        Text::styled("f     ", key_style),
+        Text::styled("    Toggle Filter Mode\n", main_style),        
+        Text::styled("<ESC>     ", key_style),
+        Text::styled("    Leave Filter Mode\n", main_style),
     ];
     let b = Block::default().borders(Borders::ALL);
     Paragraph::new(t.iter()).wrap(true)

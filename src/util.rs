@@ -83,9 +83,6 @@ impl Events {
                             if let Err(_) = tx.send(Event::Input(key)) {
                                 return;
                             }
-                            if key == config.exit_key {
-                                return;
-                            }
                         }
                         Err(_) => {}
                     }
