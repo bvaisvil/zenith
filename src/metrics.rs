@@ -420,7 +420,6 @@ pub struct CPUTimeApp {
     pub user_cache: UsersCache,
     pub cum_cpu_process: Option<ZProcess>,
     pub frequency: u64,
-    pub highlighted_row: usize,
     pub threads_total: usize,
     pub psortby: ProcessTableSortBy,
     pub psortorder: ProcessTableSortOrder,
@@ -461,7 +460,6 @@ impl CPUTimeApp {
             user_cache: UsersCache::new(),
             cum_cpu_process: None,
             frequency: 0,
-            highlighted_row: 0,
             threads_total: 0,
             disk_read: 0,
             disk_write: 0,
@@ -584,26 +582,20 @@ impl CPUTimeApp {
     //     }
     // }
 
-    pub fn highlight_up(&mut self) {
-        if self.highlighted_row != 0 {
-            self.highlighted_row -= 1;
-        }
-    }
+    // pub fn highlight_up(&mut self) {
+    //     if self.highlighted_row != 0 {
+    //         self.highlighted_row -= 1;
+    //     }
+    // }
 
-    pub fn highlight_down(&mut self) {
-        if self.highlighted_row < self.process_map.len() {
-            self.highlighted_row += 1;
-        }
-    }
+    // pub fn highlight_down(&mut self) {
+    //     if self.highlighted_row < self.process_map.len() {
+    //         self.highlighted_row += 1;
+    //     }
+    // }
 
-    pub fn select_process(&mut self) {
-        match self.processes.get(self.highlighted_row) {
-            Some(p) => match self.process_map.get(p) {
-                Some(p) => self.selected_process = Some(p.clone()),
-                None => self.selected_process = None,
-            },
-            None => self.selected_process = None,
-        };
+    pub fn select_process(&mut self, highlighted_process: Option<ZProcess>) {
+        self.selected_process = highlighted_process;
     }
 
     fn copy_to_zprocess(&self, process: &Process) -> ZProcess {

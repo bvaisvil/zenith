@@ -116,11 +116,10 @@ fn render_process_table<'a>(
     max_pid_len: &usize,
     show_paths: bool,
     show_find: bool,
-    filter: &String
-) {
-    if area.height < 5 {
-        return; // not enough space to draw anything
-    }
+    filter: &String,
+    highlighted_row: usize
+) -> Option<ZProcess> {
+
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default(),
@@ -129,7 +128,7 @@ fn render_process_table<'a>(
 
     let end = process_table_start + display_height;
     let filter_lc = filter.to_lowercase();
-    let rows: Vec<Vec<String>> = app
+    let procs: Vec<&ZProcess> = app
         .processes
         .iter()
         .filter(|pid| {
@@ -141,12 +140,19 @@ fn render_process_table<'a>(
             p.name.to_lowercase().contains(&filter_lc) || 
             p.exe.to_lowercase().contains(&filter_lc) || 
             p.command.join(" ").to_lowercase().contains(&filter_lc)
-        })
-        .map(|pid| {
-            let p = app
-                .process_map
-                .get(pid)
-                .expect("Pid present in processes but not in map.");
+        }).map(|pid| {
+            app.process_map.get(pid).expect("expected pid to be present")
+        }).collect();
+    let highlighted_process = if procs.len() > 0{
+        Some(procs[highlighted_row].clone())
+    }
+    else {
+        None
+    };
+    if area.height < 5 {
+        return highlighted_process; // not enough space to draw anything
+    }
+    let rows: Vec<Vec<String>> = procs.iter().map(|p| {
             let cmd_string = if show_paths{
                 format!(" - {:}", [p.exe.as_str(), p.command.join(" ").as_str()].join(" "))
             }
@@ -215,7 +221,7 @@ fn render_process_table<'a>(
     header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
     let rows = rows.iter().enumerate().filter_map(|(i, r)| {
         if i >= process_table_start && i < end {
-            if app.highlighted_row == i {
+            if highlighted_row == i {
                 Some(Row::StyledData(
                     r.into_iter(),
                     Style::default().fg(Color::Magenta).modifier(Modifier::BOLD),
@@ -250,6 +256,7 @@ fn render_process_table<'a>(
         .column_spacing(0)
         .header_style(Style::default().bg(Color::DarkGray))
         .render(f, area);
+    highlighted_process
 }
 
 fn render_cpu_histogram(
@@ -1056,7 +1063,8 @@ pub struct TerminalRenderer {
     show_help: bool,
     show_paths: bool,
     show_find: bool,
-    filter: String
+    filter: String,
+    highlighted_row: usize
 }
 
 impl<'a> TerminalRenderer {
@@ -1104,7 +1112,8 @@ impl<'a> TerminalRenderer {
             show_help: false,
             show_paths: true,
             show_find: false,
-            filter: String::from("")
+            filter: String::from(""),
+            highlighted_row: 0
         }
     }
 
@@ -1150,6 +1159,8 @@ impl<'a> TerminalRenderer {
             let show_paths = self.show_paths;
             let filter = &self.filter;
             let show_find = self.show_find;
+            let highlighted_row = self.highlighted_row;
+            let mut highlighted_process: Option<ZProcess> = None;
 
             self.terminal
                 .draw(|mut f| {
@@ -1182,7 +1193,7 @@ impl<'a> TerminalRenderer {
                         if *process_height > 0 {
                             if let Some(area) = v_sections.last() {
                                 if app.selected_process.is_none() {
-                                    render_process_table(
+                                    highlighted_process = render_process_table(
                                         &app,
                                         width,
                                         *area,
@@ -1192,7 +1203,8 @@ impl<'a> TerminalRenderer {
                                         max_pid_len,
                                         show_paths,
                                         show_find,
-                                        filter
+                                        filter,
+                                        highlighted_row
                                     );
                                     if area.height > 4 {
                                         // account for table border & margins.
@@ -1247,9 +1259,11 @@ impl<'a> TerminalRenderer {
                     } else if input == Key::Up {
                         if self.app.selected_process.is_some() {
                         } else {
-                            self.app.highlight_up();
+                            if self.highlighted_row != 0 {
+                                self.highlighted_row -= 1;
+                            }
                             if self.process_table_row_start > 0
-                                && self.app.highlighted_row < self.process_table_row_start
+                                && self.highlighted_row < self.process_table_row_start
                             {
                                 self.process_table_row_start -= 1;
                             }
@@ -1257,9 +1271,11 @@ impl<'a> TerminalRenderer {
                     } else if input == Key::Down {
                         if self.app.selected_process.is_some() {
                         } else {
-                            self.app.highlight_down();
+                            if self.highlighted_row < self.app.process_map.len() {
+                                self.highlighted_row += 1;
+                            }
                             if self.process_table_row_start < self.app.process_map.len()
-                                && self.app.highlighted_row
+                                && self.highlighted_row
                                     > (self.process_table_row_start + process_table_height as usize)
                             {
                                 self.process_table_row_start += 1;
@@ -1319,7 +1335,7 @@ impl<'a> TerminalRenderer {
                         }
                         self.update_number = 0;
                     } else if input == Key::Char('\n') {
-                        self.app.select_process();
+                        self.app.select_process(highlighted_process);
                         self.process_message = None;
                         self.show_find = false;
                     } else if !self.show_find && (input == Key::Esc || input == Key::Char('b')) {
@@ -1369,6 +1385,7 @@ impl<'a> TerminalRenderer {
                         self.show_paths = !self.show_paths;
                     } else if !self.show_find && input == Key::Char('f') {
                         self.show_find = true;
+                        self.highlighted_row = 0;
                     } else if input == Key::Ctrl('c') {
                         break;
                     }
