@@ -235,7 +235,10 @@ fn render_process_table<'a>(
     });
 
     let title = if show_find{
-        format!("Find: {:}", filter)
+        format!("[ESC] Clear, Find: {:}", filter)
+    }
+    else if filter.len() > 0{
+        format!("Filtered Results: {:}, [f] to change/clear", filter)
     }
     else{
         format!("Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/] Filter [f]",
