@@ -1037,7 +1037,7 @@ fn render_help(area: Rect, f: &mut Frame<ZBackend>){
         Text::styled("    Toggle Paths On/Off\n", main_style),
         Text::styled("f     ", key_style),
         Text::styled("    Toggle Filter Mode\n", main_style),        
-        Text::styled("<ESC>     ", key_style),
+        Text::styled("<ESC> ", key_style),
         Text::styled("    Leave Filter Mode\n", main_style),
     ];
     let b = Block::default().borders(Borders::ALL);
