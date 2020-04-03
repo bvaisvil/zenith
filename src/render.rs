@@ -143,10 +143,20 @@ fn render_process_table<'a>(
     }
     let rows: Vec<Vec<String>> = procs.iter().map(|p| {
             let cmd_string = if show_paths{
-                format!(" - {:}", [p.exe.as_str(), p.command.join(" ").as_str()].join(" "))
+                if p.command.len() > 1{
+                    format!(" - {:}", p.command.join(" "))
+                }
+                else{
+                    String::from("")
+                }
             }
             else{
-                String::from("")
+                if p.command.len() > 1{
+                    format!(" {:}", p.command[1..].join(" "))
+                }
+                else{
+                    String::from("")
+                }
             };
             vec![
                 format!("{: >width$}", p.pid, width = *max_pid_len),
@@ -517,21 +527,11 @@ fn render_process(
                 .margin(1)
                 .constraints([Constraint::Length(2), Constraint::Min(1)].as_ref())
                 .split(layout);
-            let h_sections = Layout::default()
-                .direction(Direction::Horizontal)
-                .margin(0)
-                .constraints(
-                    [
-                        Constraint::Percentage(50),
-                        Constraint::Length(1),
-                        Constraint::Percentage(50),
-                    ]
-                    .as_ref(),
-                )
-                .split(v_sections[1]);
+            
 
             Block::default()
-                .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
+                .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
+                                        process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
                 .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
 
             //Block::default().borders(Borders::LEFT).render(f, h_sections[1]);
@@ -633,7 +633,19 @@ fn render_process(
                 Text::raw("\n"),
             ];
 
-            if text.len() > h_sections[0].height as usize * 3 {
+            if text.len() > v_sections[1].height as usize * 3 {
+                let h_sections = Layout::default()
+                .direction(Direction::Horizontal)
+                .margin(0)
+                .constraints(
+                    [
+                        Constraint::Percentage(50),
+                        Constraint::Length(1),
+                        Constraint::Percentage(50),
+                    ]
+                    .as_ref(),
+                )
+                .split(v_sections[1]);
                 Paragraph::new(text[0..h_sections[0].height as usize * 3].iter())
                     .block(Block::default())
                     .wrap(false)
@@ -646,8 +658,8 @@ fn render_process(
             } else {
                 Paragraph::new(text.iter())
                     .block(Block::default())
-                    .wrap(false)
-                    .render(f, h_sections[0]);
+                    .wrap(true)
+                    .render(f, v_sections[1]);
             }
         }
         None => return,
