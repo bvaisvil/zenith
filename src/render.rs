@@ -108,6 +108,7 @@ fn cpu_title(app: &CPUTimeApp) -> String {
 
 fn render_process_table<'a>(
     app: &CPUTimeApp,
+    process_table: &Vec<i32>,
     width: u16,
     area: Rect,
     process_table_start: usize,
@@ -127,20 +128,8 @@ fn render_process_table<'a>(
     let display_height = area.height as usize - 4; // 4 for the margins and table header
 
     let end = process_table_start + display_height;
-    let filter_lc = filter.to_lowercase();
-    let procs: Vec<&ZProcess> = app
-        .processes
-        .iter()
-        .filter(|pid| {
-            let p = app
-                .process_map
-                .get(pid)
-                .expect("Pid present in processes but not in map.");
-            filter.len() == 0 || 
-            p.name.to_lowercase().contains(&filter_lc) || 
-            p.exe.to_lowercase().contains(&filter_lc) || 
-            p.command.join(" ").to_lowercase().contains(&filter_lc)
-        }).map(|pid| {
+
+    let procs: Vec<&ZProcess> = process_table.iter().map(|pid| {
             app.process_map.get(pid).expect("expected pid to be present")
         }).collect();
     let highlighted_process = if procs.len() > 0{
@@ -980,6 +969,24 @@ fn render_cpu(
     render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
 }
 
+fn filter_process_table(app: &CPUTimeApp, filter: &String) -> Vec<i32>{
+    let filter_lc = filter.to_lowercase();
+    let results: Vec<i32> = app
+        .processes
+        .iter()
+        .filter(|pid| {
+            let p = app
+                .process_map
+                .get(pid)
+                .expect("Pid present in processes but not in map.");
+            filter.len() == 0 || 
+            p.name.to_lowercase().contains(&filter_lc) || 
+            p.exe.to_lowercase().contains(&filter_lc) || 
+            p.command.join(" ").to_lowercase().contains(&filter_lc)
+        }).map(|&pid| pid).collect();
+    results
+}
+
 fn render_help(area: Rect, f: &mut Frame<ZBackend>){
     let help_layout = Layout::default().margin(5)
                                                .direction(Direction::Vertical)
@@ -1164,6 +1171,7 @@ impl<'a> TerminalRenderer {
             let show_find = self.show_find;
             let highlighted_row = self.highlighted_row;
             let mut highlighted_process: Option<ZProcess> = None;
+            let process_table = filter_process_table(app, &self.filter);
 
             self.terminal
                 .draw(|mut f| {
@@ -1198,6 +1206,7 @@ impl<'a> TerminalRenderer {
                                 if app.selected_process.is_none() {
                                     highlighted_process = render_process_table(
                                         &app,
+                                        &process_table,
                                         width,
                                         *area,
                                         *pst,
@@ -1274,10 +1283,10 @@ impl<'a> TerminalRenderer {
                     } else if input == Key::Down {
                         if self.app.selected_process.is_some() {
                         } else {
-                            if self.highlighted_row < self.app.process_map.len() {
+                            if self.highlighted_row < process_table.len() - 1 {
                                 self.highlighted_row += 1;
                             }
-                            if self.process_table_row_start < self.app.process_map.len()
+                            if self.process_table_row_start < process_table.len()
                                 && self.highlighted_row
                                     > (self.process_table_row_start + process_table_height as usize)
                             {
@@ -1389,6 +1398,7 @@ impl<'a> TerminalRenderer {
                     } else if !self.show_find && input == Key::Char('f') {
                         self.show_find = true;
                         self.highlighted_row = 0;
+                        self.process_table_row_start = 0;
                     } else if input == Key::Ctrl('c') {
                         break;
                     }
