@@ -1,26 +1,40 @@
 # Zenith 
-## In terminal graphical metrics for your *nix system written in Rust.
-<img src="./assets/screenshot.png" alt="Running zenith under iterm on MacOS">
+
+## In terminal graphical metrics for your *nix system written in Rust
+
+<img src="./assets/screenshot.png" alt="Running zenith on iTerm2 on MacOS">
 
 ## Features
+
 - Optional CPU, Memory, Network, and Disk usage charts
 - Quick glances at Disk free space, NIC IP addresses, CPU frequency
-- A top like process table that includes per process disk usage
-- Different chart views (5 minutes, 1 hour, etc)
-- Managing processes (signals, nice, etc)
-- Saving performance data
+- Battery percentage, time to charge or discharge, power used
+- A top-like filterable process table that includes per process disk usage
+- Zoomable chart views (with support to scroll back in time)
+- Managing processes with signals
+- Performance data saved between runs
 
 ## Planned Features
+
+- Highlight top users of Memory/Disk/Network
+- CPU steal percentage and general virtualization awareness
+- Set process priority
 - Sensor Temperature charts
 - Per process network usage (Linux)
 - Messaging about adverse system events, like errors in kernel ring buffer (Linux)
 - Docker support
+- ZFS (pool status)
+- GPU utilization metrics
+- Disk metrics like IO ops / latency
+- Support Memory pressure
 
 ## Current Platforms
+
 - Linux
 - MacOS
 
 ## Planned Platforms
+
 - BSD (OpenBSD/FreeBSD)
 - Perhaps Redox OS.
 
@@ -51,14 +65,16 @@ cargo build --release
 Running with no arguments starts zenith with the default visualizations for CPU, Disk, and Network and a refresh rate of 2000 ms (2 seconds). These can be changed with command line parameters:
 
 ```USAGE:
-    zenith [OPTIONS]
+    zenith [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+        --disable-history    Disables history when flag is present
+    -h, --help               Prints help information
+    -V, --version            Prints version information
 
 OPTIONS:
     -c, --cpu-height <INT>        Height of CPU/Memory visualization. [default: 10]
+        --db <STRING>             Database to use, if any. [default: ~/.zenith]
     -d, --disk-height <INT>       Height of Disk visualization. [default: 10]
     -n, --net-height <INT>        Height of Network visualization. [default: 10]
     -p, --process-height <INT>    Min Height of Process Table. [default: 8]
@@ -68,15 +84,17 @@ OPTIONS:
 
 Don't want a section? Remove it by setting the height to 0. 
 
-For example:
-```zenith -c 0```
-Will remove the CPU chart.
+For example: ```zenith -c 0``` removes the CPU chart.
 
 Up/down arrow keys move around the process table. Return (enter) will focus on a process.
 Tab switches the active section. Active sections can be expanded (e) and minimized (m). 
 +/- (or =/-) will zoom in / out all of the charts. Arrow keys (←/→) move forward/backward in time.
 Back tick (`) resets the chart to current time and max zoom.
-Using this you can create the layout you want.
+Using these options you can create the layout you want.
+
+In zenith 'h' key will show this help:
+
+<img src="./assets/help.png" alt="Running zenith on iTerm2 on MacOS">
 
 ## Built using these great crates
 
