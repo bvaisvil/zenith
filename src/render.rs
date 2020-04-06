@@ -1282,7 +1282,7 @@ impl<'a> TerminalRenderer {
                         break;
                     } else if input == Key::Up {
                         if self.app.selected_process.is_some() {
-                        } else {
+                        } else if process_table.len() > 0{
                             if self.highlighted_row != 0 {
                                 self.highlighted_row -= 1;
                             }
@@ -1294,7 +1294,7 @@ impl<'a> TerminalRenderer {
                         }
                     } else if input == Key::Down {
                         if self.app.selected_process.is_some() {
-                        } else {
+                        } else if process_table.len() > 0{
                             if self.highlighted_row < process_table.len() - 1 {
                                 self.highlighted_row += 1;
                             }
@@ -1362,6 +1362,8 @@ impl<'a> TerminalRenderer {
                         self.app.select_process(highlighted_process);
                         self.process_message = None;
                         self.show_find = false;
+                        self.highlighted_row = 0;
+                        self.process_table_row_start = 0;
                     } else if !self.show_find && (input == Key::Esc || input == Key::Char('b')) {
                         self.app.selected_process = None;
                         self.process_message = None;
