@@ -1113,6 +1113,9 @@ impl<'a> TerminalRenderer {
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
         let backend = TermionBackend::new(stdout);
+        let mut terminal = Terminal::new(backend).expect("Couldn't create new terminal with backend");
+        terminal.hide_cursor().ok();
+        
         let mut constraints = vec![
             Constraint::Length(1),
             Constraint::Length(cpu_height as u16),
@@ -1124,7 +1127,7 @@ impl<'a> TerminalRenderer {
             constraints.push(Constraint::Min(process_height as u16));
         }
         TerminalRenderer {
-            terminal: Terminal::new(backend).expect("Couldn't create new terminal with backend"),
+            terminal: terminal,
             app: CPUTimeApp::new(Duration::from_millis(tick_rate), db_path),
             events: Events::new(tick_rate),
             process_table_row_start: 0,

@@ -21,7 +21,7 @@ use futures::executor::block_on;
 use std::error::Error;
 use std::fs;
 use std::fs::{remove_file, File};
-use std::io;
+use std::io::{Write, stdout, stderr};
 use std::panic;
 use std::panic::PanicInfo;
 use std::path::Path;
@@ -47,6 +47,28 @@ fn panic_hook(info: &PanicInfo<'_>) {
         msg,
         location
     );
+}
+
+fn init_terminal(){
+    let raw_term = stdout()
+    .into_raw_mode()
+    .expect("Could not bind to STDOUT in raw mode.");
+    let mouse_term = MouseTerminal::from(raw_term);
+    let mut screen = AlternateScreen::from(mouse_term);
+
+    write!(screen, "{}", termion::clear::All).expect("Attempt to write to alternate screen failed.");
+}
+
+fn restore_terminal(){
+    let raw_term = stdout()
+        .into_raw_mode()
+        .expect("Could not bind to STDOUT in raw mode.");
+    //let stdout = MouseTerminal::from(stdout);
+    let mut screen = AlternateScreen::from(raw_term);
+    write!(screen, "{}{}", termion::cursor::Goto(1,1), termion::clear::All).expect("Attempt to write to alternate screen failed.");
+    let backend = TermionBackend::new(screen);
+    let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
+    terminal.show_cursor().expect("Restore cursor failed.");
 }
 
 fn start_zenith(
@@ -81,20 +103,12 @@ fn start_zenith(
             None
         }
     };
-
-    // Terminal initialization
-    let stdout = io::stdout()
-        .into_raw_mode()
-        .expect("Could not bind to STDOUT in raw mode.");
-    let stdout = MouseTerminal::from(stdout);
-    let stdout = AlternateScreen::from(stdout);
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
-    terminal.hide_cursor().expect("Hiding cursor failed.");
-
+    init_terminal();
+    // setup a panic hook so we can see our panic messages.
     panic::set_hook(Box::new(|info| {
         panic_hook(info);
     }));
+
     let mut r = TerminalRenderer::new(
         rate,
         cpu_height as i16,
@@ -108,6 +122,9 @@ fn start_zenith(
     if !disable_history && lock_path.exists() {
         remove_file(lock_path)?
     }
+
+    restore_terminal();
+
     Ok(z)
 }
 
