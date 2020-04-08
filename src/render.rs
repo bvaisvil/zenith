@@ -125,7 +125,15 @@ fn render_process_table<'a>(
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default(),
     };
-    let display_height = area.height as usize - 4; // 4 for the margins and table header
+    let display_height = if area.height > 4 {
+        area.height as usize - 4 // 4 for the margins and table header
+    }
+    else{
+        0
+    };
+    if display_height == 0{
+        return None;
+    }
 
     let end = process_table_start + display_height;
 
