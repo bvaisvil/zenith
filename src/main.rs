@@ -21,7 +21,7 @@ use futures::executor::block_on;
 use std::error::Error;
 use std::fs;
 use std::fs::{remove_file, File};
-use std::io::{Write, stdout, stderr};
+use std::io::{Write, stdout};
 use std::panic;
 use std::panic::PanicInfo;
 use std::path::Path;
