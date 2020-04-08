@@ -55,7 +55,7 @@ fn init_terminal(){
     .expect("Could not bind to STDOUT in raw mode.");
     let mouse_term = MouseTerminal::from(raw_term);
     let mut screen = AlternateScreen::from(mouse_term);
-
+    // Need to clear screen for TTYs
     write!(screen, "{}", termion::clear::All).expect("Attempt to write to alternate screen failed.");
 }
 
@@ -65,6 +65,7 @@ fn restore_terminal(){
         .expect("Could not bind to STDOUT in raw mode.");
     //let stdout = MouseTerminal::from(stdout);
     let mut screen = AlternateScreen::from(raw_term);
+    // Restore cursor position and clear screen for TTYs
     write!(screen, "{}{}", termion::cursor::Goto(1,1), termion::clear::All).expect("Attempt to write to alternate screen failed.");
     let backend = TermionBackend::new(screen);
     let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
