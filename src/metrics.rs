@@ -790,10 +790,25 @@ impl CPUTimeApp {
         self.disk_total = 0;
         self.disks.clear();
 
+        static IGNORED_FILE_SYSTEMS: &[&[u8]] = &[
+            b"sysfs",
+            b"proc",
+            b"tmpfs",
+            b"cgroup",
+            b"cgroup2",
+            b"pstore",
+            b"squashfs",
+            b"iso9660",
+        ];
+
         for d in self.system.get_disks().iter() {
             let name = d.get_name().to_string_lossy();
             let mp = d.get_mount_point().to_string_lossy();
             if cfg!(target_os = "linux") {
+                let fs = d.get_file_system();
+                if IGNORED_FILE_SYSTEMS.iter().find(|ignored| &fs == *ignored).is_some() {
+                    continue;
+                }
                 if mp.starts_with("/sys") ||
                 mp.starts_with("/proc") ||
                 mp.starts_with("/run") ||
