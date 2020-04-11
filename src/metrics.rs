@@ -327,6 +327,7 @@ impl HistogramMap {
             false => self.add(name),
         };
         h.data.push(val);
+        debug!("Adding {} to {} chart.", val, name);
     }
 
     pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration {
@@ -346,6 +347,7 @@ impl HistogramMap {
     fn save_histograms(&mut self) {
         match &self.db {
             Some(db) => {
+                debug!("Saving Histograms");
                 self.previous_stop = Some(SystemTime::now());
                 let dbfile = Path::new(db).join(Path::new("store"));
                 let mut database = fs::OpenOptions::new()
@@ -485,6 +487,7 @@ impl CPUTimeApp {
     }
 
     async fn get_platform(&mut self) {
+        debug!("Updating Platform");
         match host::platform().await {
             Ok(p) => {
                 self.osname = p.system().to_owned();
@@ -504,6 +507,7 @@ impl CPUTimeApp {
     }
 
     fn get_batteries(&mut self){
+        debug!("Updating Batteries.");
         let manager = battery::Manager::new().expect("Couldn't create battery manager");
         self.batteries.clear();
         for b in manager.batteries().expect("Couldn't get batteries"){
@@ -515,6 +519,7 @@ impl CPUTimeApp {
     }
 
     async fn get_nics(&mut self) {
+        debug!("Updating Network Interfaces");
         self.network_interfaces.clear();
         let mut nics = net::nic();
         while let Some(n) = nics.next().await {
@@ -595,6 +600,7 @@ impl CPUTimeApp {
     // }
 
     pub fn select_process(&mut self, highlighted_process: Option<ZProcess>) {
+        debug!("Selected Process.");
         self.selected_process = highlighted_process;
     }
 
@@ -628,6 +634,7 @@ impl CPUTimeApp {
     }
 
     fn update_process_list(&mut self) {
+        debug!("Updating Process List");
         self.processes.clear();
         let process_list = self.system.get_process_list();
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
@@ -727,6 +734,7 @@ impl CPUTimeApp {
     }
 
     pub fn sort_process_table(&mut self) {
+        debug!("Sorting Process Table");
         let pm = &self.process_map;
         let sortfield = &self.psortby;
         let sortorder = &self.psortorder;
@@ -775,6 +783,7 @@ impl CPUTimeApp {
     }
 
     async fn update_frequency(&mut self){
+        debug!("Updating Frequency");
         let f =  heim::cpu::frequency().await;
         match f {
             Ok(f) => {
@@ -786,6 +795,7 @@ impl CPUTimeApp {
     }
 
     fn update_disk(&mut self, _width: u16) {
+        debug!("Updating Disks");
         self.disk_available = 0;
         self.disk_total = 0;
         self.disks.clear();
@@ -844,6 +854,7 @@ impl CPUTimeApp {
     }
 
     pub async fn update_cpu(&mut self) {
+        debug!("Updating CPU");
         let procs = self.system.get_processor_list();
         let mut num_procs = 0;
         let mut usage: f32 = 0.0;
@@ -875,6 +886,7 @@ impl CPUTimeApp {
     }
 
     pub async fn update(&mut self, width: u16) {
+        debug!("Updating Metrics");
         self.system.refresh_all();
         self.update_cpu().await;
         //self.update_sensors().await;
@@ -904,6 +916,7 @@ impl CPUTimeApp {
         self.get_platform().await;
         self.get_nics().await;
         self.get_batteries();
+        debug!("Updated Metrics for {} processes.", self.processes.len());
     }
 
     pub async fn save_state(&mut self) {

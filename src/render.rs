@@ -1175,6 +1175,7 @@ impl<'a> TerminalRenderer {
     }
 
     pub async fn start(&mut self) {
+        debug!("Starting Main Loop.");
         loop {
             let app = &self.app;
             let pst = &self.process_table_row_start;
@@ -1266,6 +1267,7 @@ impl<'a> TerminalRenderer {
 
             match self.events.next().expect("No new event.") {
                 Event::Input(input) => {
+                    debug!("Event Key: {:?}", input);
                     if show_find && input == Key::Esc{
                         self.show_find = false;
                         self.filter = String::from("");
@@ -1429,6 +1431,7 @@ impl<'a> TerminalRenderer {
                     }
                 }
                 Event::Tick => {
+                    debug!("Event Tick");
                     self.app.update(width).await;
                     self.update_number += 1;
                     if self.update_number == self.zoom_factor {
@@ -1436,9 +1439,11 @@ impl<'a> TerminalRenderer {
                     }
                 }
                 Event::Save => {
+                    debug!("Event Save");
                     self.app.save_state().await;
                 }
                 Event::Terminate => {
+                    debug!("Event Terminate");
                     break;
                 }
             }
