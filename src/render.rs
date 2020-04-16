@@ -1107,6 +1107,7 @@ impl<'a> TerminalRenderer {
         sensor_height: i16,
         db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
+        debug!("Hide Cursor");
         let stdout = io::stdout()
             .into_raw_mode()
             .expect("Could not bind to STDOUT in raw mode.");
@@ -1116,6 +1117,7 @@ impl<'a> TerminalRenderer {
         let mut terminal = Terminal::new(backend).expect("Couldn't create new terminal with backend");
         terminal.hide_cursor().ok();
         
+        debug!("Setup Constraints");
         let mut constraints = vec![
             Constraint::Length(1),
             Constraint::Length(cpu_height as u16),
@@ -1126,10 +1128,15 @@ impl<'a> TerminalRenderer {
         if process_height > 0 {
             constraints.push(Constraint::Min(process_height as u16));
         }
+
+        debug!("Create Metrics App");
+        let app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
+        debug!("Create Event Loop");
+        let events = Events::new(tick_rate);
         TerminalRenderer {
             terminal: terminal,
-            app: CPUTimeApp::new(Duration::from_millis(tick_rate), db_path),
-            events: Events::new(tick_rate),
+            app,
+            events,
             process_table_row_start: 0,
             cpu_height,
             net_height,

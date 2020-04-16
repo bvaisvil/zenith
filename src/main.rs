@@ -63,8 +63,11 @@ fn init_terminal(){
     let raw_term = stdout()
     .into_raw_mode()
     .expect("Could not bind to STDOUT in raw mode.");
+    debug!("Create Mouse Term");
     let mouse_term = MouseTerminal::from(raw_term);
+    debug!("Create Alternate Screen");
     let mut screen = AlternateScreen::from(mouse_term);
+    debug!("Clear Screen");
     // Need to clear screen for TTYs
     write!(screen, "{}", termion::clear::All).expect("Attempt to write to alternate screen failed.");
 }
@@ -137,6 +140,7 @@ fn start_zenith(
         panic_hook(info);
     }));
 
+    debug!("Create Renderer");
     let mut r = TerminalRenderer::new(
         rate,
         cpu_height as i16,

@@ -225,22 +225,32 @@ impl HistogramMap {
         };
         match &db {
             Some(db) => {
+                debug!("Opening DB");
                 let dbfile = Path::new(db).join(Path::new("store"));
                 let sleddb = Path::new(db).join(Path::new("conf"));
                 if sleddb.exists() {
+                    debug!("SledDB exists, attempting to migrate.");
                     match load_and_migrate(dur, db, current_time, tick) {
-                        Some(hm) => hm,
-                        None => HistogramMap {
-                            map: HashMap::with_capacity(5),
-                            duration: dur,
-                            tick,
-                            db: path,
-                            previous_stop: None,
+                        Some(hm) => {
+                            debug!("Migration Successful");
+                            hm
+                        },
+                        None => {
+                            debug!("Migration Failed, starting with empty DB.");
+                            HistogramMap {
+                                map: HashMap::with_capacity(5),
+                                duration: dur,
+                                tick,
+                                db: path,
+                                previous_stop: None,
+                            }
                         },
                     }
                 } else if dbfile.exists() {
+                    debug!("Zenith store exists, opening...");
                     load_zenith_store(dbfile, &current_time)
                 } else {
+                    debug!("Starting a new database.");
                     HistogramMap {
                         map: HashMap::with_capacity(5),
                         duration: dur,
@@ -249,14 +259,17 @@ impl HistogramMap {
                         previous_stop: None,
                     }
                 }
-            }
-            None => HistogramMap {
-                map: HashMap::with_capacity(5),
-                duration: dur,
-                tick,
-                db: path,
-                previous_stop: None,
             },
+            None => {
+                debug!("Starting with no DB.");
+                HistogramMap {
+                    map: HashMap::with_capacity(5),
+                    duration: dur,
+                    tick,
+                    db: path,
+                    previous_stop: None,
+                }
+            }
         }
     }
 
@@ -442,8 +455,10 @@ pub struct CPUTimeApp {
 
 impl CPUTimeApp {
     pub fn new(tick: Duration, db: Option<PathBuf>) -> CPUTimeApp {
+        debug!("Create Histogram Map");
+        let histogram_map = HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db);
         let mut s = CPUTimeApp {
-            histogram_map: HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db),
+            histogram_map,
             tick,
             cpus: vec![],
             system: System::new(),
@@ -480,6 +495,7 @@ impl CPUTimeApp {
             max_pid_len: get_max_pid_length(),
             batteries: vec![]
         };
+        debug!("Initial Metrics Update");
         s.system.refresh_all();
         s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.
 
