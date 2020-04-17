@@ -8,6 +8,7 @@
 
 - Optional CPU, Memory, Network, and Disk usage charts
 - Quick glances at Disk free space, NIC IP addresses, CPU frequency
+- Highlight top users of CPU, Memory, & Disk
 - Battery percentage, time to charge or discharge, power used
 - A top-like filterable process table that includes per process disk usage
 - Zoomable chart views (with support to scroll back in time)
@@ -16,7 +17,6 @@
 
 ## Planned Features
 
-- Highlight top users of Memory/Disk/Network
 - CPU steal percentage and general virtualization awareness
 - Set process priority
 - Sensor Temperature charts
