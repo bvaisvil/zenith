@@ -97,7 +97,7 @@ impl Events {
                 loop {
                     tx.send(Event::Tick).expect("Couldn't send event.");
                     count += 1;
-                    if count % 5 == 0 {
+                    if count % 60 == 0 {
                         tx.send(Event::Save).expect("Couldn't send event");
                     }
                     thread::sleep(config.tick_rate);
