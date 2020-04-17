@@ -1217,6 +1217,7 @@ impl<'a> TerminalRenderer {
     pub async fn start(&mut self) {
         debug!("Starting Main Loop.");
         loop {
+
             let app = &self.app;
             let pst = &self.process_table_row_start;
             let process_height = &self.process_height;
@@ -1233,9 +1234,13 @@ impl<'a> TerminalRenderer {
             let show_paths = self.show_paths;
             let filter = &self.filter;
             let show_find = self.show_find;
-            let highlighted_row = self.highlighted_row;
             let mut highlighted_process: Option<ZProcess> = None;
             let process_table = filter_process_table(app, &self.filter);
+
+            if !process_table.is_empty() && self.highlighted_row >= process_table.len(){
+                self.highlighted_row = process_table.len() - 1;
+            }
+            let highlighted_row = self.highlighted_row;
 
             self.terminal
                 .draw(|mut f| {
