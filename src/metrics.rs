@@ -434,6 +434,9 @@ pub struct CPUTimeApp {
     pub process_map: HashMap<i32, ZProcess>,
     pub user_cache: UsersCache,
     pub cum_cpu_process: Option<ZProcess>,
+    pub top_mem_pid: Option<i32>,
+    pub top_disk_writer_pid: Option<i32>,
+    pub top_disk_reader_pid: Option<i32>,
     pub frequency: u64,
     pub threads_total: usize,
     pub psortby: ProcessTableSortBy,
@@ -493,7 +496,10 @@ impl CPUTimeApp {
             started: chrono::Local::now(),
             selected_process: None,
             max_pid_len: get_max_pid_length(),
-            batteries: vec![]
+            batteries: vec![],
+            top_mem_pid: None,
+            top_disk_reader_pid: None,
+            top_disk_writer_pid: None
         };
         debug!("Initial Metrics Update");
         s.system.refresh_all();
@@ -659,11 +665,17 @@ impl CPUTimeApp {
             Some(p) => p.cum_cpu_usage,
             None => 0.0,
         };
+        let mut top_mem = 0;
+        let mut top_mem_pid = 0;
+        let mut top_read = 0;
+        let mut top_reader = 0;
+        let mut top_write = 0;
+        let mut top_writer = 0;
         self.threads_total = 0;
 
         for (pid, process) in process_list {
             if let Some(zp) = self.process_map.get_mut(pid) {
-                if zp.start_time == process.start_time() {
+                if zp.start_time == process.start_time() { // check for PID reuse
                     zp.memory = process.memory();
                     zp.cpu_usage = process.cpu_usage();
                     zp.cum_cpu_usage += zp.cpu_usage as f64;
@@ -672,21 +684,45 @@ impl CPUTimeApp {
                     zp.virtual_memory = process.virtual_memory();
                     zp.threads_total = process.threads_total;
                     self.threads_total += zp.threads_total as usize;
-                    if zp.cum_cpu_usage > top_cum_cpu_usage {
-                        top_pid = Some(zp.pid);
-                        top_cum_cpu_usage = zp.cum_cpu_usage;
-                    }
                     zp.prev_read_bytes = zp.read_bytes;
                     zp.prev_write_bytes = zp.write_bytes;
                     zp.read_bytes = process.read_bytes;
                     zp.write_bytes = process.write_bytes;
                     zp.last_updated = SystemTime::now();
+                    if zp.cum_cpu_usage > top_cum_cpu_usage {
+                        top_pid = Some(zp.pid);
+                        top_cum_cpu_usage = zp.cum_cpu_usage;
+                    }
+                    if zp.memory > top_mem{
+                        top_mem = zp.memory;
+                        top_mem_pid = zp.pid;
+                    }
+                    if zp.read_bytes > top_read{
+                        top_read = zp.read_bytes;
+                        top_reader = zp.pid;
+                    }
+                    if zp.write_bytes > top_write{
+                        top_write = zp.write_bytes;
+                        top_writer = zp.pid;
+                    }
                 } else {
                     let zprocess = self.copy_to_zprocess(&process);
                     self.threads_total += zprocess.threads_total as usize;
                     if zprocess.cum_cpu_usage > top_cum_cpu_usage {
                         top_pid = Some(zprocess.pid);
                         top_cum_cpu_usage = zprocess.cum_cpu_usage;
+                    }
+                    if zprocess.memory > top_mem{
+                        top_mem = zprocess.memory;
+                        top_mem_pid = zprocess.pid;
+                    }
+                    if zprocess.read_bytes > top_read{
+                        top_read = zprocess.read_bytes;
+                        top_reader = zprocess.pid;
+                    }
+                    if zprocess.write_bytes > top_write{
+                        top_write = zprocess.write_bytes;
+                        top_writer = zprocess.pid;
                     }
                     self.process_map.insert(zprocess.pid, zprocess);
                 }
@@ -696,6 +732,18 @@ impl CPUTimeApp {
                 if zprocess.cum_cpu_usage > top_cum_cpu_usage {
                     top_pid = Some(zprocess.pid);
                     top_cum_cpu_usage = zprocess.cum_cpu_usage;
+                }
+                if zprocess.memory > top_mem{
+                    top_mem = zprocess.memory;
+                    top_mem_pid = zprocess.pid;
+                }
+                if zprocess.read_bytes > top_read{
+                    top_read = zprocess.read_bytes;
+                    top_reader = zprocess.pid;
+                }
+                if zprocess.write_bytes > top_write{
+                    top_write = zprocess.write_bytes;
+                    top_writer = zprocess.pid;
                 }
                 self.process_map.insert(zprocess.pid, zprocess);
             }
@@ -735,6 +783,17 @@ impl CPUTimeApp {
                 }
             }
         };
+
+        // update top mem / disk reader & writer
+        if top_mem_pid > 0 {
+            self.top_mem_pid = Some(top_mem_pid);
+        }
+        if top_reader > 0 {
+            self.top_disk_reader_pid = Some(top_reader);
+        }
+        if top_writer > 0{
+            self.top_disk_writer_pid = Some(top_writer);
+        }
 
         // update selected process
         if let Some(p) = self.selected_process.as_mut() {

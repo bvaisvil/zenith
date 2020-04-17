@@ -70,12 +70,23 @@ fn mem_title(app: &CPUTimeApp) -> String {
         swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
     }
 
+    let top_mem_proc = match app.top_mem_pid{
+        Some(pid) => {
+            match app.process_map.get(&pid){
+                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+                None => String::from("")
+            }
+        },
+        None => String::from("")
+    };
+
     format!(
-        "MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%]",
+        "MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%] {:}",
         float_to_byte_string!(app.mem_total as f64, ByteUnit::KB),
         mem,
         float_to_byte_string!(app.swap_total as f64, ByteUnit::KB),
-        swp
+        swp,
+        top_mem_proc
     )
 }
 
@@ -720,10 +731,21 @@ fn render_disk(
         None => 1,
     };
     let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
+
+    let top_reader = match app.top_disk_reader_pid{
+        Some(pid) => {
+            match app.process_map.get(&pid){
+                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+                None => String::from("")
+            }
+        },
+        None => String::from("")
+    };
+
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("R [{:^10}] Max [{:^10}]", read_up, read_max_bytes).as_str()),
+                .title(format!("R [{:^10}] Max [{:^10}] {:}", read_up, read_max_bytes, top_reader).as_str()),
         )
         .data(&h_read)
         .style(Style::default().fg(Color::LightYellow))
@@ -747,10 +769,21 @@ fn render_disk(
         None => 1,
     };
     let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
+
+    let top_writer = match app.top_disk_writer_pid{
+        Some(pid) => {
+            match app.process_map.get(&pid){
+                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+                None => String::from("")
+            }
+        },
+        None => String::from("")
+    };
+
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("W [{:^10}] Max [{:^10}]", write_down, write_max_bytes).as_str()),
+                .title(format!("W [{:^10}] Max [{:^10}] {:}", write_down, write_max_bytes, top_writer).as_str()),
         )
         .data(&h_write)
         .style(Style::default().fg(Color::LightMagenta))
