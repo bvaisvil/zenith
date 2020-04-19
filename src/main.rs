@@ -189,9 +189,9 @@ fn validate_height(arg: String) -> Result<(), String> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let default_db_path = dirs::home_dir()
+    let default_db_path = dirs::cache_dir()
         .unwrap_or(Path::new("./").to_owned())
-        .join(".zenith");
+        .join("zenith");
     let default_db_path = default_db_path
         .to_str()
         .expect("Couldn't set default db path");
