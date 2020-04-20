@@ -921,6 +921,18 @@ fn render_top_title_bar(
     let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
     let offset_duration = chrono::Duration::from_std(tick.mul(*offset as u32).mul(*zf))
         .expect("Couldn't convert from std");
+    let uptime = match CDuration::from_std(app.uptime) {
+        Ok(d) => {
+            format!(
+                " [Up {:} days {:02}:{:02}:{:02}]",
+                d.num_days(),
+                d.num_hours() % 24,
+                d.num_minutes() % 60,
+                d.num_seconds() % 60
+            )
+        },
+        Err(_) => String::from("")
+    };
     let now = Local::now();
     let start = now
         .checked_sub_signed(hist_duration + offset_duration)
@@ -961,6 +973,7 @@ fn render_top_title_bar(
             format!(" [{:} {:}]", app.osname, app.release),
             default_style,
         ),
+        Text::styled(uptime, default_style),
         Text::styled(battery_start, default_style),
         battery_widets.0,
         battery_widets.1,

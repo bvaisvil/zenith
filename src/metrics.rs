@@ -8,6 +8,7 @@ use heim::host;
 use heim::net;
 use heim::net::Address;
 use heim::units::frequency::megahertz;
+use heim::units::time;
 use battery;
 use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
@@ -453,7 +454,8 @@ pub struct CPUTimeApp {
     pub started: chrono::DateTime<chrono::Local>,
     pub selected_process: Option<ZProcess>,
     pub max_pid_len: usize,
-    pub batteries: Vec<battery::Battery>
+    pub batteries: Vec<battery::Battery>,
+    pub uptime: Duration,
 }
 
 impl CPUTimeApp {
@@ -499,7 +501,8 @@ impl CPUTimeApp {
             batteries: vec![],
             top_mem_pid: None,
             top_disk_reader_pid: None,
-            top_disk_writer_pid: None
+            top_disk_writer_pid: None,
+            uptime: Duration::from_secs(0)
         };
         debug!("Initial Metrics Update");
         s.system.refresh_all();
@@ -526,6 +529,15 @@ impl CPUTimeApp {
                 self.release = String::from("unknown");
             }
         };
+    }
+
+    async fn get_uptime(&mut self){
+        match host::uptime().await {
+            Ok(u) => {
+                self.uptime = Duration::from_secs_f64(u.get::<time::second>());
+            },
+            Err(_) => {}
+        }
     }
 
     fn get_batteries(&mut self){
@@ -991,6 +1003,7 @@ impl CPUTimeApp {
         self.get_platform().await;
         self.get_nics().await;
         self.get_batteries();
+        self.get_uptime().await;
         debug!("Updated Metrics for {} processes.", self.processes.len());
     }
 
