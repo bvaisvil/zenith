@@ -667,9 +667,9 @@ impl CPUTimeApp {
         };
         let mut top_mem = 0;
         let mut top_mem_pid = 0;
-        let mut top_read = 0;
+        let mut top_read = 0.0;
         let mut top_reader = 0;
-        let mut top_write = 0;
+        let mut top_write = 0.0;
         let mut top_writer = 0;
         self.threads_total = 0;
 
@@ -697,12 +697,12 @@ impl CPUTimeApp {
                         top_mem = zp.memory;
                         top_mem_pid = zp.pid;
                     }
-                    if zp.read_bytes > top_read{
-                        top_read = zp.read_bytes;
+                    if zp.get_read_bytes_sec() > top_read{
+                        top_read = zp.get_read_bytes_sec();
                         top_reader = zp.pid;
                     }
-                    if zp.write_bytes > top_write{
-                        top_write = zp.write_bytes;
+                    if zp.get_write_bytes_sec() > top_write{
+                        top_write = zp.get_write_bytes_sec();
                         top_writer = zp.pid;
                     }
                 } else {
@@ -716,12 +716,12 @@ impl CPUTimeApp {
                         top_mem = zprocess.memory;
                         top_mem_pid = zprocess.pid;
                     }
-                    if zprocess.read_bytes > top_read{
-                        top_read = zprocess.read_bytes;
+                    if zprocess.get_read_bytes_sec() > top_read{
+                        top_read = zprocess.get_read_bytes_sec();
                         top_reader = zprocess.pid;
                     }
-                    if zprocess.write_bytes > top_write{
-                        top_write = zprocess.write_bytes;
+                    if zprocess.get_read_bytes_sec() > top_write{
+                        top_write = zprocess.get_read_bytes_sec();
                         top_writer = zprocess.pid;
                     }
                     self.process_map.insert(zprocess.pid, zprocess);
@@ -737,12 +737,12 @@ impl CPUTimeApp {
                     top_mem = zprocess.memory;
                     top_mem_pid = zprocess.pid;
                 }
-                if zprocess.read_bytes > top_read{
-                    top_read = zprocess.read_bytes;
+                if zprocess.get_read_bytes_sec() > top_read{
+                    top_read = zprocess.get_read_bytes_sec();
                     top_reader = zprocess.pid;
                 }
-                if zprocess.write_bytes > top_write{
-                    top_write = zprocess.write_bytes;
+                if zprocess.get_write_bytes_sec() > top_write{
+                    top_write = zprocess.get_write_bytes_sec();
                     top_writer = zprocess.pid;
                 }
                 self.process_map.insert(zprocess.pid, zprocess);
