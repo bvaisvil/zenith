@@ -5,7 +5,7 @@ use crate::constants::DEFAULT_TICK;
 use heim::process;
 use heim::process::ProcessError;
 use std::time::{SystemTime, UNIX_EPOCH};
-
+use libc::{setpriority, PRIO_PROCESS, getpriority};
 use sysinfo::ProcessStatus;
 
 macro_rules! convert_result_to_string {
@@ -85,6 +85,20 @@ impl ZProcess {
         match process::get(self.pid).await {
             Ok(p) => convert_result_to_string!(p.terminate().await),
             Err(e) => convert_error_to_string!(e),
+        }
+    }
+
+    pub fn nice(&mut self) -> String{
+        let mut result = -1;
+        unsafe {
+            result = setpriority(PRIO_PROCESS as u32, self.pid as u32, 19);
+        }
+        
+        if result < 0{
+            String::from("Couldn't set priority")
+        }
+        else{
+            String::from("Priority Set.")
         }
     }
 

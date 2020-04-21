@@ -1462,7 +1462,14 @@ impl<'a> TerminalRenderer {
                             Some(p) => Some(p.terminate().await),
                             None => None,
                         };
-                    } else if !self.show_find && input == Key::Char('\t') {
+                    } else if !self.show_find && input == Key::Char('n') {
+                        self.process_message = None;
+                        self.process_message = match &mut self.app.selected_process {
+                            Some(p) => Some(p.nice()),
+                            None => None,
+                        };
+                    }
+                    else if !self.show_find && input == Key::Char('\t') {
                         let mut i = self.selected_section as u32 + 1;
                         if i > 3 {
                             i = 0;
