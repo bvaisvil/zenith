@@ -41,6 +41,7 @@ pub struct ZProcess {
     pub status: ProcessStatus,
     pub name: String,
     pub priority: i32,
+    pub nice: i32,
     pub virtual_memory: u64,
     pub threads_total: u64,
     pub read_bytes: u64,
@@ -95,10 +96,16 @@ impl ZProcess {
         }
         
         if result < 0{
-            String::from("Couldn't set priority")
+            String::from("Couldn't set nice level.")
         }
         else{
-            String::from("Priority Set.")
+            unsafe {
+                // getpriority returns -20 to 20, adding 20 gives us the priorty and not the nice value
+                result = getpriority(PRIO_PROCESS as u32, self.pid as u32);
+            }
+            self.priority = result + 20;
+            self.nice = result;
+            String::from("Nice Level Set.")
         }
     }
 

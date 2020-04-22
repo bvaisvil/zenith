@@ -181,6 +181,7 @@ fn render_process_table<'a>(
                 format!("{: >width$}", p.pid, width = *max_pid_len),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
+                format!("{: <3}", p.nice),
                 format!("{:>5.1}", p.cpu_usage),
                 format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
                 format!(
@@ -209,6 +210,7 @@ fn render_process_table<'a>(
         format!("{:<width$}", "PID", width = *max_pid_len + 1),
         String::from("USER       "),
         String::from("P   "),
+        String::from("N   "),
         String::from("CPU%  "),
         String::from("MEM%  "),
         String::from("MEM     "),
@@ -611,6 +613,9 @@ fn render_process(
                 Text::raw("\n"),
                 Text::raw("Priority:              "),
                 Text::styled(format!("{:>7}", p.priority), rhs_style),
+                Text::raw("\n"),
+                Text::raw("Nice:                  "),
+                Text::styled(format!("{:>7}", p.nice), rhs_style),
                 Text::raw("\n"),
                 Text::raw("MEM Usage:             "),
                 Text::styled(
