@@ -53,6 +53,8 @@ pub struct ZProcess {
     pub start_time: u64,
 }
 
+
+
 impl ZProcess {
     pub fn get_read_bytes_sec(&self) -> f64 {
         (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
@@ -89,22 +91,33 @@ impl ZProcess {
         }
     }
 
+    #[cfg(target_os = "linux")]
     pub fn nice(&mut self) -> String{
         let mut result = -1;
-        unsafe {
-            result = setpriority(PRIO_PROCESS as u32, self.pid as u32, 19);
-        }
+        unsafe { result = setpriority(PRIO_PROCESS as u32, self.pid as u32, 19); }
+        
         
         if result < 0{
             String::from("Couldn't set nice level.")
         }
         else{
-            unsafe {
-                // getpriority returns -20 to 20, adding 20 gives us the priorty and not the nice value
-                result = getpriority(PRIO_PROCESS as u32, self.pid as u32);
-            }
+            unsafe { result = getpriority(PRIO_PROCESS as u32, self.pid as u32); }
             self.priority = result + 20;
             self.nice = result;
+            String::from("Nice Level Set.")
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn nice(&mut self) -> String{
+        let mut result = -1;
+        unsafe { result = setpriority(PRIO_PROCESS, self.pid as u32, 19); }
+        
+        
+        if result < 0{
+            String::from("Couldn't set nice level.")
+        }
+        else{
             String::from("Nice Level Set.")
         }
     }
