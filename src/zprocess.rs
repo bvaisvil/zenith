@@ -5,7 +5,7 @@ use crate::constants::DEFAULT_TICK;
 use heim::process;
 use heim::process::ProcessError;
 use std::time::{SystemTime, UNIX_EPOCH};
-
+use libc::{setpriority, PRIO_PROCESS, getpriority};
 use sysinfo::ProcessStatus;
 
 macro_rules! convert_result_to_string {
@@ -41,6 +41,7 @@ pub struct ZProcess {
     pub status: ProcessStatus,
     pub name: String,
     pub priority: i32,
+    pub nice: i32,
     pub virtual_memory: u64,
     pub threads_total: u64,
     pub read_bytes: u64,
@@ -51,6 +52,8 @@ pub struct ZProcess {
     pub end_time: Option<u64>,
     pub start_time: u64,
 }
+
+
 
 impl ZProcess {
     pub fn get_read_bytes_sec(&self) -> f64 {
@@ -85,6 +88,39 @@ impl ZProcess {
         match process::get(self.pid).await {
             Ok(p) => convert_result_to_string!(p.terminate().await),
             Err(e) => convert_error_to_string!(e),
+        }
+    }
+
+    pub fn nice(&mut self) -> String{
+        self.set_priority(19)
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn set_priority(&mut self, priority: i32) -> String{
+        let mut result = -1;
+        unsafe { result = setpriority(PRIO_PROCESS as u32, self.pid as u32, priority); }
+        
+        if result < 0{
+            String::from("Couldn't set priority.")
+        }
+        else{
+            unsafe { result = getpriority(PRIO_PROCESS as u32, self.pid as u32); }
+            self.priority = result + 20;
+            self.nice = result;
+            String::from("Priority Set.")
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn set_priority(&mut self, priority: i32) -> String{
+        let mut result = -1;
+        unsafe { result = setpriority(PRIO_PROCESS, self.pid as u32, priority); }
+        
+        if result < 0{
+            String::from("Couldn't set priority.")
+        }
+        else{
+            String::from("Priority Set.")
         }
     }
 

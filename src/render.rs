@@ -181,6 +181,7 @@ fn render_process_table<'a>(
                 format!("{: >width$}", p.pid, width = *max_pid_len),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
+                format!("{: <3}", p.nice),
                 format!("{:>5.1}", p.cpu_usage),
                 format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
                 format!(
@@ -209,6 +210,7 @@ fn render_process_table<'a>(
         format!("{:<width$}", "PID", width = *max_pid_len + 1),
         String::from("USER       "),
         String::from("P   "),
+        String::from("N   "),
         String::from("CPU%  "),
         String::from("MEM%  "),
         String::from("MEM     "),
@@ -549,7 +551,7 @@ fn render_process(
             
 
             Block::default()
-                .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
+                .title(format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
                                         process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
                 .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
 
@@ -611,6 +613,9 @@ fn render_process(
                 Text::raw("\n"),
                 Text::raw("Priority:              "),
                 Text::styled(format!("{:>7}", p.priority), rhs_style),
+                Text::raw("\n"),
+                Text::raw("Nice:                  "),
+                Text::styled(format!("{:>7}", p.nice), rhs_style),
                 Text::raw("\n"),
                 Text::raw("MEM Usage:             "),
                 Text::styled(
@@ -1462,7 +1467,20 @@ impl<'a> TerminalRenderer {
                             Some(p) => Some(p.terminate().await),
                             None => None,
                         };
-                    } else if !self.show_find && input == Key::Char('\t') {
+                    } else if !self.show_find && input == Key::Char('n') {
+                        self.process_message = None;
+                        self.process_message = match &mut self.app.selected_process {
+                            Some(p) => Some(p.nice()),
+                            None => None,
+                        };
+                    } else if !self.show_find && input == Key::Char('p') {
+                        self.process_message = None;
+                        self.process_message = match &mut self.app.selected_process {
+                            Some(p) => Some(p.set_priority(0)),
+                            None => None,
+                        };
+                    }
+                    else if !self.show_find && input == Key::Char('\t') {
                         let mut i = self.selected_section as u32 + 1;
                         if i > 3 {
                             i = 0;

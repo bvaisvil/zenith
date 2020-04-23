@@ -33,4 +33,5 @@ battery = "0.7.*"
 signal-hook = "0.1.*"
 log = "0.4.8"
 env_logger = "0.7.1"
+libc = "0.2"
 #sysinfo = {path = "../sysinfo"}
