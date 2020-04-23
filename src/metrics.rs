@@ -35,14 +35,15 @@ pub enum ProcessTableSortBy {
     Pid = 0,
     User = 1,
     Priority = 2,
-    CPU = 3,
-    MemPerc = 4,
-    Mem = 5,
-    Virt = 6,
-    Status = 7,
-    DiskRead = 8,
-    DiskWrite = 9,
-    Cmd = 10,
+    Nice = 3,
+    CPU = 4,
+    MemPerc = 5,
+    Mem = 6,
+    Virt = 7,
+    Status = 8,
+    DiskRead = 9,
+    DiskWrite = 10,
+    Cmd = 11,
 }
 
 #[derive(PartialEq, Eq)]
@@ -844,7 +845,7 @@ impl CPUTimeApp {
                 ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
                 ProcessTableSortBy::User => {
                     pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal)
-                }
+                },
                 ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
                 ProcessTableSortBy::Status => pa
                     .status
@@ -853,7 +854,10 @@ impl CPUTimeApp {
                     .unwrap_or(Equal),
                 ProcessTableSortBy::Priority => {
                     pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal)
-                }
+                },
+                ProcessTableSortBy::Nice => {
+                    pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal)
+                },
                 ProcessTableSortBy::Virt => pa
                     .virtual_memory
                     .partial_cmp(&pb.virtual_memory)
