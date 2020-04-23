@@ -551,7 +551,7 @@ fn render_process(
             
 
             Block::default()
-                .title(format!("(b)ack (n)ice (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
+                .title(format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
                                         process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
                 .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
 
@@ -1471,6 +1471,12 @@ impl<'a> TerminalRenderer {
                         self.process_message = None;
                         self.process_message = match &mut self.app.selected_process {
                             Some(p) => Some(p.nice()),
+                            None => None,
+                        };
+                    } else if !self.show_find && input == Key::Char('p') {
+                        self.process_message = None;
+                        self.process_message = match &mut self.app.selected_process {
+                            Some(p) => Some(p.set_priority(0)),
                             None => None,
                         };
                     }
