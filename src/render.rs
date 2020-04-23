@@ -551,7 +551,7 @@ fn render_process(
             
 
             Block::default()
-                .title(format!("(b)ack (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
+                .title(format!("(b)ack (n)ice (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
                                         process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
                 .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
 
