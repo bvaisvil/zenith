@@ -91,34 +91,36 @@ impl ZProcess {
         }
     }
 
-    #[cfg(target_os = "linux")]
     pub fn nice(&mut self) -> String{
+        self.set_priority(19)
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn set_priority(&mut self, priority: i32) -> String{
         let mut result = -1;
-        unsafe { result = setpriority(PRIO_PROCESS as u32, self.pid as u32, 19); }
-        
+        unsafe { result = setpriority(PRIO_PROCESS as u32, self.pid as u32, priority); }
         
         if result < 0{
-            String::from("Couldn't set nice level.")
+            String::from("Couldn't set priority.")
         }
         else{
             unsafe { result = getpriority(PRIO_PROCESS as u32, self.pid as u32); }
             self.priority = result + 20;
             self.nice = result;
-            String::from("Nice Level Set.")
+            String::from("Priority Set.")
         }
     }
 
     #[cfg(target_os = "macos")]
-    pub fn nice(&mut self) -> String{
+    pub fn set_priority(&mut self, priority: i32) -> String{
         let mut result = -1;
-        unsafe { result = setpriority(PRIO_PROCESS, self.pid as u32, 19); }
-        
+        unsafe { result = setpriority(PRIO_PROCESS, self.pid as u32, priority); }
         
         if result < 0{
-            String::from("Couldn't set nice level.")
+            String::from("Couldn't set priority.")
         }
         else{
-            String::from("Nice Level Set.")
+            String::from("Priority Set.")
         }
     }
 

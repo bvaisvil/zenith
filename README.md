@@ -11,6 +11,7 @@
 - Highlight top users of CPU, Memory, & Disk
 - Battery percentage, time to charge or discharge, power used
 - A top-like filterable process table that includes per process disk usage
+- Change process priority
 - Zoomable chart views (with support to scroll back in time)
 - Managing processes with signals
 - Performance data saved between runs
@@ -18,7 +19,6 @@
 ## Planned Features
 
 - CPU steal percentage and general virtualization awareness
-- Set process priority
 - Sensor Temperature charts
 - Per process network usage (Linux)
 - Messaging about adverse system events, like errors in kernel ring buffer (Linux)
