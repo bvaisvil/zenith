@@ -27,6 +27,7 @@ use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, Syst
 use users::{Users, UsersCache};
 #[cfg(target_os = "linux")]
 use nvml::NVML;
+use nvml::enum_wrappers::device::{TemperatureSensor, Clock};
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -425,7 +426,9 @@ pub struct GFXDevice{
     pub mem_utilization: u32,
     pub total_memory: u64,
     pub used_memory: u64,
-    pub fan_speed: u32,
+    pub fans: Vec<u32>,
+    pub temperature: u32,
+    pub power_usage: u32,
     pub clock: u32,
     pub max_clock: u32,
     pub uuid: String
@@ -439,7 +442,9 @@ impl GFXDevice{
             mem_utilization: 0,
             total_memory: 0,
             used_memory: 0,
-            fan_speed: 0,
+            fans: vec![],
+            temperature: 0,
+            power_usage: 0,
             clock: 0,
             max_clock: 0,
             uuid
@@ -661,8 +666,19 @@ impl CPUTimeApp {
                                         Err(e) => error!("Failed Getting Memory Info {:?}", e)
                                     }
                                     gd.name = d.name().unwrap_or(String::from(""));
-                                    //gd.clock = d.clock().unwrap_or(0);
-                                    gd.fan_speed = d.fan_speed(0).unwrap_or(0);
+                                    gd.clock = d.clock_info(Clock::Graphics).unwrap_or(0);
+                                    gd.max_clock = d.max_clock_info(Clock::Graphics).unwrap_or(0);
+                                    gd.power_usage = d.power_usage().unwrap_or(0);
+                                    gd.temperature = d.temperature(TemperatureSensor::Gpu).unwrap_or(0);
+                                    for i in 0..4{
+                                        let r = d.fan_speed(i);
+                                        if r.is_ok(){
+                                            gd.fans.push(r.unwrap_or(0));
+                                        }
+                                        else{
+                                            break;
+                                        }
+                                    }
                                     match d.utilization_rates(){
                                         Ok(u) => {
                                             self.histogram_map.add_value_to(format!("{}_gpu", gd.uuid).as_str(), u.gpu as u64);

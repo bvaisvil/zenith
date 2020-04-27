@@ -837,7 +837,7 @@ fn render_graphics(
     selected_section: &Section,
 ) {
     let style = match selected_section {
-        Section::Disk => Style::default().fg(Color::Red),
+        Section::Graphics => Style::default().fg(Color::Red),
         _ => Style::default(),
     };
     Block::default()
@@ -869,11 +869,16 @@ fn render_graphics(
         Some(h) => h.data,
         None => return,
     };
-
+    let fan = if gd.fans.len() > 0 {
+        format!("Fan [{:3.0}%]", gd.fans[0])
+    }
+    else{
+        String::from("")
+    };
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("GPU [{:3.0}%]", gd.gpu_utilization).as_str()),
+                .title(format!("GPU [{:3.0}%] Clock [{:}/{:} Mhz] {:} Power [{:} W] Temp [{:} C]", gd.gpu_utilization, gd.clock, gd.max_clock, fan, gd.power_usage/1000, gd.temperature).as_str()),
         )
         .data(&h_gpu)
         .style(Style::default().fg(Color::LightYellow))
@@ -894,7 +899,7 @@ fn render_graphics(
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("MEM [{:3.0}%]", gd.mem_utilization).as_str()),
+                .title(format!("MEM [ {:} ] Usage [{:3.0}%]", float_to_byte_string!(gd.total_memory as f64, ByteUnit::B), gd.mem_utilization).as_str()),
         )
         .data(&h_mem)
         .style(Style::default().fg(Color::LightMagenta))
@@ -1596,7 +1601,7 @@ impl<'a> TerminalRenderer {
                     }
                     else if !self.show_find && input == Key::Char('\t') {
                         let mut i = self.selected_section as u32 + 1;
-                        if i > 3 {
+                        if i > 4 {
                             i = 0;
                         }
                         self.selected_section =
