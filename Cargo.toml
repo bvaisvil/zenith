@@ -35,3 +35,5 @@ log = "0.4.8"
 env_logger = "0.7.1"
 libc = "0.2"
 #sysinfo = {path = "../sysinfo"}
+nvml-wrapper = "0.5.0"
+

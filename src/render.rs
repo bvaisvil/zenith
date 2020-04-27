@@ -57,7 +57,8 @@ enum Section {
     CPU = 0,
     Network = 1,
     Disk = 2,
-    Process = 3,
+    Graphics = 3,
+    Process = 4,
 }
 
 fn mem_title(app: &CPUTimeApp) -> String {
@@ -826,6 +827,111 @@ fn render_disk(
         .render(f, disk_layout[0]);
 }
 
+fn render_graphics(
+    app: &CPUTimeApp,
+    layout: Rect,
+    f: &mut Frame<ZBackend>,
+    zf: &u32,
+    update_number: &u32,
+    offset: &usize,
+    selected_section: &Section,
+) {
+    let style = match selected_section {
+        Section::Disk => Style::default().fg(Color::Red),
+        _ => Style::default(),
+    };
+    Block::default()
+        .title("Graphics")
+        .borders(Borders::ALL)
+        .border_style(style)
+        .render(f, layout);
+    let gfx_layout = Layout::default()
+        .margin(0)
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .split(layout);
+    let area = Layout::default()
+        .margin(1)
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(gfx_layout[1]);
+    if app.gfx_devices.len() == 0{
+        return;
+    }
+    let gd = &app.gfx_devices[0];
+    let h_gpu = match app.histogram_map.get_zoomed(
+        format!("{}_gpu", gd.uuid).as_str(),
+        *zf,
+        *update_number,
+        area[0].width as usize,
+        *offset,
+    ) {
+        Some(h) => h.data,
+        None => return,
+    };
+
+    Sparkline::default()
+        .block(
+            Block::default()
+                .title(format!("GPU [{:3.0}%]", gd.gpu_utilization).as_str()),
+        )
+        .data(&h_gpu)
+        .style(Style::default().fg(Color::LightYellow))
+        .max(100)
+        .render(f, area[0]);
+
+    let h_mem = match app.histogram_map.get_zoomed(
+        format!("{}_mem", gd.uuid).as_str(),
+        *zf,
+        *update_number,
+        area[1].width as usize,
+        *offset,
+    ) {
+        Some(h) => h.data,
+        None => return,
+    };
+
+    Sparkline::default()
+        .block(
+            Block::default()
+                .title(format!("MEM [{:3.0}%]", gd.mem_utilization).as_str()),
+        )
+        .data(&h_mem)
+        .style(Style::default().fg(Color::LightMagenta))
+        .max(100)
+        .render(f, area[1]);
+    let devices = app.gfx_devices.iter().map(|d| {
+        if d.gpu_utilization > 90 {
+            Text::Styled(
+                Cow::Owned(format!(
+                    "{:3.0}%: {}",
+                    d.gpu_utilization,
+                    d.name
+                )),
+                Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+            )
+        } else {
+            Text::Styled(
+                Cow::Owned(format!(
+                    "{:3.0}%: {}",
+                    d.gpu_utilization,
+                    d.name
+                )),
+                Style::default().fg(Color::Green),
+            )
+        }
+    });
+    List::new(devices)
+        .block(
+            Block::default()
+                .title("Graphics Devices")
+                .borders(Borders::ALL)
+                .border_style(style)
+                .title_style(style),
+        )
+        .render(f, gfx_layout[0]);
+}
+
 fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
     if start.day() == end.day() && start.month() == end.month() {
         return format!(
@@ -1134,6 +1240,7 @@ pub struct TerminalRenderer {
     net_height: i16,
     disk_height: i16,
     process_height: i16,
+    graphics_height: i16,
     _sensor_height: i16,
     zoom_factor: u32,
     update_number: u32,
@@ -1156,6 +1263,7 @@ impl<'a> TerminalRenderer {
         disk_height: i16,
         process_height: i16,
         sensor_height: i16,
+        graphics_height: i16,
         db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
         debug!("Hide Cursor");
@@ -1174,6 +1282,7 @@ impl<'a> TerminalRenderer {
             Constraint::Length(cpu_height as u16),
             Constraint::Length(net_height as u16),
             Constraint::Length(disk_height as u16),
+            Constraint::Length(graphics_height as u16),
             //Constraint::Length(*sensor_height),
         ];
         if process_height > 0 {
@@ -1193,6 +1302,7 @@ impl<'a> TerminalRenderer {
             net_height,
             disk_height,
             process_height,
+            graphics_height,
             _sensor_height: sensor_height, // unused at the moment
             zoom_factor: 1,
             update_number: 0,
@@ -1214,6 +1324,7 @@ impl<'a> TerminalRenderer {
             Constraint::Length(self.cpu_height as u16),
             Constraint::Length(self.net_height as u16),
             Constraint::Length(self.disk_height as u16),
+            Constraint::Length(self.graphics_height as u16),
             //Constraint::Length(*sensor_height),
         ];
         if self.process_height > 0 {
@@ -1227,6 +1338,7 @@ impl<'a> TerminalRenderer {
             Section::CPU => set_section_height!(self.cpu_height, val),
             Section::Disk => set_section_height!(self.disk_height, val),
             Section::Network => set_section_height!(self.net_height, val),
+            Section::Graphics => set_section_height!(self.graphics_height, val),
             Section::Process => set_section_height!(self.process_height, val),
         }
         self.set_constraints().await;
@@ -1288,6 +1400,8 @@ impl<'a> TerminalRenderer {
                         render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
                         render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
                         render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
+                        render_graphics(&app, v_sections[4], &mut f, zf, un, offset, selected);
+                        
                         if *process_height > 0 {
                             if let Some(area) = v_sections.last() {
                                 if app.selected_process.is_none() {

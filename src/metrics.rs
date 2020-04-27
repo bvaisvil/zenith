@@ -14,6 +14,7 @@ use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 use std::time::{Duration, SystemTime};
+use std::fmt;
 
 use bincode;
 use serde_derive::{Deserialize, Serialize};
@@ -24,6 +25,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use users::{Users, UsersCache};
+#[cfg(target_os = "linux")]
+use nvml::NVML;
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -416,6 +419,40 @@ fn get_max_pid_length() -> usize {
     format!("{:}", get_max_pid()).len()
 }
 
+pub struct GFXDevice{
+    pub name: String,
+    pub gpu_utilization: u32,
+    pub mem_utilization: u32,
+    pub total_memory: u64,
+    pub used_memory: u64,
+    pub fan_speed: u32,
+    pub clock: u32,
+    pub max_clock: u32,
+    pub uuid: String
+}
+
+impl GFXDevice{
+    fn new(uuid: String) -> GFXDevice{
+        GFXDevice{
+            name: String::from(""),
+            gpu_utilization: 0,
+            mem_utilization: 0,
+            total_memory: 0,
+            used_memory: 0,
+            fan_speed: 0,
+            clock: 0,
+            max_clock: 0,
+            uuid
+        }
+    }
+}
+
+impl fmt::Display for GFXDevice{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result{
+        write!(f, "{}: GPU: {}% MEM: {}%", self.name, self.gpu_utilization, self.mem_utilization)
+    }
+}
+
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
     pub cpu_utilization: u64,
@@ -450,6 +487,7 @@ pub struct CPUTimeApp {
     pub hostname: String,
     pub network_interfaces: Vec<NetworkInterface>,
     pub sensors: Vec<Sensor>,
+    pub gfx_devices: Vec<GFXDevice>,
     pub tick: Duration,
     pub processor_name: String,
     pub started: chrono::DateTime<chrono::Local>,
@@ -503,7 +541,8 @@ impl CPUTimeApp {
             top_mem_pid: None,
             top_disk_reader_pid: None,
             top_disk_writer_pid: None,
-            uptime: Duration::from_secs(0)
+            uptime: Duration::from_secs(0),
+            gfx_devices: vec![]
         };
         debug!("Initial Metrics Update");
         s.system.refresh_all();
@@ -593,6 +632,58 @@ impl CPUTimeApp {
                 }
                 Err(_) => println!("Couldn't get information on a nic"),
             }
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    async fn update_gfx_devices(&mut self){
+
+    }
+
+    #[cfg(target_os = "linux")]
+    async fn update_gfx_devices(&mut self){
+        self.gfx_devices.clear();
+        let nvml = NVML::init();
+        match nvml{
+            Ok(n) => {
+                let count = n.device_count().unwrap_or(0);
+                for i in 0..count{
+                    match n.device_by_index(i){
+                        Ok(d) => {
+                            match d.uuid(){
+                                Ok(uuid) => {
+                                    let mut gd = GFXDevice::new(uuid);
+                                    match d.memory_info(){
+                                        Ok(m) => {
+                                            gd.total_memory = m.total;
+                                            gd.used_memory = m.used;
+                                        },
+                                        Err(e) => error!("Failed Getting Memory Info {:?}", e)
+                                    }
+                                    gd.name = d.name().unwrap_or(String::from(""));
+                                    //gd.clock = d.clock().unwrap_or(0);
+                                    gd.fan_speed = d.fan_speed(0).unwrap_or(0);
+                                    match d.utilization_rates(){
+                                        Ok(u) => {
+                                            self.histogram_map.add_value_to(format!("{}_gpu", gd.uuid).as_str(), u.gpu as u64);
+                                            self.histogram_map.add_value_to(format!("{}_mem", gd.uuid).as_str(), u.memory as u64);
+                                            gd.gpu_utilization = u.gpu;
+                                            gd.mem_utilization = u.memory;
+                                        },
+                                        Err(e) => error!("Couldn't get utilization rates: {:?}", e)
+                                    }
+                                    debug!("{:}", gd);
+                                    self.gfx_devices.push(gd);
+                                },
+                                Err(e) => error!("Couldn't get UUID: {}", e)
+                            }
+                            
+                        },
+                        Err(e) => error!("Couldn't get gfx device at index: {}: {:?}", i, e)
+                    }
+                }
+            },
+            Err(e) => error!("Couldn't init NVML: {:?}", e)
         }
     }
 
@@ -1010,6 +1101,7 @@ impl CPUTimeApp {
         self.get_nics().await;
         self.get_batteries();
         self.get_uptime().await;
+        self.update_gfx_devices().await;
         debug!("Updated Metrics for {} processes.", self.processes.len());
     }
 

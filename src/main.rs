@@ -9,6 +9,8 @@ extern crate sysinfo;
 extern crate num_derive;
 #[macro_use]
 extern crate log;
+#[cfg(target_os = "linux")]
+extern crate nvml_wrapper as nvml;
 
 
 mod constants;
@@ -93,16 +95,18 @@ fn start_zenith(
     disk_height: u16,
     process_height: u16,
     sensor_height: u16,
+    graphics_height : u16,
     disable_history: bool,
     db_path: &str,
 ) -> Result<(), Box<dyn Error>> {
 
-    debug!("Starting with Arguments: rate: {}, cpu: {}, net: {}, disk: {}, process: {}, disable_history: {}, db_path: {}",
+    debug!("Starting with Arguments: rate: {}, cpu: {}, net: {}, disk: {}, process: {}, graphics: {}, disable_history: {}, db_path: {}",
           rate,
           cpu_height,
           net_height,
           disk_height,
           process_height,
+          graphics_height,
           disable_history,
           db_path
     );
@@ -148,6 +152,7 @@ fn start_zenith(
         disk_height as i16,
         process_height as i16,
         sensor_height as i16,
+        graphics_height as i16,
         db,
     );
 
@@ -244,16 +249,16 @@ Using this you can create the layout you want.",
                 .help(format!("Height of Disk visualization.").as_str())
                 .takes_value(true),
         )
-        // .arg(
-        //     Arg::with_name("sensor-height")
-        //         .short("s")
-        //         .long("sensor-height")
-        //         .value_name("INT")
-        //         .default_value("10")
-        //         .validator(validate_height)
-        //         .help(format!("Height of Sensor visualization.").as_str())
-        //         .takes_value(true),
-        // )
+        .arg(
+            Arg::with_name("graphics-height")
+                .short("g")
+                .long("graphics-height")
+                .value_name("INT")
+                .default_value("10")
+                .validator(validate_height)
+                .help(format!("Height of Graphics Card visualization.").as_str())
+                .takes_value(true),
+        )
         .arg(
             Arg::with_name("process-height")
                 .short("p")
@@ -310,6 +315,10 @@ Using this you can create the layout you want.",
             .parse::<u16>()
             .unwrap(),
         0,
+        matches
+        .value_of("graphics-height")
+        .unwrap()
+        .parse::<u16>().unwrap(),
         matches.is_present("disable-history"),
         matches.value_of("db").unwrap(),
     )
