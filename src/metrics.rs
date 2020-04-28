@@ -25,8 +25,9 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use users::{Users, UsersCache};
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::NVML;
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::enum_wrappers::device::{TemperatureSensor, Clock};
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
@@ -640,12 +641,12 @@ impl CPUTimeApp {
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(all(target_os = "linux", feature = "nvidia")))]
     async fn update_gfx_devices(&mut self){
 
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
     async fn update_gfx_devices(&mut self){
         self.gfx_devices.clear();
         let nvml = NVML::init();

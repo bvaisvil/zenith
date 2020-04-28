@@ -9,7 +9,7 @@ extern crate sysinfo;
 extern crate num_derive;
 #[macro_use]
 extern crate log;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
 extern crate nvml_wrapper as nvml;
 
 
@@ -200,6 +200,67 @@ fn main() -> Result<(), Box<dyn Error>> {
     let default_db_path = default_db_path
         .to_str()
         .expect("Couldn't set default db path");
+    let mut args = vec![Arg::with_name("refresh-rate")
+                                .short("r")
+                                .long("refresh-rate")
+                                .value_name("INT")
+                                .default_value("2000")
+                                .validator(validate_refresh_rate)
+                                .help("Refresh rate in milliseconds.")
+                                .takes_value(true),
+                            Arg::with_name("cpu-height")
+                                .short("c")
+                                .long("cpu-height")
+                                .value_name("INT")
+                                .default_value("10")
+                                .validator(validate_height)
+                                .help("Height of CPU/Memory visualization.")
+                                .takes_value(true),
+                            Arg::with_name("net-height")
+                                .short("n")
+                                .long("net-height")
+                                .value_name("INT")
+                                .default_value("10")
+                                .validator(validate_height)
+                                .help("Height of Network visualization.")
+                                .takes_value(true),
+                            Arg::with_name("disk-height")
+                                .short("d")
+                                .long("disk-height")
+                                .value_name("INT")
+                                .default_value("10")
+                                .validator(validate_height)
+                                .help("Height of Disk visualization.")
+                                .takes_value(true),
+                            Arg::with_name("process-height")
+                                .short("p")
+                                .long("process-height")
+                                .value_name("INT")
+                                .default_value("8")
+                                .validator(validate_height)
+                                .help("Min Height of Process Table.")
+                                .takes_value(true),
+                            Arg::with_name("disable-history")
+                                .long("disable-history")
+                                .help("Disables history when flag is present")
+                                .takes_value(false),
+                            Arg::with_name("db")
+                                .long("db")
+                                .value_name("STRING")
+                                .default_value(default_db_path)
+                                .help("Database to use, if any.")
+                                .takes_value(true),
+                            ];
+    if cfg!(feature = "nvidia"){
+        args.push(Arg::with_name("graphics-height")
+                        .short("g")
+                        .long("graphics-height")
+                        .value_name("INT")
+                        .default_value("10")
+                        .validator(validate_height)
+                        .help("Height of Graphics Card visualization.")
+                        .takes_value(true));
+    }
     let matches = App::new("zenith")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Benjamin Vaisvil <ben@neuon.com>")
@@ -209,82 +270,18 @@ Up/down arrow keys move around the process table. Return (enter) will focus on a
 Tab switches the active section. Active sections can be expanded (e) and minimized (m).
 Using this you can create the layout you want.",
         )
-        .arg(
-            Arg::with_name("refresh-rate")
-                .short("r")
-                .long("refresh-rate")
-                .value_name("INT")
-                .default_value("2000")
-                .validator(validate_refresh_rate)
-                .help(format!("Refresh rate in milliseconds.").as_str())
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("cpu-height")
-                .short("c")
-                .long("cpu-height")
-                .value_name("INT")
-                .default_value("10")
-                .validator(validate_height)
-                .help(format!("Height of CPU/Memory visualization.").as_str())
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("net-height")
-                .short("n")
-                .long("net-height")
-                .value_name("INT")
-                .default_value("10")
-                .validator(validate_height)
-                .help(format!("Height of Network visualization.").as_str())
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("disk-height")
-                .short("d")
-                .long("disk-height")
-                .value_name("INT")
-                .default_value("10")
-                .validator(validate_height)
-                .help(format!("Height of Disk visualization.").as_str())
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("graphics-height")
-                .short("g")
-                .long("graphics-height")
-                .value_name("INT")
-                .default_value("10")
-                .validator(validate_height)
-                .help(format!("Height of Graphics Card visualization.").as_str())
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("process-height")
-                .short("p")
-                .long("process-height")
-                .value_name("INT")
-                .default_value("8")
-                .validator(validate_height)
-                .help(format!("Min Height of Process Table.").as_str())
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("disable-history")
-                .long("disable-history")
-                .help(format!("Disables history when flag is present").as_str())
-                .takes_value(false),
-        )
-        .arg(
-            Arg::with_name("db")
-                .long("db")
-                .value_name("STRING")
-                .default_value(default_db_path)
-                .help(format!("Database to use, if any.").as_str())
-                .takes_value(true),
-        )
-        .get_matches();
+        .args(args.as_slice()).get_matches();
 
+    let graphics_height = if cfg!(feature = "nvidia"){
+         matches
+        .value_of("graphics-height")
+        .unwrap()
+        .parse::<u16>().unwrap()
+    }
+    else{
+        0
+    };
+    
     env_logger::init();
     info!("Starting zenith {}", env!("CARGO_PKG_VERSION"));
 
@@ -315,10 +312,7 @@ Using this you can create the layout you want.",
             .parse::<u16>()
             .unwrap(),
         0,
-        matches
-        .value_of("graphics-height")
-        .unwrap()
-        .parse::<u16>().unwrap(),
+        graphics_height,
         matches.is_present("disable-history"),
         matches.value_of("db").unwrap(),
     )

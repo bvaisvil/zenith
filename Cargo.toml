@@ -10,6 +10,9 @@ repository = "https://github.com/bvaisvil/zenith"
 license = "MIT"
 keywords = ["system monitor", "tui", "process monitor", "sysinfo"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+nvidia = ["nvml-wrapper"]
 
 [dependencies]
 tui = "0.6.*"
@@ -35,5 +38,4 @@ log = "0.4.8"
 env_logger = "0.7.1"
 libc = "0.2"
 #sysinfo = {path = "../sysinfo"}
-nvml-wrapper = "0.5.0"
-
+nvml-wrapper = { version = "0.5.0", optional = true }
