@@ -15,7 +15,7 @@
 - Zoomable chart views (with support to scroll back in time)
 - Managing processes with signals
 - Performance data saved between runs
-- GPU Utilization Metrics for NVIDIA GPUs
+- GPU Utilization Metrics for NVIDIA GPUs (with `--features nvidia`)
 
 ## Planned Features
 
@@ -106,5 +106,7 @@ In zenith 'h' key will show this help:
 - [tui-rs](https://github.com/fdehau/tui-rs)
 - [sysinfo](https://github.com/GuillaumeGomez/sysinfo)
 - [heim](https://github.com/heim-rs/heim)
+- [battery](https://github.com/svartalf/rust-battery)
 - [serde](https://github.com/serde-rs/serde)
 - [clap](https://github.com/clap-rs/clap)
+- [nvml-wrapper](https://github.com/Cldfire/nvml-wrapper)
