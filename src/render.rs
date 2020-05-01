@@ -878,7 +878,8 @@ fn render_graphics(
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("GPU [{:3.0}%] Clock [{:}/{:} Mhz] {:} Power [{:} W] Temp [{:} C]", gd.gpu_utilization, gd.clock, gd.max_clock, fan, gd.power_usage/1000, gd.temperature).as_str()),
+                .title(format!("GPU [{:3.0}%] Clock [{:}/{:} Mhz] {:} Power [{:} W / {:} W] Temp [{:} C / {:} C]",
+                 gd.gpu_utilization, gd.clock, gd.max_clock, fan, gd.power_usage/1000, gd.max_power/1000, gd.temperature, gd.temperature_max).as_str()),
         )
         .data(&h_gpu)
         .style(Style::default().fg(Color::LightYellow))

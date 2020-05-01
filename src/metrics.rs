@@ -28,7 +28,7 @@ use users::{Users, UsersCache};
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::NVML;
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
-use nvml::enum_wrappers::device::{TemperatureSensor, Clock};
+use nvml::enum_wrappers::device::{TemperatureSensor, Clock, TemperatureThreshold};
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -429,7 +429,9 @@ pub struct GFXDevice{
     pub used_memory: u64,
     pub fans: Vec<u32>,
     pub temperature: u32,
+    pub temperature_max: u32,
     pub power_usage: u32,
+    pub max_power: u32,
     pub clock: u32,
     pub max_clock: u32,
     pub uuid: String
@@ -445,7 +447,9 @@ impl GFXDevice{
             used_memory: 0,
             fans: vec![],
             temperature: 0,
+            temperature_max: 0,
             power_usage: 0,
+            max_power: 0,
             clock: 0,
             max_clock: 0,
             uuid
@@ -670,7 +674,9 @@ impl CPUTimeApp {
                                     gd.clock = d.clock_info(Clock::Graphics).unwrap_or(0);
                                     gd.max_clock = d.max_clock_info(Clock::Graphics).unwrap_or(0);
                                     gd.power_usage = d.power_usage().unwrap_or(0);
+                                    gd.max_power = d.power_management_limit().unwrap_or(0);
                                     gd.temperature = d.temperature(TemperatureSensor::Gpu).unwrap_or(0);
+                                    gd.temperature_max = d.temperature_threshold(TemperatureThreshold::GpuMax).unwrap_or(0);
                                     for i in 0..4{
                                         let r = d.fan_speed(i);
                                         if r.is_ok(){
