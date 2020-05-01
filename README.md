@@ -15,6 +15,7 @@
 - Zoomable chart views (with support to scroll back in time)
 - Managing processes with signals
 - Performance data saved between runs
+- GPU Utilization Metrics for NVIDIA GPUs
 
 ## Planned Features
 
@@ -24,7 +25,7 @@
 - Messaging about adverse system events, like errors in kernel ring buffer (Linux)
 - Docker support
 - ZFS (pool status)
-- GPU utilization metrics
+- GPU utilization metrics for AMD GPUS
 - Disk metrics like IO ops / latency
 - Support Memory pressure
 
@@ -59,6 +60,10 @@ This builds under rustc version >= 1.39.0.
 cd zenith
 cargo build --release
 ```
+
+For NVIDIA GPU support, build with feature `nvidia`:
+
+```cargo build --release --features nvidia```
 
 ## Usage
 
