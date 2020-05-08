@@ -122,7 +122,7 @@ fn render_process_table<'a>(
     width: u16,
     area: Rect,
     process_table_start: usize,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     selected_section: &Section,
     max_pid_len: &usize,
     show_paths: bool,
@@ -284,7 +284,7 @@ fn render_process_table<'a>(
 fn render_cpu_histogram(
     app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     update_number: &u32,
     offset: &usize,
@@ -311,7 +311,7 @@ fn render_cpu_histogram(
 fn render_memory_histogram(
     app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     update_number: &u32,
     offset: &usize,
@@ -339,7 +339,7 @@ fn render_cpu_bars(
     app: &CPUTimeApp,
     area: Rect,
     width: u16,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     style: &Style,
 ) {
     let mut cpus = app.cpus.to_owned();
@@ -422,7 +422,7 @@ fn render_cpu_bars(
 fn render_net(
     app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     update_number: &u32,
     offset: &usize,
@@ -524,7 +524,7 @@ fn render_net(
 fn render_process(
     app: &CPUTimeApp,
     layout: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     _width: u16,
     selected_section: &Section,
     process_message: &Option<String>,
@@ -691,7 +691,7 @@ fn render_process(
 fn render_disk(
     app: &CPUTimeApp,
     layout: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     update_number: &u32,
     offset: &usize,
@@ -833,7 +833,7 @@ fn render_disk(
 fn render_graphics(
     app: &CPUTimeApp,
     layout: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     update_number: &u32,
     offset: &usize,
@@ -963,7 +963,7 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
     )
 }
 
-fn render_battery_widget(batteries: &Vec<battery::Battery>) -> (Text, Text, Text, Text) {
+fn render_battery_widget(batteries: &Vec<battery::Battery>) -> (Text<'_>, Text<'_>, Text<'_>, Text<'_>) {
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
     if batteries.len() > 0 {
         let b: &battery::Battery = batteries.get(0).expect("no battery");
@@ -1034,7 +1034,7 @@ fn render_battery_widget(batteries: &Vec<battery::Battery>) -> (Text, Text, Text
 fn render_top_title_bar(
     app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     offset: &usize,
 ) {
@@ -1110,7 +1110,7 @@ fn render_top_title_bar(
 fn render_cpu(
     app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<ZBackend>,
+    f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     update_number: &u32,
     offset: &usize,
@@ -1161,7 +1161,7 @@ fn filter_process_table(app: &CPUTimeApp, filter: &String) -> Vec<i32> {
     results
 }
 
-fn render_help(area: Rect, f: &mut Frame<ZBackend>) {
+fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
     let help_layout = Layout::default()
         .margin(5)
         .direction(Direction::Vertical)

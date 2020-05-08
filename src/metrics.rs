@@ -458,7 +458,7 @@ impl GFXDevice {
 }
 
 impl fmt::Display for GFXDevice {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}: GPU: {}% MEM: {}%",

@@ -1,10 +1,7 @@
 /**
  * Copyright 2019 Benjamin Vaisvil
  */
-extern crate num;
-extern crate num_traits;
 
-extern crate sysinfo;
 #[macro_use]
 extern crate num_derive;
 #[macro_use]
