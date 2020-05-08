@@ -4,8 +4,8 @@
 use crate::constants::DEFAULT_TICK;
 use heim::process;
 use heim::process::ProcessError;
+use libc::{getpriority, setpriority, PRIO_PROCESS};
 use std::time::{SystemTime, UNIX_EPOCH};
-use libc::{setpriority, PRIO_PROCESS, getpriority};
 use sysinfo::ProcessStatus;
 
 macro_rules! convert_result_to_string {
@@ -53,8 +53,6 @@ pub struct ZProcess {
     pub start_time: u64,
 }
 
-
-
 impl ZProcess {
     pub fn get_read_bytes_sec(&self) -> f64 {
         (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
@@ -91,20 +89,23 @@ impl ZProcess {
         }
     }
 
-    pub fn nice(&mut self) -> String{
+    pub fn nice(&mut self) -> String {
         self.set_priority(19)
     }
 
     #[cfg(target_os = "linux")]
-    pub fn set_priority(&mut self, priority: i32) -> String{
+    pub fn set_priority(&mut self, priority: i32) -> String {
         let mut result = -1;
-        unsafe { result = setpriority(PRIO_PROCESS as u32, self.pid as u32, priority); }
-        
-        if result < 0{
-            String::from("Couldn't set priority.")
+        unsafe {
+            result = setpriority(PRIO_PROCESS as u32, self.pid as u32, priority);
         }
-        else{
-            unsafe { result = getpriority(PRIO_PROCESS as u32, self.pid as u32); }
+
+        if result < 0 {
+            String::from("Couldn't set priority.")
+        } else {
+            unsafe {
+                result = getpriority(PRIO_PROCESS as u32, self.pid as u32);
+            }
             self.priority = result + 20;
             self.nice = result;
             String::from("Priority Set.")
@@ -112,14 +113,15 @@ impl ZProcess {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn set_priority(&mut self, priority: i32) -> String{
+    pub fn set_priority(&mut self, priority: i32) -> String {
         let mut result = -1;
-        unsafe { result = setpriority(PRIO_PROCESS, self.pid as u32, priority); }
-        
-        if result < 0{
-            String::from("Couldn't set priority.")
+        unsafe {
+            result = setpriority(PRIO_PROCESS, self.pid as u32, priority);
         }
-        else{
+
+        if result < 0 {
+            String::from("Couldn't set priority.")
+        } else {
             String::from("Priority Set.")
         }
     }

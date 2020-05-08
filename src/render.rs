@@ -4,10 +4,14 @@
 use crate::metrics::*;
 use crate::util::*;
 use crate::zprocess::*;
+use battery;
+use battery::units::power::watt;
+use battery::units::ratio::percent;
+use battery::units::time::second;
 use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
-use chrono::{Datelike, Local, Timelike};
 use chrono::Duration as CDuration;
+use chrono::{Datelike, Local, Timelike};
 use std::borrow::Cow;
 use std::io;
 use std::io::Stdout;
@@ -19,16 +23,12 @@ use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
-use battery;
-use battery::units::ratio::percent;
-use battery::units::time::second;
-use battery::units::power::watt;
 
 use std::ops::Mul;
-use tui::layout::{Constraint, Direction, Layout, Rect, Alignment};
+use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{
-    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget
+    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget,
 };
 use tui::Frame;
 use tui::Terminal;
@@ -71,14 +71,12 @@ fn mem_title(app: &CPUTimeApp) -> String {
         swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
     }
 
-    let top_mem_proc = match app.top_mem_pid{
-        Some(pid) => {
-            match app.process_map.get(&pid){
-                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
-                None => String::from("")
-            }
+    let top_mem_proc = match app.top_mem_pid {
+        Some(pid) => match app.process_map.get(&pid) {
+            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+            None => String::from(""),
         },
-        None => String::from("")
+        None => String::from(""),
     };
 
     format!(
@@ -130,51 +128,52 @@ fn render_process_table<'a>(
     show_paths: bool,
     show_find: bool,
     filter: &String,
-    highlighted_row: usize
+    highlighted_row: usize,
 ) -> Option<ZProcess> {
-
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default(),
     };
     let display_height = if area.height > 4 {
         area.height as usize - 4 // 4 for the margins and table header
-    }
-    else{
+    } else {
         0
     };
-    if display_height == 0{
+    if display_height == 0 {
         return None;
     }
 
     let end = process_table_start + display_height;
 
-    let procs: Vec<&ZProcess> = process_table.iter().map(|pid| {
-            app.process_map.get(pid).expect("expected pid to be present")
-        }).collect();
-    let highlighted_process = if procs.len() > 0{
+    let procs: Vec<&ZProcess> = process_table
+        .iter()
+        .map(|pid| {
+            app.process_map
+                .get(pid)
+                .expect("expected pid to be present")
+        })
+        .collect();
+    let highlighted_process = if procs.len() > 0 {
         Some(procs[highlighted_row].clone())
-    }
-    else {
+    } else {
         None
     };
     if area.height < 5 {
         return highlighted_process; // not enough space to draw anything
     }
-    let rows: Vec<Vec<String>> = procs.iter().map(|p| {
-            let cmd_string = if show_paths{
-                if p.command.len() > 1{
+    let rows: Vec<Vec<String>> = procs
+        .iter()
+        .map(|p| {
+            let cmd_string = if show_paths {
+                if p.command.len() > 1 {
                     format!(" - {:}", p.command.join(" "))
-                }
-                else{
+                } else {
                     String::from("")
                 }
-            }
-            else{
-                if p.command.len() > 1{
+            } else {
+                if p.command.len() > 1 {
                     format!(" {:}", p.command[1..].join(" "))
-                }
-                else{
+                } else {
                     String::from("")
                 }
             };
@@ -255,14 +254,13 @@ fn render_process_table<'a>(
         }
     });
 
-    let title = if show_find{
+    let title = if show_find {
         format!("[ESC] Clear, Find: {:}", filter)
-    }
-    else if filter.len() > 0{
+    } else if filter.len() > 0 {
         format!("Filtered Results: {:}, [f] to change/clear", filter)
-    }
-    else{
-        format!("Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/] Filter [f]",
+    } else {
+        format!(
+            "Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/] Filter [f]",
             app.processes.len(),
             app.threads_total
         )
@@ -549,7 +547,6 @@ fn render_process(
                 .margin(1)
                 .constraints([Constraint::Length(2), Constraint::Min(1)].as_ref())
                 .split(layout);
-            
 
             Block::default()
                 .title(format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
@@ -660,17 +657,17 @@ fn render_process(
 
             if text.len() > v_sections[1].height as usize * 3 {
                 let h_sections = Layout::default()
-                .direction(Direction::Horizontal)
-                .margin(0)
-                .constraints(
-                    [
-                        Constraint::Percentage(50),
-                        Constraint::Length(1),
-                        Constraint::Percentage(50),
-                    ]
-                    .as_ref(),
-                )
-                .split(v_sections[1]);
+                    .direction(Direction::Horizontal)
+                    .margin(0)
+                    .constraints(
+                        [
+                            Constraint::Percentage(50),
+                            Constraint::Length(1),
+                            Constraint::Percentage(50),
+                        ]
+                        .as_ref(),
+                    )
+                    .split(v_sections[1]);
                 Paragraph::new(text[0..h_sections[0].height as usize * 3].iter())
                     .block(Block::default())
                     .wrap(false)
@@ -738,20 +735,23 @@ fn render_disk(
     };
     let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
 
-    let top_reader = match app.top_disk_reader_pid{
-        Some(pid) => {
-            match app.process_map.get(&pid){
-                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
-                None => String::from("")
-            }
+    let top_reader = match app.top_disk_reader_pid {
+        Some(pid) => match app.process_map.get(&pid) {
+            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+            None => String::from(""),
         },
-        None => String::from("")
+        None => String::from(""),
     };
 
     Sparkline::default()
         .block(
-            Block::default()
-                .title(format!("R [{:^10}] Max [{:^10}] {:}", read_up, read_max_bytes, top_reader).as_str()),
+            Block::default().title(
+                format!(
+                    "R [{:^10}] Max [{:^10}] {:}",
+                    read_up, read_max_bytes, top_reader
+                )
+                .as_str(),
+            ),
         )
         .data(&h_read)
         .style(Style::default().fg(Color::LightYellow))
@@ -776,20 +776,23 @@ fn render_disk(
     };
     let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
 
-    let top_writer = match app.top_disk_writer_pid{
-        Some(pid) => {
-            match app.process_map.get(&pid){
-                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
-                None => String::from("")
-            }
+    let top_writer = match app.top_disk_writer_pid {
+        Some(pid) => match app.process_map.get(&pid) {
+            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+            None => String::from(""),
         },
-        None => String::from("")
+        None => String::from(""),
     };
 
     Sparkline::default()
         .block(
-            Block::default()
-                .title(format!("W [{:^10}] Max [{:^10}] {:}", write_down, write_max_bytes, top_writer).as_str()),
+            Block::default().title(
+                format!(
+                    "W [{:^10}] Max [{:^10}] {:}",
+                    write_down, write_max_bytes, top_writer
+                )
+                .as_str(),
+            ),
         )
         .data(&h_write)
         .style(Style::default().fg(Color::LightMagenta))
@@ -855,7 +858,7 @@ fn render_graphics(
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(gfx_layout[1]);
-    if app.gfx_devices.len() == 0{
+    if app.gfx_devices.len() == 0 {
         return;
     }
     let gd = &app.gfx_devices[0];
@@ -871,8 +874,7 @@ fn render_graphics(
     };
     let fan = if gd.fans.len() > 0 {
         format!("Fan [{:3.0}%]", gd.fans[0])
-    }
-    else{
+    } else {
         String::from("")
     };
     Sparkline::default()
@@ -899,8 +901,14 @@ fn render_graphics(
 
     Sparkline::default()
         .block(
-            Block::default()
-                .title(format!("MEM [ {:} ] Usage [{:3.0}%]", float_to_byte_string!(gd.total_memory as f64, ByteUnit::B), gd.mem_utilization).as_str()),
+            Block::default().title(
+                format!(
+                    "MEM [ {:} ] Usage [{:3.0}%]",
+                    float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+                    gd.mem_utilization
+                )
+                .as_str(),
+            ),
         )
         .data(&h_mem)
         .style(Style::default().fg(Color::LightMagenta))
@@ -909,20 +917,12 @@ fn render_graphics(
     let devices = app.gfx_devices.iter().map(|d| {
         if d.gpu_utilization > 90 {
             Text::Styled(
-                Cow::Owned(format!(
-                    "{:3.0}%: {}",
-                    d.gpu_utilization,
-                    d.name
-                )),
+                Cow::Owned(format!("{:3.0}%: {}", d.gpu_utilization, d.name)),
                 Style::default().fg(Color::Red).modifier(Modifier::BOLD),
             )
         } else {
             Text::Styled(
-                Cow::Owned(format!(
-                    "{:3.0}%: {}",
-                    d.gpu_utilization,
-                    d.name
-                )),
+                Cow::Owned(format!("{:3.0}%: {}", d.gpu_utilization, d.name)),
                 Style::default().fg(Color::Green),
             )
         }
@@ -963,67 +963,71 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
     )
 }
 
-fn render_battery_widget(batteries: &Vec<battery::Battery>) -> (Text, Text, Text, Text){
+fn render_battery_widget(batteries: &Vec<battery::Battery>) -> (Text, Text, Text, Text) {
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
-    if batteries.len() > 0{
+    if batteries.len() > 0 {
         let b: &battery::Battery = batteries.get(0).expect("no battery");
-        let charge_state = match b.state(){
+        let charge_state = match b.state() {
             battery::State::Unknown => " ",
             battery::State::Charging => "⚡︎",
             battery::State::Discharging => "🁢",
             battery::State::Empty => "🁢",
             battery::State::Full => "🁢",
-            _ => ""
+            _ => "",
         };
-        let charge_state_color = match b.state(){
+        let charge_state_color = match b.state() {
             battery::State::Charging => Color::Green,
             battery::State::Discharging => Color::Yellow,
             battery::State::Empty => Color::Red,
             battery::State::Full => Color::Green,
-            _ => Color::White
+            _ => Color::White,
         };
-        let t = match b.state(){
-            battery::State::Charging => {
-                match b.time_to_full(){
-                    Some(t) => {
-                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
-                        format!("{:}:{:}", t.num_hours(), t.num_minutes() % 60)
-                    },
-                    None => String::from("")
-                    
+        let t = match b.state() {
+            battery::State::Charging => match b.time_to_full() {
+                Some(t) => {
+                    let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64))
+                        .expect("Duration out of range.");
+                    format!("{:}:{:}", t.num_hours(), t.num_minutes() % 60)
                 }
+                None => String::from(""),
             },
-            battery::State::Discharging => {
-                match b.time_to_empty(){
-                    Some(t) => {
-                        let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64)).expect("Duration out of range.");
-                        format!("{:02}:{:02}", t.num_hours(), t.num_minutes() % 60)
-                    },
-                    None => String::from("")
+            battery::State::Discharging => match b.time_to_empty() {
+                Some(t) => {
+                    let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64))
+                        .expect("Duration out of range.");
+                    format!("{:02}:{:02}", t.num_hours(), t.num_minutes() % 60)
                 }
+                None => String::from(""),
             },
-            _ => String::from("")
+            _ => String::from(""),
         };
         let charged = b.state_of_charge().get::<percent>();
-        let charged_color = if charged > 0.75{
+        let charged_color = if charged > 0.75 {
             Color::Green
-        }
-        else if charged > 50.0{
+        } else if charged > 50.0 {
             Color::Yellow
-        }
-        else{
+        } else {
             Color::Red
         };
-        (Text::styled(charge_state, default_style.fg(charge_state_color)),
-         Text::styled(format!(" {:03.2}%", charged), default_style.fg(charged_color)),
-         Text::styled(format!(" {:}", t), default_style),
-         Text::styled(format!(" {:03.2}w", b.energy_rate().get::<watt>()), default_style))
-    }
-    else{
-        (Text::styled("", default_style),
-         Text::styled("", default_style),
-         Text::styled("", default_style),
-         Text::styled("", default_style))
+        (
+            Text::styled(charge_state, default_style.fg(charge_state_color)),
+            Text::styled(
+                format!(" {:03.2}%", charged),
+                default_style.fg(charged_color),
+            ),
+            Text::styled(format!(" {:}", t), default_style),
+            Text::styled(
+                format!(" {:03.2}w", b.energy_rate().get::<watt>()),
+                default_style,
+            ),
+        )
+    } else {
+        (
+            Text::styled("", default_style),
+            Text::styled("", default_style),
+            Text::styled("", default_style),
+            Text::styled("", default_style),
+        )
     }
 }
 
@@ -1032,23 +1036,21 @@ fn render_top_title_bar(
     area: Rect,
     f: &mut Frame<ZBackend>,
     zf: &u32,
-    offset: &usize
+    offset: &usize,
 ) {
     let tick = app.histogram_map.tick;
     let hist_duration = app.histogram_map.hist_duration(area.width as usize, *zf);
     let offset_duration = chrono::Duration::from_std(tick.mul(*offset as u32).mul(*zf))
         .expect("Couldn't convert from std");
     let uptime = match CDuration::from_std(app.uptime) {
-        Ok(d) => {
-            format!(
-                " [Up {:} days {:02}:{:02}:{:02}]",
-                d.num_days(),
-                d.num_hours() % 24,
-                d.num_minutes() % 60,
-                d.num_seconds() % 60
-            )
-        },
-        Err(_) => String::from("")
+        Ok(d) => format!(
+            " [Up {:} days {:02}:{:02}:{:02}]",
+            d.num_days(),
+            d.num_hours() % 24,
+            d.num_minutes() % 60,
+            d.num_seconds() % 60
+        ),
+        Err(_) => String::from(""),
     };
     let now = Local::now();
     let start = now
@@ -1069,18 +1071,8 @@ fn render_top_title_bar(
         String::from("")
     };
     let battery_widets = render_battery_widget(&app.batteries);
-    let battery_start = if app.batteries.len() > 0{
-        " ["
-    }
-    else{
-        ""
-    };
-    let battery_end = if app.batteries.len() > 0{
-        "]"
-    }
-    else{
-        ""
-    };
+    let battery_start = if app.batteries.len() > 0 { " [" } else { "" };
+    let battery_end = if app.batteries.len() > 0 { "]" } else { "" };
     let line = vec![
         Text::styled(
             format!(" {:}", app.hostname),
@@ -1105,10 +1097,7 @@ fn render_top_title_bar(
         Text::styled(display_time(start, end), default_style),
         Text::styled(back_in_time, default_style.modifier(Modifier::BOLD)),
         Text::styled("]", default_style),
-        Text::styled(
-            " (h)elp",
-            default_style,
-        ),
+        Text::styled(" (h)elp", default_style),
         Text::styled(" (q)uit", default_style),
         Text::styled(
             format!("{: >width$}", "", width = area.width as usize),
@@ -1152,7 +1141,7 @@ fn render_cpu(
     render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
 }
 
-fn filter_process_table(app: &CPUTimeApp, filter: &String) -> Vec<i32>{
+fn filter_process_table(app: &CPUTimeApp, filter: &String) -> Vec<i32> {
     let filter_lc = filter.to_lowercase();
     let results: Vec<i32> = app
         .processes
@@ -1162,39 +1151,48 @@ fn filter_process_table(app: &CPUTimeApp, filter: &String) -> Vec<i32>{
                 .process_map
                 .get(pid)
                 .expect("Pid present in processes but not in map.");
-            filter.len() == 0 || 
-            p.name.to_lowercase().contains(&filter_lc) || 
-            p.exe.to_lowercase().contains(&filter_lc) || 
-            p.command.join(" ").to_lowercase().contains(&filter_lc)
-        }).map(|&pid| pid).collect();
+            filter.len() == 0
+                || p.name.to_lowercase().contains(&filter_lc)
+                || p.exe.to_lowercase().contains(&filter_lc)
+                || p.command.join(" ").to_lowercase().contains(&filter_lc)
+        })
+        .map(|&pid| pid)
+        .collect();
     results
 }
 
-fn render_help(area: Rect, f: &mut Frame<ZBackend>){
-    let help_layout = Layout::default().margin(5)
-                                               .direction(Direction::Vertical)
-                                               .constraints([
-                                                   Constraint::Length(1),
-                                                   Constraint::Percentage(80),
-                                                   Constraint::Length(5),
-                                               ].as_ref())
-                                               .split(area);
+fn render_help(area: Rect, f: &mut Frame<ZBackend>) {
+    let help_layout = Layout::default()
+        .margin(5)
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Length(1),
+                Constraint::Percentage(80),
+                Constraint::Length(5),
+            ]
+            .as_ref(),
+        )
+        .split(area);
     let header_style = Style::default().fg(Color::Green);
-    let t = vec![
-        Text::styled(format!("zenith v{:}", env!("CARGO_PKG_VERSION")), header_style),
-        ];
-    Paragraph::new(t.iter()).wrap(true).alignment(Alignment::Center)
-                                  .render(f, help_layout[0]); 
+    let t = vec![Text::styled(
+        format!("zenith v{:}", env!("CARGO_PKG_VERSION")),
+        header_style,
+    )];
+    Paragraph::new(t.iter())
+        .wrap(true)
+        .alignment(Alignment::Center)
+        .render(f, help_layout[0]);
     let main_style = Style::default();
     let key_style = main_style.fg(Color::Cyan);
     let t = vec![
         Text::styled("Primary Interface\n", header_style),
         Text::styled("h    ", key_style),
-        Text::styled("    Toggle this help screen\n", main_style), 
+        Text::styled("    Toggle this help screen\n", main_style),
         Text::styled("q    ", key_style),
-        Text::styled("    Quit and exit zenith\n", main_style),         
+        Text::styled("    Quit and exit zenith\n", main_style),
         Text::styled("<TAB>", key_style),
-        Text::styled("    Changes highlighted section\n", main_style),        
+        Text::styled("    Changes highlighted section\n", main_style),
         Text::styled("e    ", key_style),
         Text::styled("    Expands highlighted section\n", main_style),
         Text::styled("m    ", key_style),
@@ -1226,15 +1224,16 @@ fn render_help(area: Rect, f: &mut Frame<ZBackend>){
         Text::styled("p     ", key_style),
         Text::styled("    Toggle Paths On/Off\n", main_style),
         Text::styled("f     ", key_style),
-        Text::styled("    Toggle Filter Mode\n", main_style),        
+        Text::styled("    Toggle Filter Mode\n", main_style),
         Text::styled("<ESC> ", key_style),
         Text::styled("    Leave Filter Mode\n", main_style),
     ];
     let b = Block::default().borders(Borders::ALL);
-    Paragraph::new(t.iter()).wrap(true)
-                                  .alignment(Alignment::Left)
-                                  .block(b)
-                                  .render(f, help_layout[1]); 
+    Paragraph::new(t.iter())
+        .wrap(true)
+        .alignment(Alignment::Left)
+        .block(b)
+        .render(f, help_layout[1]);
 }
 
 pub struct TerminalRenderer {
@@ -1258,7 +1257,7 @@ pub struct TerminalRenderer {
     show_paths: bool,
     show_find: bool,
     filter: String,
-    highlighted_row: usize
+    highlighted_row: usize,
 }
 
 impl<'a> TerminalRenderer {
@@ -1279,9 +1278,10 @@ impl<'a> TerminalRenderer {
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
         let backend = TermionBackend::new(stdout);
-        let mut terminal = Terminal::new(backend).expect("Couldn't create new terminal with backend");
+        let mut terminal =
+            Terminal::new(backend).expect("Couldn't create new terminal with backend");
         terminal.hide_cursor().ok();
-        
+
         debug!("Setup Constraints");
         let mut constraints = vec![
             Constraint::Length(1),
@@ -1320,7 +1320,7 @@ impl<'a> TerminalRenderer {
             show_paths: true,
             show_find: false,
             filter: String::from(""),
-            highlighted_row: 0
+            highlighted_row: 0,
         }
     }
 
@@ -1353,7 +1353,6 @@ impl<'a> TerminalRenderer {
     pub async fn start(&mut self) {
         debug!("Starting Main Loop.");
         loop {
-
             let app = &self.app;
             let pst = &self.process_table_row_start;
             let process_height = &self.process_height;
@@ -1373,7 +1372,7 @@ impl<'a> TerminalRenderer {
             let mut highlighted_process: Option<ZProcess> = None;
             let process_table = filter_process_table(app, &self.filter);
 
-            if !process_table.is_empty() && self.highlighted_row >= process_table.len(){
+            if !process_table.is_empty() && self.highlighted_row >= process_table.len() {
                 self.highlighted_row = process_table.len() - 1;
             }
             let highlighted_row = self.highlighted_row;
@@ -1381,14 +1380,11 @@ impl<'a> TerminalRenderer {
             self.terminal
                 .draw(|mut f| {
                     width = f.size().width;
-                    if show_help{
+                    if show_help {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
                             .margin(0)
-                            .constraints([
-                                Constraint::Length(1),
-                                Constraint::Length(40),
-                            ].as_ref())
+                            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
                             .split(f.size());
 
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
@@ -1407,7 +1403,7 @@ impl<'a> TerminalRenderer {
                         render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
                         render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
                         render_graphics(&app, v_sections[4], &mut f, zf, un, offset, selected);
-                        
+
                         if *process_height > 0 {
                             if let Some(area) = v_sections.last() {
                                 if app.selected_process.is_none() {
@@ -1423,7 +1419,7 @@ impl<'a> TerminalRenderer {
                                         show_paths,
                                         show_find,
                                         filter,
-                                        highlighted_row
+                                        highlighted_row,
                                     );
                                     if area.height > 4 {
                                         // account for table border & margins.
@@ -1442,7 +1438,7 @@ impl<'a> TerminalRenderer {
                                 }
                             }
                         }
-                }
+                    }
 
                     //render_sensors(&app, sensor_layout, &mut f, zf);
                 })
@@ -1451,34 +1447,28 @@ impl<'a> TerminalRenderer {
             match self.events.next().expect("No new event.") {
                 Event::Input(input) => {
                     debug!("Event Key: {:?}", input);
-                    if show_find && input == Key::Esc{
+                    if show_find && input == Key::Esc {
                         self.show_find = false;
                         self.filter = String::from("");
-                    }
-                    else if show_find && input != Key::Char('\n'){
-                        match input{
+                    } else if show_find && input != Key::Char('\n') {
+                        match input {
                             Key::Char(c) => self.filter.push(c),
-                            Key::Delete => {
-                                match self.filter.pop(){
-                                    Some(_c) => {},
-                                    None => self.show_find = false
-                                }
+                            Key::Delete => match self.filter.pop() {
+                                Some(_c) => {}
+                                None => self.show_find = false,
                             },
-                            Key::Backspace => {
-                                match self.filter.pop(){
-                                    Some(_c) => {},
-                                    None => self.show_find = false
-                                }
+                            Key::Backspace => match self.filter.pop() {
+                                Some(_c) => {}
+                                None => self.show_find = false,
                             },
                             _ => {}
                         }
-                        
                     }
                     if !self.show_find && input == Key::Char('q') {
                         break;
                     } else if input == Key::Up {
                         if self.app.selected_process.is_some() {
-                        } else if process_table.len() > 0{
+                        } else if process_table.len() > 0 {
                             if self.highlighted_row != 0 {
                                 self.highlighted_row -= 1;
                             }
@@ -1490,7 +1480,7 @@ impl<'a> TerminalRenderer {
                         }
                     } else if input == Key::Down {
                         if self.app.selected_process.is_some() {
-                        } else if process_table.len() > 0{
+                        } else if process_table.len() > 0 {
                             if self.highlighted_row < process_table.len() - 1 {
                                 self.highlighted_row += 1;
                             }
@@ -1516,7 +1506,9 @@ impl<'a> TerminalRenderer {
                         if self.hist_start_offset > 0 {
                             self.hist_start_offset -= 1;
                         }
-                    } else if !self.show_find && (input == Key::Char('.') || input == Key::Char('>')) {
+                    } else if !self.show_find
+                        && (input == Key::Char('.') || input == Key::Char('>'))
+                    {
                         if self.app.psortby == ProcessTableSortBy::Cmd {
                             self.app.psortby = ProcessTableSortBy::Pid;
                         } else {
@@ -1525,7 +1517,9 @@ impl<'a> TerminalRenderer {
                                     .expect("invalid value to set psortby");
                         }
                         self.app.sort_process_table();
-                    } else if !self.show_find && (input == Key::Char(',') || input == Key::Char('<')) {
+                    } else if !self.show_find
+                        && (input == Key::Char(',') || input == Key::Char('<'))
+                    {
                         if self.app.psortby == ProcessTableSortBy::Pid {
                             self.app.psortby = ProcessTableSortBy::Cmd;
                         } else {
@@ -1544,7 +1538,8 @@ impl<'a> TerminalRenderer {
                             }
                         }
                         self.app.sort_process_table();
-                    } else if !self.show_find && input == Key::Char('+') || input == Key::Char('=') {
+                    } else if !self.show_find && input == Key::Char('+') || input == Key::Char('=')
+                    {
                         if self.zoom_factor > 1 {
                             self.zoom_factor -= 1;
                         }
@@ -1599,8 +1594,7 @@ impl<'a> TerminalRenderer {
                             Some(p) => Some(p.set_priority(0)),
                             None => None,
                         };
-                    }
-                    else if !self.show_find && input == Key::Char('\t') {
+                    } else if !self.show_find && input == Key::Char('\t') {
                         let mut i = self.selected_section as u32 + 1;
                         if i > 4 {
                             i = 0;

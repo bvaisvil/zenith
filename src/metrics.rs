@@ -2,6 +2,7 @@
  * Copyright 2019 Benjamin Vaisvil
  */
 use crate::zprocess::*;
+use battery;
 use chrono;
 use futures::StreamExt;
 use heim::host;
@@ -9,14 +10,17 @@ use heim::net;
 use heim::net::Address;
 use heim::units::frequency::megahertz;
 use heim::units::time;
-use battery;
 use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::mem::swap;
 use std::time::{Duration, SystemTime};
-use std::fmt;
 
 use bincode;
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
+use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
+use nvml::NVML;
 use serde_derive::{Deserialize, Serialize};
 use sled;
 use std::error::Error;
@@ -25,10 +29,6 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use users::{Users, UsersCache};
-#[cfg(all(target_os = "linux", feature = "nvidia"))]
-use nvml::NVML;
-#[cfg(all(target_os = "linux", feature = "nvidia"))]
-use nvml::enum_wrappers::device::{TemperatureSensor, Clock, TemperatureThreshold};
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -241,7 +241,7 @@ impl HistogramMap {
                         Some(hm) => {
                             debug!("Migration Successful");
                             hm
-                        },
+                        }
                         None => {
                             debug!("Migration Failed, starting with empty DB.");
                             HistogramMap {
@@ -251,7 +251,7 @@ impl HistogramMap {
                                 db: path,
                                 previous_stop: None,
                             }
-                        },
+                        }
                     }
                 } else if dbfile.exists() {
                     debug!("Zenith store exists, opening...");
@@ -266,7 +266,7 @@ impl HistogramMap {
                         previous_stop: None,
                     }
                 }
-            },
+            }
             None => {
                 debug!("Starting with no DB.");
                 HistogramMap {
@@ -421,7 +421,7 @@ fn get_max_pid_length() -> usize {
     format!("{:}", get_max_pid()).len()
 }
 
-pub struct GFXDevice{
+pub struct GFXDevice {
     pub name: String,
     pub gpu_utilization: u32,
     pub mem_utilization: u32,
@@ -434,12 +434,12 @@ pub struct GFXDevice{
     pub max_power: u32,
     pub clock: u32,
     pub max_clock: u32,
-    pub uuid: String
+    pub uuid: String,
 }
 
-impl GFXDevice{
-    fn new(uuid: String) -> GFXDevice{
-        GFXDevice{
+impl GFXDevice {
+    fn new(uuid: String) -> GFXDevice {
+        GFXDevice {
             name: String::from(""),
             gpu_utilization: 0,
             mem_utilization: 0,
@@ -452,14 +452,18 @@ impl GFXDevice{
             max_power: 0,
             clock: 0,
             max_clock: 0,
-            uuid
+            uuid,
         }
     }
 }
 
-impl fmt::Display for GFXDevice{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result{
-        write!(f, "{}: GPU: {}% MEM: {}%", self.name, self.gpu_utilization, self.mem_utilization)
+impl fmt::Display for GFXDevice {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}: GPU: {}% MEM: {}%",
+            self.name, self.gpu_utilization, self.mem_utilization
+        )
     }
 }
 
@@ -552,7 +556,7 @@ impl CPUTimeApp {
             top_disk_reader_pid: None,
             top_disk_writer_pid: None,
             uptime: Duration::from_secs(0),
-            gfx_devices: vec![]
+            gfx_devices: vec![],
         };
         debug!("Initial Metrics Update");
         s.system.refresh_all();
@@ -581,21 +585,21 @@ impl CPUTimeApp {
         };
     }
 
-    async fn get_uptime(&mut self){
+    async fn get_uptime(&mut self) {
         match host::uptime().await {
             Ok(u) => {
                 self.uptime = Duration::from_secs_f64(u.get::<time::second>());
-            },
+            }
             Err(_) => {}
         }
     }
 
-    fn get_batteries(&mut self){
+    fn get_batteries(&mut self) {
         debug!("Updating Batteries.");
         let manager = battery::Manager::new().expect("Couldn't create battery manager");
         self.batteries.clear();
-        for b in manager.batteries().expect("Couldn't get batteries"){
-            match b{
+        for b in manager.batteries().expect("Couldn't get batteries") {
+            match b {
                 Ok(b) => self.batteries.push(b),
                 Err(_) => {}
             }
@@ -646,67 +650,69 @@ impl CPUTimeApp {
     }
 
     #[cfg(not(all(target_os = "linux", feature = "nvidia")))]
-    async fn update_gfx_devices(&mut self){
-
-    }
+    async fn update_gfx_devices(&mut self) {}
 
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
-    async fn update_gfx_devices(&mut self){
+    async fn update_gfx_devices(&mut self) {
         self.gfx_devices.clear();
         let nvml = NVML::init();
-        match nvml{
+        match nvml {
             Ok(n) => {
                 let count = n.device_count().unwrap_or(0);
-                for i in 0..count{
-                    match n.device_by_index(i){
-                        Ok(d) => {
-                            match d.uuid(){
-                                Ok(uuid) => {
-                                    let mut gd = GFXDevice::new(uuid);
-                                    match d.memory_info(){
-                                        Ok(m) => {
-                                            gd.total_memory = m.total;
-                                            gd.used_memory = m.used;
-                                        },
-                                        Err(e) => error!("Failed Getting Memory Info {:?}", e)
+                for i in 0..count {
+                    match n.device_by_index(i) {
+                        Ok(d) => match d.uuid() {
+                            Ok(uuid) => {
+                                let mut gd = GFXDevice::new(uuid);
+                                match d.memory_info() {
+                                    Ok(m) => {
+                                        gd.total_memory = m.total;
+                                        gd.used_memory = m.used;
                                     }
-                                    gd.name = d.name().unwrap_or(String::from(""));
-                                    gd.clock = d.clock_info(Clock::Graphics).unwrap_or(0);
-                                    gd.max_clock = d.max_clock_info(Clock::Graphics).unwrap_or(0);
-                                    gd.power_usage = d.power_usage().unwrap_or(0);
-                                    gd.max_power = d.power_management_limit().unwrap_or(0);
-                                    gd.temperature = d.temperature(TemperatureSensor::Gpu).unwrap_or(0);
-                                    gd.temperature_max = d.temperature_threshold(TemperatureThreshold::GpuMax).unwrap_or(0);
-                                    for i in 0..4{
-                                        let r = d.fan_speed(i);
-                                        if r.is_ok(){
-                                            gd.fans.push(r.unwrap_or(0));
-                                        }
-                                        else{
-                                            break;
-                                        }
+                                    Err(e) => error!("Failed Getting Memory Info {:?}", e),
+                                }
+                                gd.name = d.name().unwrap_or(String::from(""));
+                                gd.clock = d.clock_info(Clock::Graphics).unwrap_or(0);
+                                gd.max_clock = d.max_clock_info(Clock::Graphics).unwrap_or(0);
+                                gd.power_usage = d.power_usage().unwrap_or(0);
+                                gd.max_power = d.power_management_limit().unwrap_or(0);
+                                gd.temperature = d.temperature(TemperatureSensor::Gpu).unwrap_or(0);
+                                gd.temperature_max = d
+                                    .temperature_threshold(TemperatureThreshold::GpuMax)
+                                    .unwrap_or(0);
+                                for i in 0..4 {
+                                    let r = d.fan_speed(i);
+                                    if r.is_ok() {
+                                        gd.fans.push(r.unwrap_or(0));
+                                    } else {
+                                        break;
                                     }
-                                    match d.utilization_rates(){
-                                        Ok(u) => {
-                                            self.histogram_map.add_value_to(format!("{}_gpu", gd.uuid).as_str(), u.gpu as u64);
-                                            self.histogram_map.add_value_to(format!("{}_mem", gd.uuid).as_str(), u.memory as u64);
-                                            gd.gpu_utilization = u.gpu;
-                                            gd.mem_utilization = u.memory;
-                                        },
-                                        Err(e) => error!("Couldn't get utilization rates: {:?}", e)
+                                }
+                                match d.utilization_rates() {
+                                    Ok(u) => {
+                                        self.histogram_map.add_value_to(
+                                            format!("{}_gpu", gd.uuid).as_str(),
+                                            u.gpu as u64,
+                                        );
+                                        self.histogram_map.add_value_to(
+                                            format!("{}_mem", gd.uuid).as_str(),
+                                            u.memory as u64,
+                                        );
+                                        gd.gpu_utilization = u.gpu;
+                                        gd.mem_utilization = u.memory;
                                     }
-                                    debug!("{:}", gd);
-                                    self.gfx_devices.push(gd);
-                                },
-                                Err(e) => error!("Couldn't get UUID: {}", e)
+                                    Err(e) => error!("Couldn't get utilization rates: {:?}", e),
+                                }
+                                debug!("{:}", gd);
+                                self.gfx_devices.push(gd);
                             }
-                            
+                            Err(e) => error!("Couldn't get UUID: {}", e),
                         },
-                        Err(e) => error!("Couldn't get gfx device at index: {}: {:?}", i, e)
+                        Err(e) => error!("Couldn't get gfx device at index: {}: {:?}", i, e),
                     }
                 }
-            },
-            Err(e) => error!("Couldn't init NVML: {:?}", e)
+            }
+            Err(e) => error!("Couldn't init NVML: {:?}", e),
         }
     }
 
@@ -803,7 +809,8 @@ impl CPUTimeApp {
 
         for (pid, process) in process_list {
             if let Some(zp) = self.process_map.get_mut(pid) {
-                if zp.start_time == process.start_time() { // check for PID reuse
+                if zp.start_time == process.start_time() {
+                    // check for PID reuse
                     zp.memory = process.memory();
                     zp.cpu_usage = process.cpu_usage();
                     zp.cum_cpu_usage += zp.cpu_usage as f64;
@@ -822,15 +829,15 @@ impl CPUTimeApp {
                         top_pid = Some(zp.pid);
                         top_cum_cpu_usage = zp.cum_cpu_usage;
                     }
-                    if zp.memory > top_mem{
+                    if zp.memory > top_mem {
                         top_mem = zp.memory;
                         top_mem_pid = zp.pid;
                     }
-                    if zp.get_read_bytes_sec() > top_read{
+                    if zp.get_read_bytes_sec() > top_read {
                         top_read = zp.get_read_bytes_sec();
                         top_reader = zp.pid;
                     }
-                    if zp.get_write_bytes_sec() > top_write{
+                    if zp.get_write_bytes_sec() > top_write {
                         top_write = zp.get_write_bytes_sec();
                         top_writer = zp.pid;
                     }
@@ -841,15 +848,15 @@ impl CPUTimeApp {
                         top_pid = Some(zprocess.pid);
                         top_cum_cpu_usage = zprocess.cum_cpu_usage;
                     }
-                    if zprocess.memory > top_mem{
+                    if zprocess.memory > top_mem {
                         top_mem = zprocess.memory;
                         top_mem_pid = zprocess.pid;
                     }
-                    if zprocess.get_read_bytes_sec() > top_read{
+                    if zprocess.get_read_bytes_sec() > top_read {
                         top_read = zprocess.get_read_bytes_sec();
                         top_reader = zprocess.pid;
                     }
-                    if zprocess.get_read_bytes_sec() > top_write{
+                    if zprocess.get_read_bytes_sec() > top_write {
                         top_write = zprocess.get_read_bytes_sec();
                         top_writer = zprocess.pid;
                     }
@@ -862,15 +869,15 @@ impl CPUTimeApp {
                     top_pid = Some(zprocess.pid);
                     top_cum_cpu_usage = zprocess.cum_cpu_usage;
                 }
-                if zprocess.memory > top_mem{
+                if zprocess.memory > top_mem {
                     top_mem = zprocess.memory;
                     top_mem_pid = zprocess.pid;
                 }
-                if zprocess.get_read_bytes_sec() > top_read{
+                if zprocess.get_read_bytes_sec() > top_read {
                     top_read = zprocess.get_read_bytes_sec();
                     top_reader = zprocess.pid;
                 }
-                if zprocess.get_write_bytes_sec() > top_write{
+                if zprocess.get_write_bytes_sec() > top_write {
                     top_write = zprocess.get_write_bytes_sec();
                     top_writer = zprocess.pid;
                 }
@@ -920,7 +927,7 @@ impl CPUTimeApp {
         if top_reader > 0 {
             self.top_disk_reader_pid = Some(top_reader);
         }
-        if top_writer > 0{
+        if top_writer > 0 {
             self.top_disk_writer_pid = Some(top_writer);
         }
 
@@ -959,7 +966,7 @@ impl CPUTimeApp {
                 ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
                 ProcessTableSortBy::User => {
                     pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal)
-                },
+                }
                 ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
                 ProcessTableSortBy::Status => pa
                     .status
@@ -968,10 +975,8 @@ impl CPUTimeApp {
                     .unwrap_or(Equal),
                 ProcessTableSortBy::Priority => {
                     pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal)
-                },
-                ProcessTableSortBy::Nice => {
-                    pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal)
-                },
+                }
+                ProcessTableSortBy::Nice => pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
                 ProcessTableSortBy::Virt => pa
                     .virtual_memory
                     .partial_cmp(&pb.virtual_memory)
@@ -989,16 +994,15 @@ impl CPUTimeApp {
         });
     }
 
-    async fn update_frequency(&mut self){
+    async fn update_frequency(&mut self) {
         debug!("Updating Frequency");
-        let f =  heim::cpu::frequency().await;
+        let f = heim::cpu::frequency().await;
         match f {
             Ok(f) => {
                 self.frequency = f.current().get::<megahertz>();
-            },
+            }
             Err(_) => {}
         }
-
     }
 
     fn update_disk(&mut self, _width: u16) {
@@ -1023,26 +1027,28 @@ impl CPUTimeApp {
             let mp = d.get_mount_point().to_string_lossy();
             if cfg!(target_os = "linux") {
                 let fs = d.get_file_system();
-                if IGNORED_FILE_SYSTEMS.iter().find(|ignored| &fs == *ignored).is_some() {
+                if IGNORED_FILE_SYSTEMS
+                    .iter()
+                    .find(|ignored| &fs == *ignored)
+                    .is_some()
+                {
                     continue;
                 }
-                if mp.starts_with("/sys") ||
-                mp.starts_with("/proc") ||
-                mp.starts_with("/run") ||
-                mp.starts_with("/dev") ||
-                name.starts_with("shm") ||
-                name.starts_with("sunrpc")
+                if mp.starts_with("/sys")
+                    || mp.starts_with("/proc")
+                    || mp.starts_with("/run")
+                    || mp.starts_with("/dev")
+                    || name.starts_with("shm")
+                    || name.starts_with("sunrpc")
                 {
                     continue;
                 }
             }
             self.disk_available += d.get_available_space();
             self.disk_total += d.get_total_space();
-            
+
             self.disks.push(d.clone());
         }
-
-        
 
         self.disk_read = self
             .process_map

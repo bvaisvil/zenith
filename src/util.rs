@@ -3,13 +3,13 @@
  */
 #[allow(dead_code)]
 use crate::constants::DEFAULT_TICK;
+use signal_hook::{iterator::Signals, SIGABRT, SIGINT, SIGTERM};
 use std::io;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use termion::event::Key;
 use termion::input::TermRead;
-use signal_hook::{iterator::Signals, SIGINT, SIGTERM, SIGABRT};
 
 // pub struct TabsState<'a> {
 //     pub titles: Vec<&'a str>,
@@ -37,7 +37,7 @@ pub enum Event<I> {
     Input(I),
     Tick,
     Save,
-    Terminate
+    Terminate,
 }
 
 #[allow(dead_code)]
@@ -45,7 +45,7 @@ pub struct Events {
     rx: mpsc::Receiver<Event<Key>>,
     input_handle: thread::JoinHandle<()>,
     tick_handle: thread::JoinHandle<()>,
-    sig_handle: thread::JoinHandle<()>
+    sig_handle: thread::JoinHandle<()>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -106,11 +106,13 @@ impl Events {
         };
         let sig_handle = {
             let tx = tx.clone();
-            let signals = Signals::new(&[SIGINT, SIGTERM, SIGABRT]).expect("Couldn't create signal handler");
+            let signals =
+                Signals::new(&[SIGINT, SIGTERM, SIGABRT]).expect("Couldn't create signal handler");
             thread::spawn(move || {
                 let tx = tx.clone();
-                for _sig in signals.forever(){
-                    tx.send(Event::Terminate).expect("Couldn't send Terminate event.");
+                for _sig in signals.forever() {
+                    tx.send(Event::Terminate)
+                        .expect("Couldn't send Terminate event.");
                 }
             })
         };
@@ -118,7 +120,7 @@ impl Events {
             rx,
             input_handle,
             tick_handle,
-            sig_handle
+            sig_handle,
         }
     }
 
