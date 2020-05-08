@@ -396,15 +396,13 @@ fn get_max_pid() -> u64 {
     if cfg!(target_os = "macos") {
         99999
     } else if cfg!(target_os = "linux") {
-        let pid_max = match fs::read(&Path::new("/proc/sys/kernel/pid_max")) {
+        match fs::read(&Path::new("/proc/sys/kernel/pid_max")) {
             Ok(data) => {
                 let r = String::from_utf8_lossy(data.as_slice());
-                let r = r.trim().parse::<u64>().unwrap_or(32768);
-                r
+                r.trim().parse::<u64>().unwrap_or(32768)
             }
             Err(_) => 32768,
-        };
-        pid_max
+        }
     } else {
         32768
     }

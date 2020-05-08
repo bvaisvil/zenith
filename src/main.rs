@@ -150,7 +150,7 @@ fn start_zenith(
         db,
     );
 
-    let z = block_on(r.start());
+    block_on(r.start());
 
     debug!("Shutting Down.");
     if !disable_history && lock_path.exists() {
@@ -160,7 +160,7 @@ fn start_zenith(
 
     restore_terminal();
 
-    Ok(z)
+    Ok(())
 }
 
 fn validate_refresh_rate(arg: String) -> Result<(), String> {
