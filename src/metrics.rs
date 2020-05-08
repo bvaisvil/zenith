@@ -140,25 +140,22 @@ fn load_sled_db(
             if k == "start_time" {
                 continue;
             }
-            match db.get(&k)? {
-                Some(v) => {
-                    let mut v: Histogram = bincode::deserialize(&v)
-                        .unwrap_or_else(|_| panic!("while loading previous data: {:?}", k));
-                    let week_ticks = ONE_WEEK / tick.as_secs();
-                    if v.data.len() as u64 > week_ticks {
-                        let end = v.data.len() as u64 - week_ticks;
-                        v.data.drain(0..end as usize);
-                    }
-                    let mut dur = d;
-                    // add 0s between then and now.
-                    let zero_dur = Duration::from_secs(0);
-                    while dur > zero_dur + tick {
-                        v.data.push(0);
-                        dur -= tick;
-                    }
-                    map.insert(key, v);
+            if let Some(v) = db.get(&k)? {
+                let mut v: Histogram = bincode::deserialize(&v)
+                    .unwrap_or_else(|_| panic!("while loading previous data: {:?}", k));
+                let week_ticks = ONE_WEEK / tick.as_secs();
+                if v.data.len() as u64 > week_ticks {
+                    let end = v.data.len() as u64 - week_ticks;
+                    v.data.drain(0..end as usize);
                 }
-                None => {}
+                let mut dur = d;
+                // add 0s between then and now.
+                let zero_dur = Duration::from_secs(0);
+                while dur > zero_dur + tick {
+                    v.data.push(0);
+                    dur -= tick;
+                }
+                map.insert(key, v);
             }
         }
     }
@@ -326,13 +323,11 @@ impl HistogramMap {
     }
 
     pub fn get(&self, name: &str) -> Option<&Histogram> {
-        let v = self.map.get(name);
-        v
+        self.map.get(name)
     }
 
     fn get_mut(&mut self, name: &str) -> Option<&mut Histogram> {
-        let v = self.map.get_mut(name);
-        v
+        self.map.get_mut(name)
     }
 
     fn has(&self, name: &str) -> bool {
@@ -584,11 +579,8 @@ impl CPUTimeApp {
     }
 
     async fn get_uptime(&mut self) {
-        match host::uptime().await {
-            Ok(u) => {
-                self.uptime = Duration::from_secs_f64(u.get::<time::second>());
-            }
-            Err(_) => {}
+        if let Ok(u) = host::uptime().await {
+            self.uptime = Duration::from_secs_f64(u.get::<time::second>());
         }
     }
 
@@ -597,9 +589,8 @@ impl CPUTimeApp {
         let manager = battery::Manager::new().expect("Couldn't create battery manager");
         self.batteries.clear();
         for b in manager.batteries().expect("Couldn't get batteries") {
-            match b {
-                Ok(b) => self.batteries.push(b),
-                Err(_) => {}
+            if let Ok(b) = b {
+                self.batteries.push(b)
             }
         }
     }
@@ -765,7 +756,7 @@ impl CPUTimeApp {
         ZProcess {
             uid: process.uid,
             user_name,
-            pid: process.pid().clone(),
+            pid: process.pid(),
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
             command: process.cmd().to_vec(),
@@ -881,42 +872,32 @@ impl CPUTimeApp {
                 }
                 self.process_map.insert(zprocess.pid, zprocess);
             }
-            self.processes.push(pid.clone());
-            current_pids.insert(pid.clone());
+            self.processes.push(*pid);
+            current_pids.insert(*pid);
         }
 
         // remove pids that are gone
         self.process_map.retain(|&k, _| current_pids.contains(&k));
 
         //set top cumulative process if we've changed it.
-        match top_pid {
-            Some(p) => match self.process_map.get(&p) {
-                Some(p) => self.cum_cpu_process = Some(p.clone()),
-                None => (),
-            },
-            None => {
-                match &mut self.cum_cpu_process {
-                    Some(p) => {
-                        if self.process_map.contains_key(&p.pid) {
-                            match self.process_map.get(&p.pid) {
-                                Some(cp) => {
-                                    if cp.start_time == p.start_time {
-                                        self.cum_cpu_process = Some(cp.clone());
-                                    } else {
-                                        p.set_end_time();
-                                    }
-                                }
-                                None => (),
-                            }
-                        } else {
-                            // our cumulative winner is dead
-                            p.set_end_time();
-                        }
-                    }
-                    None => (),
-                }
+        if let Some(p) = top_pid {
+            if let Some(p) = self.process_map.get(&p) {
+                self.cum_cpu_process = Some(p.clone())
             }
-        };
+        } else if let Some(p) = &mut self.cum_cpu_process {
+            if self.process_map.contains_key(&p.pid) {
+                if let Some(cp) = self.process_map.get(&p.pid) {
+                    if cp.start_time == p.start_time {
+                        self.cum_cpu_process = Some(cp.clone());
+                    } else {
+                        p.set_end_time();
+                    }
+                }
+            } else {
+                // our cumulative winner is dead
+                p.set_end_time();
+            }
+        }
 
         // update top mem / disk reader & writer
         if top_mem_pid > 0 {
@@ -995,11 +976,8 @@ impl CPUTimeApp {
     async fn update_frequency(&mut self) {
         debug!("Updating Frequency");
         let f = heim::cpu::frequency().await;
-        match f {
-            Ok(f) => {
-                self.frequency = f.current().get::<megahertz>();
-            }
-            Err(_) => {}
+        if let Ok(f) = f {
+            self.frequency = f.current().get::<megahertz>();
         }
     }
 
@@ -1101,10 +1079,11 @@ impl CPUTimeApp {
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
 
-        let mut mem: u64 = 0;
-        if self.mem_total > 0 {
-            mem = ((self.mem_utilization as f64 / self.mem_total as f64) * 100.0) as u64;
-        }
+        let mem = if self.mem_total > 0 {
+            ((self.mem_utilization as f64 / self.mem_total as f64) * 100.0) as u64
+        } else {
+            0
+        };
 
         self.histogram_map.add_value_to("mem_utilization", mem);
 

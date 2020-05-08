@@ -189,7 +189,7 @@ fn validate_height(arg: String) -> Result<(), String> {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let default_db_path = dirs::cache_dir()
-        .unwrap_or(Path::new("./").to_owned())
+        .unwrap_or_else(|| Path::new("./").to_owned())
         .join("zenith");
     let default_db_path = default_db_path
         .to_str()

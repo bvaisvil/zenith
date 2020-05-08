@@ -95,10 +95,7 @@ impl ZProcess {
 
     #[cfg(target_os = "linux")]
     pub fn set_priority(&mut self, priority: i32) -> String {
-        let mut result = -1;
-        unsafe {
-            result = setpriority(PRIO_PROCESS as u32, self.pid as u32, priority);
-        }
+        let mut result = unsafe { setpriority(PRIO_PROCESS as u32, self.pid as u32, priority) };
 
         if result < 0 {
             String::from("Couldn't set priority.")

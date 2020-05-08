@@ -62,14 +62,16 @@ enum Section {
 }
 
 fn mem_title(app: &CPUTimeApp) -> String {
-    let mut mem: u64 = 0;
-    if app.mem_utilization > 0 && app.mem_total > 0 {
-        mem = ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64;
-    }
-    let mut swp: u64 = 0;
-    if app.swap_utilization > 0 && app.swap_total > 0 {
-        swp = ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64;
-    }
+    let mem = if app.mem_utilization > 0 && app.mem_total > 0 {
+        ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64
+    } else {
+        0
+    };
+    let swp = if app.swap_utilization > 0 && app.swap_total > 0 {
+        ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64
+    } else {
+        0
+    };
 
     let top_mem_proc = match app.top_mem_pid {
         Some(pid) => match app.process_map.get(&pid) {
@@ -116,9 +118,9 @@ fn cpu_title(app: &CPUTimeApp) -> String {
     )
 }
 
-fn render_process_table<'a>(
+fn render_process_table(
     app: &CPUTimeApp,
-    process_table: &Vec<i32>,
+    process_table: &[i32],
     width: u16,
     area: Rect,
     process_table_start: usize,
@@ -127,7 +129,7 @@ fn render_process_table<'a>(
     max_pid_len: &usize,
     show_paths: bool,
     show_find: bool,
-    filter: &String,
+    filter: &str,
     highlighted_row: usize,
 ) -> Option<ZProcess> {
     let style = match selected_section {
@@ -350,14 +352,14 @@ fn render_cpu_bars(
     }
 
     let mut constraints: Vec<Constraint> = vec![];
-    let mut half: usize = np as usize;
-    if np > width - 2 {
+    let half = if np > width - 2 {
         constraints.push(Constraint::Percentage(50));
         constraints.push(Constraint::Percentage(50));
-        half = np as usize / 2;
+        np as usize / 2
     } else {
         constraints.push(Constraint::Percentage(100));
-    }
+        np as usize
+    };
     //compute bar width and gutter/gap
 
     if width > 2 && (half * 2) >= (width - 2) as usize {
@@ -373,7 +375,7 @@ fn render_cpu_bars(
         if i > 8 && cpu_bw == 1 {
             p.remove(0);
         }
-        bars.push((p.as_str(), u.clone()));
+        bars.push((p.as_str(), *u));
     }
 
     Block::default()
@@ -459,7 +461,7 @@ fn render_net(
     };
 
     let up_max: u64 = match h_out.iter().max() {
-        Some(x) => x.clone(),
+        Some(x) => *x,
         None => 1,
     };
     let up_max_bytes = float_to_byte_string!(up_max as f64, ByteUnit::B);
@@ -487,7 +489,7 @@ fn render_net(
     };
 
     let down_max: u64 = match h_in.iter().max() {
-        Some(x) => x.clone(),
+        Some(x) => *x,
         None => 1,
     };
     let down_max_bytes = float_to_byte_string!(down_max as f64, ByteUnit::B);
@@ -727,7 +729,7 @@ fn render_disk(
     };
 
     let read_max: u64 = match h_read.iter().max() {
-        Some(x) => x.clone(),
+        Some(x) => *x,
         None => 1,
     };
     let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
@@ -768,7 +770,7 @@ fn render_disk(
     };
 
     let write_max: u64 = match h_write.iter().max() {
-        Some(x) => x.clone(),
+        Some(x) => *x,
         None => 1,
     };
     let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
@@ -961,7 +963,7 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
 }
 
 fn render_battery_widget(
-    batteries: &Vec<battery::Battery>,
+    batteries: &[battery::Battery],
 ) -> (Text<'_>, Text<'_>, Text<'_>, Text<'_>) {
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
     if !batteries.is_empty() {
@@ -1140,7 +1142,7 @@ fn render_cpu(
     render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
 }
 
-fn filter_process_table(app: &CPUTimeApp, filter: &String) -> Vec<i32> {
+fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
     let filter_lc = filter.to_lowercase();
     let results: Vec<i32> = app
         .processes
@@ -1491,14 +1493,11 @@ impl<'a> TerminalRenderer {
                             }
                         }
                     } else if input == Key::Left {
-                        match self.app.histogram_map.histograms_width() {
-                            Some(w) => {
-                                self.hist_start_offset += 1;
-                                if self.hist_start_offset > w + 1 {
-                                    self.hist_start_offset = w - 1;
-                                }
+                        if let Some(w) = self.app.histogram_map.histograms_width() {
+                            self.hist_start_offset += 1;
+                            if self.hist_start_offset > w + 1 {
+                                self.hist_start_offset = w - 1;
                             }
-                            None => {}
                         }
                         self.hist_start_offset += 1;
                     } else if input == Key::Right {
