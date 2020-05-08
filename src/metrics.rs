@@ -369,7 +369,7 @@ impl HistogramMap {
                     .open(dbfile)
                     .expect("Couldn't Open DB");
                 database
-                    .write(&bincode::serialize(self).expect(SER_ERROR))
+                    .write_all(&bincode::serialize(self).expect(SER_ERROR))
                     .expect("Failed to write file.");
                 let configuration = Path::new(db).join(Path::new(".configuration"));
                 let mut configuration = fs::OpenOptions::new()
@@ -378,7 +378,7 @@ impl HistogramMap {
                     .open(configuration)
                     .expect("Couldn't open Configuration");
                 configuration
-                    .write(format!("version={:}\n", env!("CARGO_PKG_VERSION")).as_bytes())
+                    .write_all(format!("version={:}\n", env!("CARGO_PKG_VERSION")).as_bytes())
                     .expect("Failed to write file.");
             }
             None => {}
