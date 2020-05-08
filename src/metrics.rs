@@ -2,8 +2,7 @@
  * Copyright 2019 Benjamin Vaisvil
  */
 use crate::zprocess::*;
-use battery;
-use chrono;
+
 use futures::StreamExt;
 use heim::host;
 use heim::net;
@@ -16,13 +15,12 @@ use std::fmt;
 use std::mem::swap;
 use std::time::{Duration, SystemTime};
 
-use bincode;
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::NVML;
 use serde_derive::{Deserialize, Serialize};
-use sled;
+
 use std::error::Error;
 use std::fs;
 use std::io::Write;
@@ -145,13 +143,13 @@ fn load_sled_db(
             match db.get(&k)? {
                 Some(v) => {
                     let mut v: Histogram = bincode::deserialize(&v)
-                        .expect(format!("while loading previous data: {:?}", k).as_str());
+                        .unwrap_or_else(|_| panic!("while loading previous data: {:?}", k));
                     let week_ticks = ONE_WEEK / tick.as_secs();
                     if v.data.len() as u64 > week_ticks {
                         let end = v.data.len() as u64 - week_ticks;
                         v.data.drain(0..end as usize);
                     }
-                    let mut dur = Duration::from(d);
+                    let mut dur = d;
                     // add 0s between then and now.
                     let zero_dur = Duration::from_secs(0);
                     while dur > zero_dur + tick {
@@ -208,7 +206,7 @@ fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramMap {
                         let end = v.data.len() as u64 - week_ticks;
                         v.data.drain(0..end as usize);
                     }
-                    let mut dur = Duration::from(d);
+                    let mut dur = d;
                     // add 0s between then and now.
                     let zero_dur = Duration::from_secs(0);
                     while dur > zero_dur + hm.tick {
@@ -401,7 +399,7 @@ impl Drop for HistogramMap {
 
 fn get_max_pid() -> u64 {
     if cfg!(target_os = "macos") {
-        return 99999;
+        99999
     } else if cfg!(target_os = "linux") {
         let pid_max = match fs::read(&Path::new("/proc/sys/kernel/pid_max")) {
             Ok(data) => {
@@ -411,7 +409,7 @@ fn get_max_pid() -> u64 {
             }
             Err(_) => 32768,
         };
-        return pid_max;
+        pid_max
     } else {
         32768
     }
@@ -562,7 +560,7 @@ impl CPUTimeApp {
         s.system.refresh_all();
         s.system.refresh_all(); // apparently multiple refreshes are necessary to fill in all values.
 
-        return s;
+        s
     }
 
     async fn get_platform(&mut self) {
@@ -628,7 +626,7 @@ impl CPUTimeApp {
                     }
                     .trim_end_matches(":0")
                     .to_string();
-                    if ip.len() == 0 {
+                    if ip.is_empty() {
                         continue;
                     }
                     let dest = match n.destination() {
@@ -640,8 +638,8 @@ impl CPUTimeApp {
                     };
                     self.network_interfaces.push(NetworkInterface {
                         name: n.name().to_owned(),
-                        ip: ip,
-                        dest: dest,
+                        ip,
+                        dest,
                     });
                 }
                 Err(_) => println!("Couldn't get information on a nic"),
@@ -766,7 +764,7 @@ impl CPUTimeApp {
         };
         ZProcess {
             uid: process.uid,
-            user_name: user_name,
+            user_name,
             pid: process.pid().clone(),
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
@@ -1027,11 +1025,7 @@ impl CPUTimeApp {
             let mp = d.get_mount_point().to_string_lossy();
             if cfg!(target_os = "linux") {
                 let fs = d.get_file_system();
-                if IGNORED_FILE_SYSTEMS
-                    .iter()
-                    .find(|ignored| &fs == *ignored)
-                    .is_some()
-                {
+                if IGNORED_FILE_SYSTEMS.iter().any(|ignored| &fs == ignored) {
                     continue;
                 }
                 if mp.starts_with("/sys")
@@ -1091,7 +1085,7 @@ impl CPUTimeApp {
         if num_procs == 0 {
             self.cpu_utilization = 0;
         } else {
-            usage = usage / num_procs as f32;
+            usage /= num_procs as f32;
             self.cpu_utilization = (usage * 100.0) as u64;
         }
         self.histogram_map

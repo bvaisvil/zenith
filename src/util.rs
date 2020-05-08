@@ -80,7 +80,7 @@ impl Events {
                 for evt in stdin.keys() {
                     match evt {
                         Ok(key) => {
-                            if let Err(_) = tx.send(Event::Input(key)) {
+                            if tx.send(Event::Input(key)).is_err() {
                                 return;
                             }
                         }
@@ -105,7 +105,7 @@ impl Events {
             })
         };
         let sig_handle = {
-            let tx = tx.clone();
+            let tx = tx;
             let signals =
                 Signals::new(&[SIGINT, SIGTERM, SIGABRT]).expect("Couldn't create signal handler");
             thread::spawn(move || {

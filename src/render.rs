@@ -4,7 +4,7 @@
 use crate::metrics::*;
 use crate::util::*;
 use crate::zprocess::*;
-use battery;
+
 use battery::units::power::watt;
 use battery::units::ratio::percent;
 use battery::units::time::second;
@@ -153,7 +153,7 @@ fn render_process_table<'a>(
                 .expect("expected pid to be present")
         })
         .collect();
-    let highlighted_process = if procs.len() > 0 {
+    let highlighted_process = if !procs.is_empty() {
         Some(procs[highlighted_row].clone())
     } else {
         None
@@ -170,12 +170,10 @@ fn render_process_table<'a>(
                 } else {
                     String::from("")
                 }
+            } else if p.command.len() > 1 {
+                format!(" {:}", p.command[1..].join(" "))
             } else {
-                if p.command.len() > 1 {
-                    format!(" {:}", p.command[1..].join(" "))
-                } else {
-                    String::from("")
-                }
+                String::from("")
             };
             vec![
                 format!("{: >width$}", p.pid, width = *max_pid_len),
@@ -243,11 +241,11 @@ fn render_process_table<'a>(
         if i >= process_table_start && i < end {
             if highlighted_row == i {
                 Some(Row::StyledData(
-                    r.into_iter(),
+                    r.iter(),
                     Style::default().fg(Color::Magenta).modifier(Modifier::BOLD),
                 ))
             } else {
-                Some(Row::Data(r.into_iter()))
+                Some(Row::Data(r.iter()))
             }
         } else {
             None
@@ -256,7 +254,7 @@ fn render_process_table<'a>(
 
     let title = if show_find {
         format!("[ESC] Clear, Find: {:}", filter)
-    } else if filter.len() > 0 {
+    } else if !filter.is_empty() {
         format!("Filtered Results: {:}, [f] to change/clear", filter)
     } else {
         format!(
@@ -468,9 +466,8 @@ fn render_net(
 
     Sparkline::default()
         .block(
-            Block::default().title(
-                format!("↑ [{:^10}] Max [{:^10}]", net_up.to_string(), up_max_bytes).as_str(),
-            ),
+            Block::default()
+                .title(format!("↑ [{:^10}] Max [{:^10}]", net_up, up_max_bytes).as_str()),
         )
         .data(&h_out)
         .style(Style::default().fg(Color::LightYellow))
@@ -561,7 +558,7 @@ fn render_process(
                     DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.end_time.unwrap()))
                 )
             } else {
-                format!("alive")
+                "alive".to_string()
             };
             let start_time =
                 DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
@@ -598,7 +595,7 @@ fn render_process(
                 Text::styled(format!("{:}", start_time), rhs_style),
                 Text::raw("\n"),
                 Text::raw("Total Run Time:        "),
-                Text::styled(format!("{:}", d), rhs_style),
+                Text::styled(d, rhs_style),
                 Text::raw("\n"),
                 Text::raw("CPU Usage:             "),
                 Text::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
@@ -684,7 +681,7 @@ fn render_process(
                     .render(f, v_sections[1]);
             }
         }
-        None => return,
+        None => {}
     };
 }
 
@@ -858,7 +855,7 @@ fn render_graphics(
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(gfx_layout[1]);
-    if app.gfx_devices.len() == 0 {
+    if app.gfx_devices.is_empty() {
         return;
     }
     let gd = &app.gfx_devices[0];
@@ -872,7 +869,7 @@ fn render_graphics(
         Some(h) => h.data,
         None => return,
     };
-    let fan = if gd.fans.len() > 0 {
+    let fan = if !gd.fans.is_empty() {
         format!("Fan [{:3.0}%]", gd.fans[0])
     } else {
         String::from("")
@@ -963,9 +960,11 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
     )
 }
 
-fn render_battery_widget(batteries: &Vec<battery::Battery>) -> (Text<'_>, Text<'_>, Text<'_>, Text<'_>) {
+fn render_battery_widget(
+    batteries: &Vec<battery::Battery>,
+) -> (Text<'_>, Text<'_>, Text<'_>, Text<'_>) {
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
-    if batteries.len() > 0 {
+    if !batteries.is_empty() {
         let b: &battery::Battery = batteries.get(0).expect("no battery");
         let charge_state = match b.state() {
             battery::State::Unknown => " ",
@@ -1071,8 +1070,8 @@ fn render_top_title_bar(
         String::from("")
     };
     let battery_widets = render_battery_widget(&app.batteries);
-    let battery_start = if app.batteries.len() > 0 { " [" } else { "" };
-    let battery_end = if app.batteries.len() > 0 { "]" } else { "" };
+    let battery_start = if !app.batteries.is_empty() { " [" } else { "" };
+    let battery_end = if !app.batteries.is_empty() { "]" } else { "" };
     let line = vec![
         Text::styled(
             format!(" {:}", app.hostname),
@@ -1151,12 +1150,12 @@ fn filter_process_table(app: &CPUTimeApp, filter: &String) -> Vec<i32> {
                 .process_map
                 .get(pid)
                 .expect("Pid present in processes but not in map.");
-            filter.len() == 0
+            filter.is_empty()
                 || p.name.to_lowercase().contains(&filter_lc)
                 || p.exe.to_lowercase().contains(&filter_lc)
                 || p.command.join(" ").to_lowercase().contains(&filter_lc)
         })
-        .map(|&pid| pid)
+        .copied()
         .collect();
     results
 }
@@ -1300,7 +1299,7 @@ impl<'a> TerminalRenderer {
         debug!("Create Event Loop");
         let events = Events::new(tick_rate);
         TerminalRenderer {
-            terminal: terminal,
+            terminal,
             app,
             events,
             process_table_row_start: 0,
@@ -1468,7 +1467,7 @@ impl<'a> TerminalRenderer {
                         break;
                     } else if input == Key::Up {
                         if self.app.selected_process.is_some() {
-                        } else if process_table.len() > 0 {
+                        } else if !process_table.is_empty() {
                             if self.highlighted_row != 0 {
                                 self.highlighted_row -= 1;
                             }
@@ -1480,7 +1479,7 @@ impl<'a> TerminalRenderer {
                         }
                     } else if input == Key::Down {
                         if self.app.selected_process.is_some() {
-                        } else if process_table.len() > 0 {
+                        } else if !process_table.is_empty() {
                             if self.highlighted_row < process_table.len() - 1 {
                                 self.highlighted_row += 1;
                             }

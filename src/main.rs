@@ -17,8 +17,7 @@ mod zprocess;
 
 use crate::render::TerminalRenderer;
 use clap::{App, Arg};
-use dirs;
-use env_logger;
+
 use futures::executor::block_on;
 use std::error::Error;
 use std::fs;
@@ -119,19 +118,17 @@ fn start_zenith(
         } else {
             None
         }
-    } else {
-        if !disable_history {
-            let p = Path::new(db_path);
-            if !p.exists() {
-                debug!("Creating DB dir.");
-                fs::create_dir(p).expect("Couldn't Create DB dir.");
-            }
-            debug!("Creating Lock");
-            File::create(&lock_path)?;
-            Some(p.to_path_buf())
-        } else {
-            None
+    } else if !disable_history {
+        let p = Path::new(db_path);
+        if !p.exists() {
+            debug!("Creating DB dir.");
+            fs::create_dir(p).expect("Couldn't Create DB dir.");
         }
+        debug!("Creating Lock");
+        File::create(&lock_path)?;
+        Some(p.to_path_buf())
+    } else {
+        None
     };
 
     init_terminal();
