@@ -21,7 +21,6 @@ use clap::{App, Arg};
 use futures::executor::block_on;
 use std::error::Error;
 use std::fs;
-use std::fs::{remove_file, File};
 use std::io::{stdout, Write};
 use std::panic;
 use std::panic::PanicInfo;
@@ -108,29 +107,6 @@ fn start_zenith(
           db_path
     );
 
-    //check lock
-    let lock_path = Path::new(db_path).join(Path::new(".zenith.lock"));
-    let db = if lock_path.exists() {
-        debug!("Lock exists.");
-        if !disable_history {
-            print!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
-            exit(1);
-        } else {
-            None
-        }
-    } else if !disable_history {
-        let p = Path::new(db_path);
-        if !p.exists() {
-            debug!("Creating DB dir.");
-            fs::create_dir(p).expect("Couldn't Create DB dir.");
-        }
-        debug!("Creating Lock");
-        File::create(&lock_path)?;
-        Some(p.to_path_buf())
-    } else {
-        None
-    };
-
     init_terminal();
 
     // setup a panic hook so we can see our panic messages.
@@ -138,25 +114,55 @@ fn start_zenith(
         panic_hook(info);
     }));
 
-    debug!("Create Renderer");
-    let mut r = TerminalRenderer::new(
-        rate,
-        cpu_height as i16,
-        net_height as i16,
-        disk_height as i16,
-        process_height as i16,
-        sensor_height as i16,
-        graphics_height as i16,
-        db,
-    );
+    // get pid before runtime start, so we always get the main pid and not the tid of a thread
+    let main_pid = std::process::id();
 
-    block_on(r.start());
+    let run = || async {
+        //check lock
+        let (db, lock) = if !disable_history {
+            let db_path = Path::new(db_path);
+            if !db_path.exists() {
+                debug!("Creating DB dir.");
+                fs::create_dir(db_path).expect("Couldn't Create DB dir.");
+            }
+            debug!("Creating Lock");
+
+            let lock_path = db_path.join(".zenith.lock");
+            let lock = match util::Lockfile::new(main_pid, &lock_path).await {
+                Some(f) => f,
+                None => {
+                    print!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
+                    exit(1);
+                }
+            };
+
+            // keeps the lock handle alive
+            (Some(db_path.to_owned()), Some(lock))
+        } else {
+            (None, None)
+        };
+
+        debug!("Create Renderer");
+        let mut r = TerminalRenderer::new(
+            rate,
+            cpu_height as i16,
+            net_height as i16,
+            disk_height as i16,
+            process_height as i16,
+            sensor_height as i16,
+            graphics_height as i16,
+            db,
+        );
+
+        r.start().await;
+
+        // only drop lock at the end
+        drop(lock);
+    };
+
+    block_on(run());
 
     debug!("Shutting Down.");
-    if !disable_history && lock_path.exists() {
-        debug!("Removing Lock");
-        remove_file(lock_path)?
-    }
 
     restore_terminal();
 
