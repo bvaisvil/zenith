@@ -70,7 +70,6 @@ fn restore_terminal() {
     let raw_term = stdout()
         .into_raw_mode()
         .expect("Could not bind to STDOUT in raw mode.");
-    //let stdout = MouseTerminal::from(stdout);
     let mut screen = AlternateScreen::from(raw_term);
     // Restore cursor position and clear screen for TTYs
     write!(
