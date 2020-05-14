@@ -21,7 +21,6 @@ use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold
 use nvml::NVML;
 use serde_derive::{Deserialize, Serialize};
 
-use std::error::Error;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -103,90 +102,6 @@ pub struct HistogramMap {
     previous_stop: Option<SystemTime>,
 }
 
-fn load_sled_db(
-    dur: Duration,
-    path: &PathBuf,
-    current_time: SystemTime,
-    tick: Duration,
-) -> Result<HistogramMap, Box<dyn Error>> {
-    let db = sled::open(path)?;
-    let mut map = HashMap::with_capacity(5);
-    let previous_stop = match db.get("stop_time").expect(DB_ERROR) {
-        Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
-        None => current_time,
-    };
-
-    let tick = match db.get("tick")? {
-        Some(t) => bincode::deserialize(&t).expect(DSER_ERROR),
-        None => tick,
-    };
-
-    if previous_stop < current_time {
-        let d = current_time
-            .duration_since(previous_stop)
-            .expect("Current time is before stored time. This should not happen.");
-
-        // restore previous histograms
-        for k in db.iter().keys() {
-            let k = k.expect(DB_ERROR);
-            let key = String::from_utf8(k.to_owned().to_vec())
-                .expect("Couldn't make a utf8 string from that key.");
-            if k == "stop_time" {
-                continue;
-            }
-            if k == "tick" {
-                continue;
-            }
-            if k == "start_time" {
-                continue;
-            }
-            if let Some(v) = db.get(&k)? {
-                let mut v: Histogram = bincode::deserialize(&v)
-                    .unwrap_or_else(|_| panic!("while loading previous data: {:?}", k));
-                let week_ticks = ONE_WEEK / tick.as_secs();
-                if v.data.len() as u64 > week_ticks {
-                    let end = v.data.len() as u64 - week_ticks;
-                    v.data.drain(0..end as usize);
-                }
-                let mut dur = d;
-                // add 0s between then and now.
-                let zero_dur = Duration::from_secs(0);
-                while dur > zero_dur + tick {
-                    v.data.push(0);
-                    dur -= tick;
-                }
-                map.insert(key, v);
-            }
-        }
-    }
-    Ok(HistogramMap {
-        map,
-        duration: dur,
-        tick,
-        db: Some(path.to_owned()),
-        previous_stop: Some(previous_stop),
-    })
-}
-
-fn load_and_migrate(
-    dur: Duration,
-    path: &PathBuf,
-    current_time: SystemTime,
-    tick: Duration,
-) -> Option<HistogramMap> {
-    let db = load_sled_db(dur, path, current_time, tick);
-    match db {
-        Ok(mut map) => {
-            fs::remove_dir_all(path)
-                .expect("Couldn't remove database dir during migration. Is it in use?");
-            fs::create_dir(path).expect("Couldn't create database dir.");
-            map.save_histograms();
-            Some(map)
-        }
-        Err(_) => None,
-    }
-}
-
 fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramMap {
     // need to fill in time between when it was last stored and now, like the sled DB
     let data = std::fs::read(path).expect(DB_ERROR);
@@ -229,26 +144,7 @@ impl HistogramMap {
             Some(db) => {
                 debug!("Opening DB");
                 let dbfile = Path::new(db).join(Path::new("store"));
-                let sleddb = Path::new(db).join(Path::new("conf"));
-                if sleddb.exists() {
-                    debug!("SledDB exists, attempting to migrate.");
-                    match load_and_migrate(dur, db, current_time, tick) {
-                        Some(hm) => {
-                            debug!("Migration Successful");
-                            hm
-                        }
-                        None => {
-                            debug!("Migration Failed, starting with empty DB.");
-                            HistogramMap {
-                                map: HashMap::with_capacity(5),
-                                duration: dur,
-                                tick,
-                                db: path,
-                                previous_stop: None,
-                            }
-                        }
-                    }
-                } else if dbfile.exists() {
+                if dbfile.exists() {
                     debug!("Zenith store exists, opening...");
                     load_zenith_store(dbfile, &current_time)
                 } else {

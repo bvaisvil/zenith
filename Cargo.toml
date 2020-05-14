@@ -27,7 +27,6 @@ futures = "0.3.1"
 clap = "2.31.*"
 chrono = "0.4.*"
 sysinfo = {git = "https://github.com/bvaisvil/sysinfo", branch="zenith_changes"}
-sled = "0.31.*"
 dirs = "2.0.*"
 serde = {version="1.0.104", features=["derive"]}
 serde_derive = "1.0.104"
