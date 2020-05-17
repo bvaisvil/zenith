@@ -4,7 +4,7 @@
 use crate::constants::DEFAULT_TICK;
 use heim::process;
 use heim::process::ProcessError;
-use libc::{getpriority, setpriority, PRIO_PROCESS};
+use libc::{getpriority, setpriority, id_t};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::ProcessStatus;
 
@@ -95,13 +95,13 @@ impl ZProcess {
 
     #[cfg(target_os = "linux")]
     pub fn set_priority(&mut self, priority: i32) -> String {
-        let mut result = unsafe { setpriority(PRIO_PROCESS as u32, self.pid as u32, priority) };
+        let mut result = unsafe { setpriority(0, self.pid as id_t, priority) };
 
         if result < 0 {
             String::from("Couldn't set priority.")
         } else {
             unsafe {
-                result = getpriority(PRIO_PROCESS as u32, self.pid as u32);
+                result = getpriority(0, self.pid as id_t);
             }
             self.priority = result + 20;
             self.nice = result;
@@ -113,7 +113,7 @@ impl ZProcess {
     pub fn set_priority(&mut self, priority: i32) -> String {
         let mut result = -1;
         unsafe {
-            result = setpriority(PRIO_PROCESS, self.pid as u32, priority);
+            result = setpriority(0, self.pid as id_t, priority);
         }
 
         if result < 0 {
