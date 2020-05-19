@@ -23,7 +23,7 @@ macro_rules! convert_error_to_string {
             ProcessError::NoSuchProcess { .. } => String::from("No Such Process"),
             ProcessError::ZombieProcess { .. } => String::from("Zombie Process"),
             ProcessError::AccessDenied { .. } => String::from("Access Denied"),
-            _ => String::from("Unknow error"),
+            _ => String::from("Unknown error"),
         }
     };
 }
