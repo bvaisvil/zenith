@@ -48,7 +48,6 @@ Download one of the compiled [releases](https://github.com/bvaisvil/zenith/relea
 ### Homebrew
 
 ```bash
-brew tap bvaisvil/zenith
 brew install zenith
 ```
 
