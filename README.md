@@ -41,6 +41,8 @@
 
 ## Installation
 
+<a href="https://repology.org/project/zenith/versions"><img src="https://repology.org/badge/vertical-allrepos/zenith.svg" alt="Packaging status" align="right"></a>
+
 ### Binary
 
 Download one of the compiled [releases](https://github.com/bvaisvil/zenith/releases).
