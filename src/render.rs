@@ -835,6 +835,7 @@ fn render_graphics(
     f: &mut Frame<'_, ZBackend>,
     zf: &u32,
     update_number: &u32,
+    gfx_device_index: &usize,
     offset: &usize,
     selected_section: &Section,
 ) {
@@ -860,7 +861,7 @@ fn render_graphics(
     if app.gfx_devices.is_empty() {
         return;
     }
-    let gd = &app.gfx_devices[0];
+    let gd = &app.gfx_devices[*gfx_device_index];
     let h_gpu = match app.histogram_map.get_zoomed(
         format!("{}_gpu", gd.uuid).as_str(),
         *zf,
@@ -913,15 +914,16 @@ fn render_graphics(
         .style(Style::default().fg(Color::LightMagenta))
         .max(100)
         .render(f, area[1]);
-    let devices = app.gfx_devices.iter().map(|d| {
+    let devices = app.gfx_devices.iter().enumerate().map(|(i,d)| {
+        let indicator = if i == *gfx_device_index {">"} else{" "};
         if d.gpu_utilization > 90 {
             Text::Styled(
-                Cow::Owned(format!("{:3.0}%: {}", d.gpu_utilization, d.name)),
+                Cow::Owned(format!("{}{:3.0}%: {}", indicator, d.gpu_utilization, d.name)),
                 Style::default().fg(Color::Red).modifier(Modifier::BOLD),
             )
         } else {
             Text::Styled(
-                Cow::Owned(format!("{:3.0}%: {}", d.gpu_utilization, d.name)),
+                Cow::Owned(format!("{}{:3.0}%: {}", indicator, d.gpu_utilization, d.name)),
                 Style::default().fg(Color::Green),
             )
         }
@@ -1242,6 +1244,7 @@ pub struct TerminalRenderer {
     app: CPUTimeApp,
     events: Events,
     process_table_row_start: usize,
+    gfx_device_index: usize,
     cpu_height: i16,
     net_height: i16,
     disk_height: i16,
@@ -1305,6 +1308,7 @@ impl<'a> TerminalRenderer {
             app,
             events,
             process_table_row_start: 0,
+            gfx_device_index: 0,
             cpu_height,
             net_height,
             disk_height,
@@ -1372,6 +1376,7 @@ impl<'a> TerminalRenderer {
             let show_find = self.show_find;
             let mut highlighted_process: Option<ZProcess> = None;
             let process_table = filter_process_table(app, &self.filter);
+            let gfx_device_index = &self.gfx_device_index;
 
             if !process_table.is_empty() && self.highlighted_row >= process_table.len() {
                 self.highlighted_row = process_table.len() - 1;
@@ -1403,7 +1408,7 @@ impl<'a> TerminalRenderer {
                         render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
                         render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
                         render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
-                        render_graphics(&app, v_sections[4], &mut f, zf, un, offset, selected);
+                        render_graphics(&app, v_sections[4], &mut f, zf, un, gfx_device_index, offset, selected);
 
                         if *process_height > 0 {
                             if let Some(area) = v_sections.last() {
@@ -1468,29 +1473,53 @@ impl<'a> TerminalRenderer {
                     if !self.show_find && input == Key::Char('q') {
                         break;
                     } else if input == Key::Up {
-                        if self.app.selected_process.is_some() {
-                        } else if !process_table.is_empty() {
-                            if self.highlighted_row != 0 {
-                                self.highlighted_row -= 1;
-                            }
-                            if self.process_table_row_start > 0
-                                && self.highlighted_row < self.process_table_row_start
-                            {
-                                self.process_table_row_start -= 1;
-                            }
+                        match self.selected_section {
+                            Section::Process => {
+                                if self.app.selected_process.is_some() {} else if !process_table.is_empty() {
+                                    if self.highlighted_row != 0 {
+                                        self.highlighted_row -= 1;
+                                    }
+                                    if self.process_table_row_start > 0
+                                        && self.highlighted_row < self.process_table_row_start
+                                    {
+                                        self.process_table_row_start -= 1;
+                                    }
+                                }
+                            },
+                            Section::Graphics => {
+                                if self.gfx_device_index > 0{
+                                    self.gfx_device_index -= 1;
+                                }
+                                else{
+                                    self.gfx_device_index = self.app.gfx_devices.len() -1;
+                                }
+                            },
+                            _ => {}
                         }
                     } else if input == Key::Down {
-                        if self.app.selected_process.is_some() {
-                        } else if !process_table.is_empty() {
-                            if self.highlighted_row < process_table.len() - 1 {
-                                self.highlighted_row += 1;
+                        match self.selected_section {
+                            Section::Process => {
+                                if self.app.selected_process.is_some() {} else if !process_table.is_empty() {
+                                    if self.highlighted_row < process_table.len() - 1 {
+                                        self.highlighted_row += 1;
+                                    }
+                                    if self.process_table_row_start < process_table.len()
+                                        && self.highlighted_row
+                                        > (self.process_table_row_start + process_table_height as usize)
+                                    {
+                                        self.process_table_row_start += 1;
+                                    }
+                                }
                             }
-                            if self.process_table_row_start < process_table.len()
-                                && self.highlighted_row
-                                    > (self.process_table_row_start + process_table_height as usize)
-                            {
-                                self.process_table_row_start += 1;
-                            }
+                            Section::Graphics => {
+                                if self.gfx_device_index == self.app.gfx_devices.len() - 1{
+                                    self.gfx_device_index = 0;
+                                }
+                                else{
+                                    self.gfx_device_index += 1;
+                                }
+                            },
+                            _ => {}
                         }
                     } else if input == Key::Left {
                         if let Some(w) = self.app.histogram_map.histograms_width() {
