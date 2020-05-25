@@ -177,7 +177,7 @@ fn render_process_table(
             } else {
                 String::from("")
             };
-            vec![
+            let mut row = vec![
                 format!("{: >width$}", p.pid, width = *max_pid_len),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
@@ -201,8 +201,14 @@ fn render_process_table(
                     "{:>8}",
                     float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B).replace("B", "")
                 ),
-                format!("{:}{:}", p.name, cmd_string),
-            ]
+
+            ];
+            if app.gfx_devices.len() >0 {
+                row.push(format!("{:>4.0}", p.gpu_usage));
+                row.push(format!("{:>4.0}", p.gpu_memory));
+            }
+            row.push(format!("{:}{:}", p.name, cmd_string));
+            row
         })
         .collect();
 
@@ -219,6 +225,10 @@ fn render_process_table(
         String::from("READ/s   "),
         String::from("WRITE/s  "),
     ];
+    if app.gfx_devices.len() > 0{
+        header.push(String::from("GPU% "));
+        header.push(String::from("GPUM% "));
+    }
     //figure column widths
     let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
     let s: u16 = widths.iter().sum();
@@ -577,7 +587,7 @@ fn render_process(
             );
 
             let rhs_style = Style::default().fg(Color::Green);
-            let text = vec![
+            let mut text = vec![
                 Text::raw("Name:                  "),
                 Text::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
                 Text::raw("\n"),
@@ -653,6 +663,14 @@ fn render_process(
                 ),
                 Text::raw("\n"),
             ];
+            if app.gfx_devices.len() > 0{
+                text.push(Text::raw("GPU Util:              "));
+                text.push(Text::styled(format!("{:7.2} %", p.gpu_usage as f64), rhs_style));
+                text.push(Text::raw("\n"));
+                text.push(Text::raw("GPU Memory Util:       "));
+                text.push(Text::styled(format!("{:7.2} %", p.gpu_memory as f64), rhs_style));
+                text.push(Text::raw("\n"));
+            }
 
             if text.len() > v_sections[1].height as usize * 3 {
                 let h_sections = Layout::default()
@@ -877,11 +895,16 @@ fn render_graphics(
     } else {
         String::from("")
     };
+    let p = match gd.processes.get(0){
+        Some(p) => p.pid,
+        None => 0
+    };
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("GPU [{:3.0}%] Clock [{:}/{:} Mhz] {:} Power [{:} W / {:} W] Temp [{:} C / {:} C]",
-                 gd.gpu_utilization, gd.clock, gd.max_clock, fan, gd.power_usage/1000, gd.max_power/1000, gd.temperature, gd.temperature_max).as_str()),
+                .title(format!("GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:}/{:} Mhz]",
+                               gd.gpu_utilization, gd.encoder_utilization, gd.decoder_utilization,
+                               gd.processes.len(), gd.clock, gd.max_clock).as_str()),
         )
         .data(&h_gpu)
         .style(Style::default().fg(Color::LightYellow))
@@ -903,9 +926,10 @@ fn render_graphics(
         .block(
             Block::default().title(
                 format!(
-                    "MEM [ {:} ] Usage [{:3.0}%]",
+                    "MEM [ {:} ] Usage [{:3.0}%] {:} Pwr [{:} W / {:} W] Tmp [{:} C / {:} C]",
                     float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
-                    gd.mem_utilization
+                    gd.mem_utilization,
+                    fan, gd.power_usage/1000, gd.max_power/1000, gd.temperature, gd.temperature_max
                 )
                 .as_str(),
             ),
@@ -1158,6 +1182,7 @@ fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
                 || p.name.to_lowercase().contains(&filter_lc)
                 || p.exe.to_lowercase().contains(&filter_lc)
                 || p.command.join(" ").to_lowercase().contains(&filter_lc)
+                || format!("{:}", p.pid).contains(&filter_lc)
         })
         .copied()
         .collect();

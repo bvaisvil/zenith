@@ -51,6 +51,8 @@ pub struct ZProcess {
     pub last_updated: SystemTime,
     pub end_time: Option<u64>,
     pub start_time: u64,
+    pub gpu_usage: u64,
+    pub gpu_memory: u64,
 }
 
 impl ZProcess {

@@ -18,6 +18,8 @@ use std::time::{Duration, SystemTime};
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
+use nvml::struct_wrappers::device::ProcessUtilizationSample;
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::NVML;
 use serde_derive::{Deserialize, Serialize};
 
@@ -32,6 +34,26 @@ const DB_ERROR: &str = "Couldn't open database.";
 const DSER_ERROR: &str = "Couldn't deserialize object";
 const SER_ERROR: &str = "Couldn't serialize object";
 
+#[cfg(feature = "nvidia")]
+#[derive(FromPrimitive, PartialEq, Copy, Clone)]
+pub enum ProcessTableSortBy {
+    Pid = 0,
+    User = 1,
+    Priority = 2,
+    Nice = 3,
+    CPU = 4,
+    MemPerc = 5,
+    Mem = 6,
+    Virt = 7,
+    Status = 8,
+    DiskRead = 9,
+    DiskWrite = 10,
+    GPU = 11,
+    GPUM = 12,
+    Cmd = 13,
+}
+
+#[cfg(not(feature = "nvidia"))]
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy {
     Pid = 0,
@@ -308,9 +330,36 @@ fn get_max_pid_length() -> usize {
     format!("{:}", get_max_pid()).len()
 }
 
+#[derive(Clone)]
+pub struct GFXDeviceProcess{
+    pub pid: i32,
+    pub timestamp: u64,
+    pub sm_utilization: u32,
+    pub mem_utilization: u32,
+    pub enc_utilization: u32,
+    pub dec_utilization: u32
+}
+
+impl GFXDeviceProcess{
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    fn from_nvml(process: &ProcessUtilizationSample) -> GFXDeviceProcess{
+        GFXDeviceProcess{
+            pid: process.pid as i32,
+            timestamp: process.timestamp,
+            sm_utilization: process.sm_util,
+            mem_utilization: process.mem_util,
+            enc_utilization: process.enc_util,
+            dec_utilization: process.dec_util
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct GFXDevice {
     pub name: String,
     pub gpu_utilization: u32,
+    pub decoder_utilization: u32,
+    pub encoder_utilization: u32,
     pub mem_utilization: u32,
     pub total_memory: u64,
     pub used_memory: u64,
@@ -322,6 +371,7 @@ pub struct GFXDevice {
     pub clock: u32,
     pub max_clock: u32,
     pub uuid: String,
+    pub processes: Vec<GFXDeviceProcess>
 }
 
 impl GFXDevice {
@@ -329,6 +379,8 @@ impl GFXDevice {
         GFXDevice {
             name: String::from(""),
             gpu_utilization: 0,
+            encoder_utilization: 0,
+            decoder_utilization: 0,
             mem_utilization: 0,
             total_memory: 0,
             used_memory: 0,
@@ -340,7 +392,13 @@ impl GFXDevice {
             clock: 0,
             max_clock: 0,
             uuid,
+            processes: vec![]
         }
+    }
+
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    fn processes_from_nvml(&mut self, processes: Vec<ProcessUtilizationSample>){
+        self.processes = processes.iter().map(|p| GFXDeviceProcess::from_nvml(p)).collect()
     }
 }
 
@@ -571,6 +629,14 @@ impl CPUTimeApp {
                                         break;
                                     }
                                 }
+                                gd.decoder_utilization = match d.decoder_utilization(){
+                                    Ok(u) => u.utilization,
+                                    Err(_) => 0
+                                };
+                                gd.encoder_utilization = match d.encoder_utilization(){
+                                    Ok(u) => u.utilization,
+                                    Err(_) => 0
+                                };
                                 match d.utilization_rates() {
                                     Ok(u) => {
                                         self.histogram_map.add_value_to(
@@ -586,8 +652,18 @@ impl CPUTimeApp {
                                     }
                                     Err(e) => error!("Couldn't get utilization rates: {:?}", e),
                                 }
+                                match d.process_utilization_stats(None){
+                                    Ok(ps) => gd.processes_from_nvml(ps),
+                                    Err(_) => { debug!("Couldn't retrieve process utilization stats for {:}", gd.name)}
+                                }
                                 debug!("{:}", gd);
+                                // mock device code to test multiple cards.
+                                //let mut gd2 = gd.clone();
                                 self.gfx_devices.push(gd);
+                                //
+                                // gd2.name = String::from("Card2");
+                                // gd2.max_clock = 1000;
+                                // self.gfx_devices.push(gd2);
                             }
                             Err(e) => error!("Couldn't get UUID: {}", e),
                         },
@@ -669,6 +745,8 @@ impl CPUTimeApp {
             last_updated: SystemTime::now(),
             end_time: None,
             start_time: process.start_time(),
+            gpu_usage: 0,
+            gpu_memory: 0
         }
     }
 
@@ -817,6 +895,7 @@ impl CPUTimeApp {
         self.sort_process_table();
     }
 
+    #[cfg(not(feature = "nvidia"))]
     pub fn sort_process_table(&mut self) {
         debug!("Sorting Process Table");
         let pm = &self.process_map;
@@ -867,11 +946,80 @@ impl CPUTimeApp {
         });
     }
 
+    #[cfg(feature = "nvidia")]
+    pub fn sort_process_table(&mut self) {
+        debug!("Sorting Process Table");
+        let pm = &self.process_map;
+        let sortfield = &self.psortby;
+        let sortorder = &self.psortorder;
+        self.processes.sort_by(|a, b| {
+            let mut pa = pm.get(a).expect("Error in sorting the process table.");
+            let mut pb = pm.get(b).expect("Error in sorting the process table.");
+            match sortorder {
+                ProcessTableSortOrder::Ascending => {
+                    //do nothing
+                }
+                ProcessTableSortOrder::Descending => {
+                    swap(&mut pa, &mut pb);
+                }
+            }
+            match sortfield {
+                ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal),
+                ProcessTableSortBy::Mem => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
+                ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
+                ProcessTableSortBy::User => {
+                    pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal)
+                }
+                ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
+                ProcessTableSortBy::Status => pa
+                    .status
+                    .to_single_char()
+                    .partial_cmp(pb.status.to_single_char())
+                    .unwrap_or(Equal),
+                ProcessTableSortBy::Priority => {
+                    pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal)
+                }
+                ProcessTableSortBy::Nice => pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
+                ProcessTableSortBy::Virt => pa
+                    .virtual_memory
+                    .partial_cmp(&pb.virtual_memory)
+                    .unwrap_or(Equal),
+                ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap_or(Equal),
+                ProcessTableSortBy::DiskRead => pa
+                    .get_read_bytes_sec()
+                    .partial_cmp(&pb.get_read_bytes_sec())
+                    .unwrap_or(Equal),
+                ProcessTableSortBy::DiskWrite => pa
+                    .get_write_bytes_sec()
+                    .partial_cmp(&pb.get_write_bytes_sec())
+                    .unwrap_or(Equal),
+                ProcessTableSortBy::GPU => pa.gpu_usage.partial_cmp(&pb.gpu_usage).unwrap_or(Equal),
+                ProcessTableSortBy::GPUM => pa.gpu_memory.partial_cmp(&pb.gpu_memory).unwrap_or(Equal),
+            }
+        });
+    }
+
     async fn update_frequency(&mut self) {
         debug!("Updating Frequency");
         let f = heim::cpu::frequency().await;
         if let Ok(f) = f {
             self.frequency = f.current().get::<megahertz>();
+        }
+    }
+
+    async fn update_gpu_utilization(&mut self){
+        for d in &mut self.gfx_devices{
+            for p in &d.processes{
+                match self.process_map.get_mut(&p.pid){
+                    Some(proc) => {
+                        proc.gpu_usage = (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;
+                        proc.gpu_memory = p.mem_utilization as u64;
+                    },
+                    None => {
+
+                    }
+                }
+            }
         }
     }
 
@@ -998,6 +1146,7 @@ impl CPUTimeApp {
         self.get_batteries();
         self.get_uptime().await;
         self.update_gfx_devices().await;
+        self.update_gpu_utilization().await;
         debug!("Updated Metrics for {} processes.", self.processes.len());
     }
 
