@@ -492,7 +492,7 @@ impl CPUTimeApp {
     async fn get_nics(&mut self) {
         debug!("Updating Network Interfaces");
         self.network_interfaces.clear();
-        let mut nics = net::nic().await;
+        let nics = net::nic().await;
         match nics{
             Ok(nics) => {
                 ::futures::pin_mut!(nics);
