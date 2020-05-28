@@ -55,7 +55,7 @@ brew install zenith
 
 ## Building
 
-This builds under rustc version >= 1.39.0.
+This builds under rustc version >= 1.40.0.
 
 ```
 cd zenith
