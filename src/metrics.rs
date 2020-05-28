@@ -492,44 +492,52 @@ impl CPUTimeApp {
     async fn get_nics(&mut self) {
         debug!("Updating Network Interfaces");
         self.network_interfaces.clear();
-        let mut nics = net::nic();
-        while let Some(n) = nics.next().await {
-            match n {
-                Ok(n) => {
-                    if !n.is_up() || n.is_loopback() {
-                        continue;
+        let mut nics = net::nic().await;
+        match nics{
+            Ok(nics) => {
+                ::futures::pin_mut!(nics);
+                while let Some(n) = nics.next().await {
+                    match n {
+                        Ok(n) => {
+                            if !n.is_up() || n.is_loopback() {
+                                continue;
+                            }
+                            if n.name().starts_with("utun")
+                                || n.name().starts_with("awd")
+                                || n.name().starts_with("ham")
+                            {
+                                continue;
+                            }
+                            let ip = match n.address() {
+                                Address::Inet(n) => n.to_string(),
+                                _ => format!(""),
+                            }
+                                .trim_end_matches(":0")
+                                .to_string();
+                            if ip.is_empty() {
+                                continue;
+                            }
+                            let dest = match n.destination() {
+                                Some(d) => match d {
+                                    Address::Inet(d) => d.to_string(),
+                                    _ => format!(""),
+                                },
+                                None => format!(""),
+                            };
+                            self.network_interfaces.push(NetworkInterface {
+                                name: n.name().to_owned(),
+                                ip,
+                                dest,
+                            });
+                        }
+                        Err(_) => println!("Couldn't get information on a nic"),
                     }
-                    if n.name().starts_with("utun")
-                        || n.name().starts_with("awd")
-                        || n.name().starts_with("ham")
-                    {
-                        continue;
-                    }
-                    let ip = match n.address() {
-                        Address::Inet(n) => n.to_string(),
-                        _ => format!(""),
-                    }
-                    .trim_end_matches(":0")
-                    .to_string();
-                    if ip.is_empty() {
-                        continue;
-                    }
-                    let dest = match n.destination() {
-                        Some(d) => match d {
-                            Address::Inet(d) => d.to_string(),
-                            _ => format!(""),
-                        },
-                        None => format!(""),
-                    };
-                    self.network_interfaces.push(NetworkInterface {
-                        name: n.name().to_owned(),
-                        ip,
-                        dest,
-                    });
                 }
-                Err(_) => println!("Couldn't get information on a nic"),
-            }
+            },
+            Err(_) => {debug!("Couldn't get nic information")}
         }
+
+
     }
 
     #[cfg(not(all(target_os = "linux", feature = "nvidia")))]
