@@ -1586,7 +1586,7 @@ impl<'a> TerminalRenderer {
                             Some(p) => Some(p.nice()),
                             None => None,
                         };
-                    } else if !self.show_find && input == Key::Char('p') {
+                    } else if !self.show_find && self.app.selected_process.is_some() && input == Key::Char('p') {
                         self.process_message = None;
                         self.process_message = match &mut self.app.selected_process {
                             Some(p) => Some(p.set_priority(0)),
