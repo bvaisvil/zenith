@@ -20,18 +20,6 @@ jobs:
            override: true
        - name: Cargo clippy
          run: cargo clippy
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - name: Cargo audit
-        run: cargo audit
   build:
 
     runs-on: ${{ matrix.os }}
