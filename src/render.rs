@@ -16,7 +16,7 @@ use std::borrow::Cow;
 use std::io;
 use std::io::Stdout;
 use std::path::PathBuf;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 use sysinfo::DiskExt;
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -32,6 +32,8 @@ use tui::widgets::{
 };
 use tui::Frame;
 use tui::Terminal;
+
+const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
 
@@ -1259,6 +1261,7 @@ pub struct TerminalRenderer {
     show_find: bool,
     filter: String,
     highlighted_row: usize,
+    selection_grace_start: Option<Instant>,
 }
 
 impl<'a> TerminalRenderer {
@@ -1322,6 +1325,7 @@ impl<'a> TerminalRenderer {
             show_find: false,
             filter: String::from(""),
             highlighted_row: 0,
+            selection_grace_start: None,
         }
     }
 
@@ -1471,7 +1475,16 @@ impl<'a> TerminalRenderer {
             Event::Input(input) => input,
             Event::Tick => {
                 debug!("Event Tick");
-                self.app.update(width).await;
+
+                if let Some(start) = self.selection_grace_start {
+                    if start.elapsed() > PROCESS_SELECTION_GRACE {
+                        self.selection_grace_start = None;
+                    }
+                }
+
+                self.app
+                    .update(width, self.selection_grace_start.is_some())
+                    .await;
                 self.update_number += 1;
                 if self.update_number == self.zoom_factor {
                     self.update_number = 0;
@@ -1514,6 +1527,7 @@ impl<'a> TerminalRenderer {
             (_, Key::Up) => {
                 if self.app.selected_process.is_some() {
                 } else if !process_table.is_empty() {
+                    self.selection_grace_start = Some(Instant::now());
                     if self.highlighted_row != 0 {
                         self.highlighted_row -= 1;
                     }
@@ -1527,6 +1541,7 @@ impl<'a> TerminalRenderer {
             (_, Key::Down) => {
                 if self.app.selected_process.is_some() {
                 } else if !process_table.is_empty() {
+                    self.selection_grace_start = Some(Instant::now());
                     if self.highlighted_row < process_table.len() - 1 {
                         self.highlighted_row += 1;
                     }

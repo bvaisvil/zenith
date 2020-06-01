@@ -676,9 +676,8 @@ impl CPUTimeApp {
         }
     }
 
-    fn update_process_list(&mut self) {
+    fn update_process_list(&mut self, keep_order: bool) {
         debug!("Updating Process List");
-        self.processes.clear();
         let process_list = self.system.get_process_list();
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
         let mut top_pid: Option<i32> = None;
@@ -770,8 +769,13 @@ impl CPUTimeApp {
                 }
                 self.process_map.insert(zprocess.pid, zprocess);
             }
-            self.processes.push(*pid);
             current_pids.insert(*pid);
+        }
+
+        if keep_order {
+            self.processes.retain(|pid| current_pids.contains(pid));
+        } else {
+            self.processes = current_pids.iter().cloned().collect();
         }
 
         // remove pids that are gone
@@ -818,7 +822,9 @@ impl CPUTimeApp {
             }
         }
 
-        self.sort_process_table();
+        if !keep_order {
+            self.sort_process_table();
+        }
     }
 
     pub fn sort_process_table(&mut self) {
@@ -968,7 +974,7 @@ impl CPUTimeApp {
             .add_value_to("cpu_usage_histogram", self.cpu_utilization);
     }
 
-    pub async fn update(&mut self, width: u16) {
+    pub async fn update(&mut self, width: u16, keep_order: bool) {
         debug!("Updating Metrics");
         self.system.refresh_all();
         self.update_cpu().await;
@@ -994,7 +1000,7 @@ impl CPUTimeApp {
         self.net_out = net.get_outcome();
         self.histogram_map.add_value_to("net_in", self.net_in);
         self.histogram_map.add_value_to("net_out", self.net_out);
-        self.update_process_list();
+        self.update_process_list(keep_order);
         self.update_frequency().await;
         self.update_disk(width);
         self.get_platform().await;
