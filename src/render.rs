@@ -1509,18 +1509,21 @@ impl<'a> TerminalRenderer {
                 self.show_find = false;
                 self.filter = String::from("");
             }
-            (true, i) if i != Key::Char('\n') => match input {
-                Key::Char(c) => self.filter.push(c),
-                Key::Delete => match self.filter.pop() {
-                    Some(_c) => {}
-                    None => self.show_find = false,
-                },
-                Key::Backspace => match self.filter.pop() {
-                    Some(_c) => {}
-                    None => self.show_find = false,
-                },
-                _ => {}
-            },
+            (true, i) if i != Key::Char('\n') => {
+                self.selection_grace_start = Some(Instant::now());
+                match input {
+                    Key::Char(c) => self.filter.push(c),
+                    Key::Delete => match self.filter.pop() {
+                        Some(_c) => {}
+                        None => self.show_find = false,
+                    },
+                    Key::Backspace => match self.filter.pop() {
+                        Some(_c) => {}
+                        None => self.show_find = false,
+                    },
+                    _ => {}
+                }
+            }
             (false, Key::Char('q')) => {
                 return Action::Quit;
             }
