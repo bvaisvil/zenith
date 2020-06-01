@@ -12,6 +12,7 @@ use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
 use chrono::{Datelike, Local, Timelike};
+use num_traits::FromPrimitive;
 use std::borrow::Cow;
 use std::io;
 use std::io::Stdout;
@@ -1572,7 +1573,7 @@ impl<'a> TerminalRenderer {
                 if self.app.psortby == ProcessTableSortBy::Cmd {
                     self.app.psortby = ProcessTableSortBy::Pid;
                 } else {
-                    self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 + 1)
+                    self.app.psortby = FromPrimitive::from_u32(self.app.psortby as u32 + 1)
                         .expect("invalid value to set psortby");
                 }
                 self.app.sort_process_table();
@@ -1581,7 +1582,7 @@ impl<'a> TerminalRenderer {
                 if self.app.psortby == ProcessTableSortBy::Pid {
                     self.app.psortby = ProcessTableSortBy::Cmd;
                 } else {
-                    self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 - 1)
+                    self.app.psortby = FromPrimitive::from_u32(self.app.psortby as u32 - 1)
                         .expect("invalid value to set psortby");
                 }
                 self.app.sort_process_table();
@@ -1667,7 +1668,7 @@ impl<'a> TerminalRenderer {
                 if i > 4 {
                     i = 0;
                 }
-                self.selected_section = num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+                self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
             }
             (false, Key::Char('m')) => {
                 self.set_section_height(-2).await;
