@@ -65,16 +65,8 @@ enum Section {
 }
 
 fn mem_title(app: &CPUTimeApp) -> String {
-    let mem = if app.mem_utilization > 0 && app.mem_total > 0 {
-        ((app.mem_utilization as f32 / app.mem_total as f32) * 100.0) as u64
-    } else {
-        0
-    };
-    let swp = if app.swap_utilization > 0 && app.swap_total > 0 {
-        ((app.swap_utilization as f32 / app.swap_total as f32) * 100.0) as u64
-    } else {
-        0
-    };
+    let mem = percent_of(app.mem_utilization, app.mem_total) as u64;
+    let swp = percent_of(app.swap_utilization, app.swap_total) as u64;
 
     let top_mem_proc = match app.top_mem_pid {
         Some(pid) => match app.process_map.get(&pid) {
@@ -186,7 +178,7 @@ fn render_process_table(
                 format!("{: <3}", p.priority),
                 format!("{: <3}", p.nice),
                 format!("{:>5.1}", p.cpu_usage),
-                format!("{:>5.1}", (p.memory as f64 / app.mem_total as f64) * 100.0),
+                format!("{:>5.1}", percent_of(p.memory, app.mem_total)),
                 format!(
                     "{:>8}",
                     float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
@@ -619,10 +611,7 @@ fn render_process(
                 Text::raw("\n"),
                 Text::raw("MEM Usage:             "),
                 Text::styled(
-                    format!(
-                        "{:>7.2} %",
-                        (p.memory as f64 / app.mem_total as f64) * 100.0
-                    ),
+                    format!("{:>7.2} %", percent_of(p.memory, app.mem_total)),
                     rhs_style,
                 ),
                 Text::raw("\n"),

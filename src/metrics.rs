@@ -1,6 +1,7 @@
 /**
  * Copyright 2019 Benjamin Vaisvil
  */
+use crate::util::percent_of;
 use crate::zprocess::*;
 
 use futures::StreamExt;
@@ -53,15 +54,15 @@ pub enum ProcessTableSortOrder {
 }
 
 pub trait DiskFreeSpaceExt {
-    fn get_perc_free_space(&self) -> f64;
+    fn get_perc_free_space(&self) -> f32;
 }
 
 impl DiskFreeSpaceExt for Disk {
-    fn get_perc_free_space(&self) -> f64 {
+    fn get_perc_free_space(&self) -> f32 {
         if self.get_total_space() < 1 {
             return 0.0;
         }
-        ((self.get_available_space() as f64) / (self.get_total_space() as f64)) * 100.00
+        percent_of(self.get_available_space(), self.get_total_space())
     }
 }
 
@@ -948,11 +949,7 @@ impl CPUTimeApp {
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
 
-        let mem = if self.mem_total > 0 {
-            ((self.mem_utilization as f64 / self.mem_total as f64) * 100.0) as u64
-        } else {
-            0
-        };
+        let mem = percent_of(self.mem_utilization, self.mem_total) as u64;
 
         self.histogram_map.add_value_to("mem_utilization", mem);
 
