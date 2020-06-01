@@ -1490,11 +1490,13 @@ impl<'a> TerminalRenderer {
         };
 
         debug!("Event Key: {:?}", input);
-        if self.show_find && input == Key::Esc {
-            self.show_find = false;
-            self.filter = String::from("");
-        } else if self.show_find && input != Key::Char('\n') {
-            match input {
+
+        match (self.show_find, input) {
+            (true, Key::Esc) => {
+                self.show_find = false;
+                self.filter = String::from("");
+            }
+            (true, i) if i != Key::Char('\n') => match input {
                 Key::Char(c) => self.filter.push(c),
                 Key::Delete => match self.filter.pop() {
                     Some(_c) => {}
@@ -1505,152 +1507,178 @@ impl<'a> TerminalRenderer {
                     None => self.show_find = false,
                 },
                 _ => {}
+            },
+            (false, Key::Char('q')) => {
+                return Action::Quit;
             }
-        }
-        if !self.show_find && input == Key::Char('q') {
-            return Action::Quit;
-        } else if input == Key::Up {
-            if self.app.selected_process.is_some() {
-            } else if !process_table.is_empty() {
-                if self.highlighted_row != 0 {
-                    self.highlighted_row -= 1;
-                }
-                if self.process_table_row_start > 0
-                    && self.highlighted_row < self.process_table_row_start
-                {
-                    self.process_table_row_start -= 1;
-                }
-            }
-        } else if input == Key::Down {
-            if self.app.selected_process.is_some() {
-            } else if !process_table.is_empty() {
-                if self.highlighted_row < process_table.len() - 1 {
-                    self.highlighted_row += 1;
-                }
-                if self.process_table_row_start < process_table.len()
-                    && self.highlighted_row
-                        > (self.process_table_row_start + process_table_height as usize)
-                {
-                    self.process_table_row_start += 1;
+            (_, Key::Up) => {
+                if self.app.selected_process.is_some() {
+                } else if !process_table.is_empty() {
+                    if self.highlighted_row != 0 {
+                        self.highlighted_row -= 1;
+                    }
+                    if self.process_table_row_start > 0
+                        && self.highlighted_row < self.process_table_row_start
+                    {
+                        self.process_table_row_start -= 1;
+                    }
                 }
             }
-        } else if input == Key::Left {
-            if let Some(w) = self.app.histogram_map.histograms_width() {
+            (_, Key::Down) => {
+                if self.app.selected_process.is_some() {
+                } else if !process_table.is_empty() {
+                    if self.highlighted_row < process_table.len() - 1 {
+                        self.highlighted_row += 1;
+                    }
+                    if self.process_table_row_start < process_table.len()
+                        && self.highlighted_row
+                            > (self.process_table_row_start + process_table_height as usize)
+                    {
+                        self.process_table_row_start += 1;
+                    }
+                }
+            }
+            (_, Key::Left) => {
+                if let Some(w) = self.app.histogram_map.histograms_width() {
+                    self.hist_start_offset += 1;
+                    if self.hist_start_offset > w + 1 {
+                        self.hist_start_offset = w - 1;
+                    }
+                }
                 self.hist_start_offset += 1;
-                if self.hist_start_offset > w + 1 {
-                    self.hist_start_offset = w - 1;
+            }
+            (_, Key::Right) => {
+                if self.hist_start_offset > 0 {
+                    self.hist_start_offset -= 1;
                 }
             }
-            self.hist_start_offset += 1;
-        } else if input == Key::Right {
-            if self.hist_start_offset > 0 {
-                self.hist_start_offset -= 1;
-            }
-        } else if !self.show_find && (input == Key::Char('.') || input == Key::Char('>')) {
-            if self.app.psortby == ProcessTableSortBy::Cmd {
-                self.app.psortby = ProcessTableSortBy::Pid;
-            } else {
-                self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 + 1)
-                    .expect("invalid value to set psortby");
-            }
-            self.app.sort_process_table();
-        } else if !self.show_find && (input == Key::Char(',') || input == Key::Char('<')) {
-            if self.app.psortby == ProcessTableSortBy::Pid {
-                self.app.psortby = ProcessTableSortBy::Cmd;
-            } else {
-                self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 - 1)
-                    .expect("invalid value to set psortby");
-            }
-            self.app.sort_process_table();
-        } else if !self.show_find && input == Key::Char('/') {
-            match self.app.psortorder {
-                ProcessTableSortOrder::Ascending => {
-                    self.app.psortorder = ProcessTableSortOrder::Descending
+            // waiting for https://github.com/rust-lang/rust/issues/54883
+            (false, Key::Char('.')) | (false, Key::Char('>')) => {
+                if self.app.psortby == ProcessTableSortBy::Cmd {
+                    self.app.psortby = ProcessTableSortBy::Pid;
+                } else {
+                    self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 + 1)
+                        .expect("invalid value to set psortby");
                 }
-                ProcessTableSortOrder::Descending => {
-                    self.app.psortorder = ProcessTableSortOrder::Ascending
+                self.app.sort_process_table();
+            }
+            (false, Key::Char(',')) | (false, Key::Char('<')) => {
+                if self.app.psortby == ProcessTableSortBy::Pid {
+                    self.app.psortby = ProcessTableSortBy::Cmd;
+                } else {
+                    self.app.psortby = num::FromPrimitive::from_u32(self.app.psortby as u32 - 1)
+                        .expect("invalid value to set psortby");
                 }
+                self.app.sort_process_table();
             }
-            self.app.sort_process_table();
-        } else if !self.show_find && input == Key::Char('+') || input == Key::Char('=') {
-            if self.zoom_factor > 1 {
-                self.zoom_factor -= 1;
+            (false, Key::Char('/')) => {
+                match self.app.psortorder {
+                    ProcessTableSortOrder::Ascending => {
+                        self.app.psortorder = ProcessTableSortOrder::Descending
+                    }
+                    ProcessTableSortOrder::Descending => {
+                        self.app.psortorder = ProcessTableSortOrder::Ascending
+                    }
+                }
+                self.app.sort_process_table();
             }
-            self.update_number = 0;
-        } else if !self.show_find && input == Key::Char('-') {
-            if self.zoom_factor < 100 {
-                self.zoom_factor += 1;
+            (false, Key::Char('+')) | (false, Key::Char('=')) => {
+                if self.zoom_factor > 1 {
+                    self.zoom_factor -= 1;
+                }
+                self.update_number = 0;
             }
-            self.update_number = 0;
-        } else if input == Key::Char('\n') {
-            self.app.select_process(highlighted_process);
-            self.process_message = None;
-            self.show_find = false;
-            self.highlighted_row = 0;
-            self.process_table_row_start = 0;
-        } else if !self.show_find && (input == Key::Esc || input == Key::Char('b')) {
-            self.app.selected_process = None;
-            self.process_message = None;
-        } else if !self.show_find && input == Key::Char('s') {
-            self.process_message = None;
-            self.process_message = match &self.app.selected_process {
-                Some(p) => Some(p.suspend().await),
-                None => None,
-            };
-        } else if !self.show_find && input == Key::Char('r') {
-            self.process_message = None;
-            self.process_message = match &self.app.selected_process {
-                Some(p) => Some(p.resume().await),
-                None => None,
-            };
-        } else if !self.show_find && input == Key::Char('k') {
-            self.process_message = None;
-            self.process_message = match &self.app.selected_process {
-                Some(p) => Some(p.kill().await),
-                None => None,
-            };
-        } else if !self.show_find && input == Key::Char('t') {
-            self.process_message = None;
-            self.process_message = match &self.app.selected_process {
-                Some(p) => Some(p.terminate().await),
-                None => None,
-            };
-        } else if !self.show_find && input == Key::Char('n') {
-            self.process_message = None;
-            self.process_message = match &mut self.app.selected_process {
-                Some(p) => Some(p.nice()),
-                None => None,
-            };
-        } else if !self.show_find && self.app.selected_process.is_some() && input == Key::Char('p')
-        {
-            self.process_message = None;
-            self.process_message = match &mut self.app.selected_process {
-                Some(p) => Some(p.set_priority(0)),
-                None => None,
-            };
-        } else if !self.show_find && input == Key::Char('\t') {
-            let mut i = self.selected_section as u32 + 1;
-            if i > 4 {
-                i = 0;
+            (false, Key::Char('-')) => {
+                if self.zoom_factor < 100 {
+                    self.zoom_factor += 1;
+                }
+                self.update_number = 0;
             }
-            self.selected_section = num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
-        } else if !self.show_find && input == Key::Char('m') {
-            self.set_section_height(-2).await;
-        } else if !self.show_find && input == Key::Char('e') {
-            self.set_section_height(2).await;
-        } else if input == Key::Char('`') {
-            self.zoom_factor = 1;
-            self.hist_start_offset = 0;
-        } else if !self.show_find && input == Key::Char('h') {
-            self.show_help = !self.show_help;
-        } else if !self.show_find && input == Key::Char('p') {
-            self.show_paths = !self.show_paths;
-        } else if !self.show_find && input == Key::Char('f') {
-            self.show_find = true;
-            self.highlighted_row = 0;
-            self.process_table_row_start = 0;
-        } else if input == Key::Ctrl('c') {
-            return Action::Quit;
+            (_, Key::Char('\n')) => {
+                self.app.select_process(highlighted_process);
+                self.process_message = None;
+                self.show_find = false;
+                self.highlighted_row = 0;
+                self.process_table_row_start = 0;
+            }
+            (false, Key::Esc) | (false, Key::Char('b')) => {
+                self.app.selected_process = None;
+                self.process_message = None;
+            }
+            (false, Key::Char('s')) => {
+                self.process_message = None;
+                self.process_message = match &self.app.selected_process {
+                    Some(p) => Some(p.suspend().await),
+                    None => None,
+                };
+            }
+            (false, Key::Char('r')) => {
+                self.process_message = None;
+                self.process_message = match &self.app.selected_process {
+                    Some(p) => Some(p.resume().await),
+                    None => None,
+                };
+            }
+            (false, Key::Char('k')) => {
+                self.process_message = None;
+                self.process_message = match &self.app.selected_process {
+                    Some(p) => Some(p.kill().await),
+                    None => None,
+                };
+            }
+            (false, Key::Char('t')) => {
+                self.process_message = None;
+                self.process_message = match &self.app.selected_process {
+                    Some(p) => Some(p.terminate().await),
+                    None => None,
+                };
+            }
+            (false, Key::Char('n')) => {
+                self.process_message = None;
+                self.process_message = match &mut self.app.selected_process {
+                    Some(p) => Some(p.nice()),
+                    None => None,
+                };
+            }
+            (false, Key::Char('p')) if self.app.selected_process.is_some() => {
+                self.process_message = None;
+                self.process_message = match &mut self.app.selected_process {
+                    Some(p) => Some(p.set_priority(0)),
+                    None => None,
+                };
+            }
+            (false, Key::Char('\t')) => {
+                let mut i = self.selected_section as u32 + 1;
+                if i > 4 {
+                    i = 0;
+                }
+                self.selected_section = num::FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+            }
+            (false, Key::Char('m')) => {
+                self.set_section_height(-2).await;
+            }
+            (false, Key::Char('e')) => {
+                self.set_section_height(2).await;
+            }
+            (_, Key::Char('`')) => {
+                self.zoom_factor = 1;
+                self.hist_start_offset = 0;
+            }
+            (false, Key::Char('h')) => {
+                self.show_help = !self.show_help;
+            }
+            (false, Key::Char('p')) => {
+                self.show_paths = !self.show_paths;
+            }
+            (false, Key::Char('f')) => {
+                self.show_find = true;
+                self.highlighted_row = 0;
+                self.process_table_row_start = 0;
+            }
+            (_, Key::Ctrl('c')) => {
+                return Action::Quit;
+            }
+            _ => {}
         }
 
         Action::Continue
