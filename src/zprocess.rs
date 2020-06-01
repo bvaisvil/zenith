@@ -4,7 +4,7 @@
 use crate::constants::DEFAULT_TICK;
 use heim::process;
 use heim::process::ProcessError;
-use libc::{getpriority, setpriority, id_t};
+use libc::{getpriority, id_t, setpriority};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::ProcessStatus;
 

@@ -491,7 +491,7 @@ impl CPUTimeApp {
         debug!("Updating Network Interfaces");
         self.network_interfaces.clear();
         let nics = net::nic().await;
-        match nics{
+        match nics {
             Ok(nics) => {
                 ::futures::pin_mut!(nics);
                 while let Some(n) = nics.next().await {
@@ -510,8 +510,8 @@ impl CPUTimeApp {
                                 Address::Inet(n) => n.to_string(),
                                 _ => format!(""),
                             }
-                                .trim_end_matches(":0")
-                                .to_string();
+                            .trim_end_matches(":0")
+                            .to_string();
                             if ip.is_empty() {
                                 continue;
                             }
@@ -531,11 +531,9 @@ impl CPUTimeApp {
                         Err(_) => println!("Couldn't get information on a nic"),
                     }
                 }
-            },
-            Err(_) => {debug!("Couldn't get nic information")}
+            }
+            Err(_) => debug!("Couldn't get nic information"),
         }
-
-
     }
 
     #[cfg(not(all(target_os = "linux", feature = "nvidia")))]
