@@ -389,7 +389,6 @@ pub struct CPUTimeApp {
     pub network_interfaces: Vec<NetworkInterface>,
     pub sensors: Vec<Sensor>,
     pub gfx_devices: Vec<GFXDevice>,
-    pub tick: Duration,
     pub processor_name: String,
     pub started: chrono::DateTime<chrono::Local>,
     pub selected_process: Option<ZProcess>,
@@ -404,7 +403,6 @@ impl CPUTimeApp {
         let histogram_map = HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db);
         let mut s = CPUTimeApp {
             histogram_map,
-            tick,
             cpus: vec![],
             system: System::new(),
             cpu_utilization: 0,
