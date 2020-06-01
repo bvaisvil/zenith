@@ -9,10 +9,8 @@ use heim::net;
 use heim::net::Address;
 use heim::units::frequency::megahertz;
 use heim::units::time;
-use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::mem::swap;
 use std::time::{Duration, SystemTime};
 
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
@@ -830,49 +828,16 @@ impl CPUTimeApp {
     pub fn sort_process_table(&mut self) {
         debug!("Sorting Process Table");
         let pm = &self.process_map;
-        let sortfield = &self.psortby;
+        let sorter = ZProcess::field_comparator(self.psortby);
         let sortorder = &self.psortorder;
         self.processes.sort_by(|a, b| {
-            let mut pa = pm.get(a).expect("Error in sorting the process table.");
-            let mut pb = pm.get(b).expect("Error in sorting the process table.");
+            let pa = pm.get(a).expect("Error in sorting the process table.");
+            let pb = pm.get(b).expect("Error in sorting the process table.");
+
+            let ord = sorter(pa, pb);
             match sortorder {
-                ProcessTableSortOrder::Ascending => {
-                    //do nothing
-                }
-                ProcessTableSortOrder::Descending => {
-                    swap(&mut pa, &mut pb);
-                }
-            }
-            match sortfield {
-                ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal),
-                ProcessTableSortBy::Mem => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
-                ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
-                ProcessTableSortBy::User => {
-                    pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal)
-                }
-                ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
-                ProcessTableSortBy::Status => pa
-                    .status
-                    .to_single_char()
-                    .partial_cmp(pb.status.to_single_char())
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::Priority => {
-                    pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal)
-                }
-                ProcessTableSortBy::Nice => pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
-                ProcessTableSortBy::Virt => pa
-                    .virtual_memory
-                    .partial_cmp(&pb.virtual_memory)
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap_or(Equal),
-                ProcessTableSortBy::DiskRead => pa
-                    .get_read_bytes_sec()
-                    .partial_cmp(&pb.get_read_bytes_sec())
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::DiskWrite => pa
-                    .get_write_bytes_sec()
-                    .partial_cmp(&pb.get_write_bytes_sec())
-                    .unwrap_or(Equal),
+                ProcessTableSortOrder::Ascending => ord,
+                ProcessTableSortOrder::Descending => ord.reverse(),
             }
         });
     }
