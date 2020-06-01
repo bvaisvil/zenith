@@ -1515,8 +1515,7 @@ impl<'a> TerminalRenderer {
                 return Action::Quit;
             }
             (_, Key::Up) => {
-                if self.app.selected_process.is_some() {
-                } else if !process_table.is_empty() {
+                if self.app.selected_process.is_none() && !process_table.is_empty() {
                     self.selection_grace_start = Some(Instant::now());
                     if self.highlighted_row != 0 {
                         self.highlighted_row -= 1;
@@ -1529,8 +1528,7 @@ impl<'a> TerminalRenderer {
                 }
             }
             (_, Key::Down) => {
-                if self.app.selected_process.is_some() {
-                } else if !process_table.is_empty() {
+                if self.app.selected_process.is_none() && !process_table.is_empty() {
                     self.selection_grace_start = Some(Instant::now());
                     if self.highlighted_row < process_table.len() - 1 {
                         self.highlighted_row += 1;
@@ -1611,42 +1609,36 @@ impl<'a> TerminalRenderer {
                 self.process_message = None;
             }
             (false, Key::Char('s')) => {
-                self.process_message = None;
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.suspend().await),
                     None => None,
                 };
             }
             (false, Key::Char('r')) => {
-                self.process_message = None;
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.resume().await),
                     None => None,
                 };
             }
             (false, Key::Char('k')) => {
-                self.process_message = None;
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.kill().await),
                     None => None,
                 };
             }
             (false, Key::Char('t')) => {
-                self.process_message = None;
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.terminate().await),
                     None => None,
                 };
             }
             (false, Key::Char('n')) => {
-                self.process_message = None;
                 self.process_message = match &mut self.app.selected_process {
                     Some(p) => Some(p.nice()),
                     None => None,
                 };
             }
             (false, Key::Char('p')) if self.app.selected_process.is_some() => {
-                self.process_message = None;
                 self.process_message = match &mut self.app.selected_process {
                     Some(p) => Some(p.set_priority(0)),
                     None => None,
