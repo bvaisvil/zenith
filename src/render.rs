@@ -1493,70 +1493,106 @@ impl<'a> TerminalRenderer {
         };
 
         debug!("Event Key: {:?}", input);
+        match input {
+            Key::Up => self.key_up(process_table),
+            Key::Down => self.key_down(process_table, process_table_height),
+            Key::Left => self.histogram_left(),
+            Key::Right => self.histogram_right(),
+            Key::Char('\n') => {
+                self.app.select_process(highlighted_process);
+                self.process_message = None;
+                self.show_find = false;
+                self.highlighted_row = 0;
+                self.process_table_row_start = 0;
+            }
+            Key::Ctrl('c') => {
+                return Action::Quit;
+            }
+            other => {
+                if self.show_find {
+                    self.process_find_input(other);
+                } else {
+                    return self.process_toplevel_input(other).await;
+                }
+            }
+        };
+        Action::Continue
+    }
 
-        match (self.show_find, input) {
-            (true, Key::Esc) => {
+    fn key_up(&mut self, process_table: &[i32]) {
+        if self.app.selected_process.is_some() || process_table.is_empty() {
+            return;
+        }
+
+        self.selection_grace_start = Some(Instant::now());
+        if self.highlighted_row != 0 {
+            self.highlighted_row -= 1;
+        }
+        if self.process_table_row_start > 0 && self.highlighted_row < self.process_table_row_start {
+            self.process_table_row_start -= 1;
+        }
+    }
+
+    fn key_down(&mut self, process_table: &[i32], process_table_height: u16) {
+        if self.app.selected_process.is_some() || process_table.is_empty() {
+            return;
+        }
+
+        self.selection_grace_start = Some(Instant::now());
+        if self.highlighted_row < process_table.len() - 1 {
+            self.highlighted_row += 1;
+        }
+        if self.process_table_row_start < process_table.len()
+            && self.highlighted_row > (self.process_table_row_start + process_table_height as usize)
+        {
+            self.process_table_row_start += 1;
+        }
+    }
+
+    fn histogram_left(&mut self) {
+        if let Some(w) = self.app.histogram_map.histograms_width() {
+            self.hist_start_offset += 1;
+            if self.hist_start_offset > w + 1 {
+                self.hist_start_offset = w - 1;
+            }
+        }
+        self.hist_start_offset += 1;
+    }
+
+    fn histogram_right(&mut self) {
+        if self.hist_start_offset > 0 {
+            self.hist_start_offset -= 1;
+        }
+    }
+
+    fn process_find_input(&mut self, input: Key) {
+        match input {
+            Key::Esc => {
                 self.show_find = false;
                 self.filter = String::from("");
             }
-            (true, Key::Char(c)) if c != '\n' => {
+            Key::Char(c) if c != '\n' => {
                 self.selection_grace_start = Some(Instant::now());
                 self.filter.push(c)
             }
-            (true, Key::Delete) => match self.filter.pop() {
+            Key::Delete => match self.filter.pop() {
                 Some(_c) => {}
                 None => self.show_find = false,
             },
-            (true, Key::Backspace) => match self.filter.pop() {
+            Key::Backspace => match self.filter.pop() {
                 Some(_c) => {}
                 None => self.show_find = false,
             },
-            (false, Key::Char('q')) => {
+            _ => {}
+        }
+    }
+
+    async fn process_toplevel_input(&mut self, input: Key) -> Action {
+        match input {
+            Key::Char('q') => {
                 return Action::Quit;
             }
-            (_, Key::Up) => {
-                if self.app.selected_process.is_none() && !process_table.is_empty() {
-                    self.selection_grace_start = Some(Instant::now());
-                    if self.highlighted_row != 0 {
-                        self.highlighted_row -= 1;
-                    }
-                    if self.process_table_row_start > 0
-                        && self.highlighted_row < self.process_table_row_start
-                    {
-                        self.process_table_row_start -= 1;
-                    }
-                }
-            }
-            (_, Key::Down) => {
-                if self.app.selected_process.is_none() && !process_table.is_empty() {
-                    self.selection_grace_start = Some(Instant::now());
-                    if self.highlighted_row < process_table.len() - 1 {
-                        self.highlighted_row += 1;
-                    }
-                    if self.process_table_row_start < process_table.len()
-                        && self.highlighted_row
-                            > (self.process_table_row_start + process_table_height as usize)
-                    {
-                        self.process_table_row_start += 1;
-                    }
-                }
-            }
-            (_, Key::Left) => {
-                if let Some(w) = self.app.histogram_map.histograms_width() {
-                    self.hist_start_offset += 1;
-                    if self.hist_start_offset > w + 1 {
-                        self.hist_start_offset = w - 1;
-                    }
-                }
-                self.hist_start_offset += 1;
-            }
-            (_, Key::Right) => {
-                if self.hist_start_offset > 0 {
-                    self.hist_start_offset -= 1;
-                }
-            }
-            // waiting for https://github.com/rust-lang/rust/issues/54883
-            (false, Key::Char('.')) | (false, Key::Char('>')) => {
+            Key::Char('.') | Key::Char('>') => {
                 if self.app.psortby == ProcessTableSortBy::Cmd {
                     self.app.psortby = ProcessTableSortBy::Pid;
                 } else {
@@ -1565,7 +1601,7 @@ impl<'a> TerminalRenderer {
                 }
                 self.app.sort_process_table();
             }
-            (false, Key::Char(',')) | (false, Key::Char('<')) => {
+            Key::Char(',') | Key::Char('<') => {
                 if self.app.psortby == ProcessTableSortBy::Pid {
                     self.app.psortby = ProcessTableSortBy::Cmd;
                 } else {
@@ -1574,7 +1610,7 @@ impl<'a> TerminalRenderer {
                 }
                 self.app.sort_process_table();
             }
-            (false, Key::Char('/')) => {
+            Key::Char('/') => {
                 match self.app.psortorder {
                     ProcessTableSortOrder::Ascending => {
                         self.app.psortorder = ProcessTableSortOrder::Descending
@@ -1585,95 +1621,85 @@ impl<'a> TerminalRenderer {
                 }
                 self.app.sort_process_table();
             }
-            (false, Key::Char('+')) | (false, Key::Char('=')) => {
+            Key::Char('+') | Key::Char('=') => {
                 if self.zoom_factor > 1 {
                     self.zoom_factor -= 1;
                 }
                 self.update_number = 0;
             }
-            (false, Key::Char('-')) => {
+            Key::Char('-') => {
                 if self.zoom_factor < 100 {
                     self.zoom_factor += 1;
                 }
                 self.update_number = 0;
             }
-            (_, Key::Char('\n')) => {
-                self.app.select_process(highlighted_process);
-                self.process_message = None;
-                self.show_find = false;
-                self.highlighted_row = 0;
-                self.process_table_row_start = 0;
-            }
-            (false, Key::Esc) | (false, Key::Char('b')) => {
+            Key::Esc | Key::Char('b') => {
                 self.app.selected_process = None;
                 self.process_message = None;
             }
-            (false, Key::Char('s')) => {
+            Key::Char('s') => {
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.suspend().await),
                     None => None,
                 };
             }
-            (false, Key::Char('r')) => {
+            Key::Char('r') => {
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.resume().await),
                     None => None,
                 };
             }
-            (false, Key::Char('k')) => {
+            Key::Char('k') => {
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.kill().await),
                     None => None,
                 };
             }
-            (false, Key::Char('t')) => {
+            Key::Char('t') => {
                 self.process_message = match &self.app.selected_process {
                     Some(p) => Some(p.terminate().await),
                     None => None,
                 };
             }
-            (false, Key::Char('n')) => {
+            Key::Char('n') => {
                 self.process_message = match &mut self.app.selected_process {
                     Some(p) => Some(p.nice()),
                     None => None,
                 };
             }
-            (false, Key::Char('p')) if self.app.selected_process.is_some() => {
+            Key::Char('p') if self.app.selected_process.is_some() => {
                 self.process_message = match &mut self.app.selected_process {
                     Some(p) => Some(p.set_priority(0)),
                     None => None,
                 };
             }
-            (false, Key::Char('\t')) => {
+            Key::Char('\t') => {
                 let mut i = self.selected_section as u32 + 1;
                 if i > 4 {
                     i = 0;
                 }
                 self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
             }
-            (false, Key::Char('m')) => {
+            Key::Char('m') => {
                 self.set_section_height(-2).await;
             }
-            (false, Key::Char('e')) => {
+            Key::Char('e') => {
                 self.set_section_height(2).await;
             }
-            (_, Key::Char('`')) => {
+            Key::Char('`') => {
                 self.zoom_factor = 1;
                 self.hist_start_offset = 0;
             }
-            (false, Key::Char('h')) => {
+            Key::Char('h') => {
                 self.show_help = !self.show_help;
             }
-            (false, Key::Char('p')) => {
+            Key::Char('p') => {
                 self.show_paths = !self.show_paths;
             }
-            (false, Key::Char('f')) => {
+            Key::Char('f') => {
                 self.show_find = true;
                 self.highlighted_row = 0;
                 self.process_table_row_start = 0;
-            }
-            (_, Key::Ctrl('c')) => {
-                return Action::Quit;
             }
             _ => {}
         }
@@ -1682,6 +1708,7 @@ impl<'a> TerminalRenderer {
     }
 }
 
+#[must_use]
 enum Action {
     Continue,
     Quit,
