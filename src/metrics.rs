@@ -1,6 +1,7 @@
 /**
  * Copyright 2019 Benjamin Vaisvil
  */
+use crate::util::percent_of;
 use crate::zprocess::*;
 
 use futures::StreamExt;
@@ -9,10 +10,8 @@ use heim::net;
 use heim::net::Address;
 use heim::units::frequency::megahertz;
 use heim::units::time;
-use std::cmp::Ordering::Equal;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::mem::swap;
 use std::time::{Duration, SystemTime};
 
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
@@ -55,15 +54,15 @@ pub enum ProcessTableSortOrder {
 }
 
 pub trait DiskFreeSpaceExt {
-    fn get_perc_free_space(&self) -> f64;
+    fn get_perc_free_space(&self) -> f32;
 }
 
 impl DiskFreeSpaceExt for Disk {
-    fn get_perc_free_space(&self) -> f64 {
+    fn get_perc_free_space(&self) -> f32 {
         if self.get_total_space() < 1 {
             return 0.0;
         }
-        ((self.get_available_space() as f64) / (self.get_total_space() as f64)) * 100.00
+        percent_of(self.get_available_space(), self.get_total_space())
     }
 }
 
@@ -830,49 +829,16 @@ impl CPUTimeApp {
     pub fn sort_process_table(&mut self) {
         debug!("Sorting Process Table");
         let pm = &self.process_map;
-        let sortfield = &self.psortby;
+        let sorter = ZProcess::field_comparator(self.psortby);
         let sortorder = &self.psortorder;
         self.processes.sort_by(|a, b| {
-            let mut pa = pm.get(a).expect("Error in sorting the process table.");
-            let mut pb = pm.get(b).expect("Error in sorting the process table.");
+            let pa = pm.get(a).expect("Error in sorting the process table.");
+            let pb = pm.get(b).expect("Error in sorting the process table.");
+
+            let ord = sorter(pa, pb);
             match sortorder {
-                ProcessTableSortOrder::Ascending => {
-                    //do nothing
-                }
-                ProcessTableSortOrder::Descending => {
-                    swap(&mut pa, &mut pb);
-                }
-            }
-            match sortfield {
-                ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal),
-                ProcessTableSortBy::Mem => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
-                ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
-                ProcessTableSortBy::User => {
-                    pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal)
-                }
-                ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
-                ProcessTableSortBy::Status => pa
-                    .status
-                    .to_single_char()
-                    .partial_cmp(pb.status.to_single_char())
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::Priority => {
-                    pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal)
-                }
-                ProcessTableSortBy::Nice => pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
-                ProcessTableSortBy::Virt => pa
-                    .virtual_memory
-                    .partial_cmp(&pb.virtual_memory)
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap_or(Equal),
-                ProcessTableSortBy::DiskRead => pa
-                    .get_read_bytes_sec()
-                    .partial_cmp(&pb.get_read_bytes_sec())
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::DiskWrite => pa
-                    .get_write_bytes_sec()
-                    .partial_cmp(&pb.get_write_bytes_sec())
-                    .unwrap_or(Equal),
+                ProcessTableSortOrder::Ascending => ord,
+                ProcessTableSortOrder::Descending => ord.reverse(),
             }
         });
     }
@@ -983,11 +949,7 @@ impl CPUTimeApp {
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();
 
-        let mem = if self.mem_total > 0 {
-            ((self.mem_utilization as f64 / self.mem_total as f64) * 100.0) as u64
-        } else {
-            0
-        };
+        let mem = percent_of(self.mem_utilization, self.mem_total) as u64;
 
         self.histogram_map.add_value_to("mem_utilization", mem);
 

@@ -2,9 +2,11 @@
  * Copyright 2019 Benjamin Vaisvil
  */
 use crate::constants::DEFAULT_TICK;
+use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
 use libc::{getpriority, id_t, setpriority};
+use std::cmp::Ordering::{self, Equal};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::ProcessStatus;
 
@@ -129,6 +131,36 @@ impl ZProcess {
                 Ok(t) => Some(t.as_secs()),
                 Err(_) => panic!("System time before unix epoch??"),
             };
+        }
+    }
+
+    /// returns a pointer to a comparator function, not a closure
+    pub fn field_comparator(sortfield: ProcessTableSortBy) -> fn(&Self, &Self) -> Ordering {
+        match sortfield {
+            ProcessTableSortBy::CPU => {
+                |pa, pb| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
+            }
+            ProcessTableSortBy::Mem => |pa, pb| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::MemPerc => |pa, pb| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::User => |pa, pb| pa.user_name.cmp(&pb.user_name),
+            ProcessTableSortBy::Pid => |pa, pb| pa.pid.cmp(&pb.pid),
+            ProcessTableSortBy::Status => {
+                |pa, pb| pa.status.to_single_char().cmp(pb.status.to_single_char())
+            }
+            ProcessTableSortBy::Priority => |pa, pb| pa.priority.cmp(&pb.priority),
+            ProcessTableSortBy::Nice => |pa, pb| pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
+            ProcessTableSortBy::Virt => |pa, pb| pa.virtual_memory.cmp(&pb.virtual_memory),
+            ProcessTableSortBy::Cmd => |pa, pb| pa.name.cmp(&pb.name),
+            ProcessTableSortBy::DiskRead => |pa, pb| {
+                pa.get_read_bytes_sec()
+                    .partial_cmp(&pb.get_read_bytes_sec())
+                    .unwrap_or(Equal)
+            },
+            ProcessTableSortBy::DiskWrite => |pa, pb| {
+                pa.get_write_bytes_sec()
+                    .partial_cmp(&pb.get_write_bytes_sec())
+                    .unwrap_or(Equal)
+            },
         }
     }
 }
