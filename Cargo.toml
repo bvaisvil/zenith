@@ -15,7 +15,7 @@ default = []
 nvidia = ["nvml-wrapper"]
 
 [dependencies]
-tui = "0.6.*"
+tui = "0.9.*"
 termion = "1.5"
 byte-unit = "3.0.3"
 users = "0.9.1"

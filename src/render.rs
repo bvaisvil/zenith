@@ -26,17 +26,36 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 
 use std::ops::Mul;
+use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{
-    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget,
-};
+use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text};
 use tui::Frame;
 use tui::Terminal;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
+
+/// Compatibility trait, that preserves an older method from tui 0.6.5
+/// Exists mostly to keep the caller code idiomatic for the use cases in this file
+/// May be refactored out later if the widget usage patterns change
+trait Render<B>
+where
+    B: Backend,
+{
+    fn render(self, f: &mut Frame<B>, area: Rect);
+}
+
+impl<T, B> Render<B> for T
+where
+    T: tui::widgets::Widget,
+    B: Backend,
+{
+    fn render(self, f: &mut Frame<B>, area: Rect) {
+        f.render_widget(self, area)
+    }
+}
 
 macro_rules! float_to_byte_string {
     ($x:expr, $unit:expr) => {
@@ -260,6 +279,7 @@ fn render_process_table(
             app.threads_total
         )
     };
+    let widths: Vec<_> = widths.iter().map(|w| Constraint::Length(*w)).collect();
 
     Table::new(header.into_iter(), rows)
         .block(
