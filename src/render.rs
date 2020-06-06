@@ -1550,32 +1550,46 @@ impl<'a> TerminalRenderer {
     }
 
     fn key_up(&mut self, process_table: &[i32]) {
-        if self.app.selected_process.is_some() || process_table.is_empty() {
-            return;
+        if self.selected_section == Section::Graphics{
+            if self.gfx_device_index > 0{
+                self.gfx_device_index -= 1;
+            }
         }
+        if self.selected_section == Section::Process{
+            if self.app.selected_process.is_some() || process_table.is_empty() {
+                return;
+            }
 
-        self.selection_grace_start = Some(Instant::now());
-        if self.highlighted_row != 0 {
-            self.highlighted_row -= 1;
-        }
-        if self.process_table_row_start > 0 && self.highlighted_row < self.process_table_row_start {
-            self.process_table_row_start -= 1;
+            self.selection_grace_start = Some(Instant::now());
+            if self.highlighted_row != 0 {
+                self.highlighted_row -= 1;
+            }
+            if self.process_table_row_start > 0 && self.highlighted_row < self.process_table_row_start {
+                self.process_table_row_start -= 1;
+            }
         }
     }
 
     fn key_down(&mut self, process_table: &[i32], process_table_height: u16) {
-        if self.app.selected_process.is_some() || process_table.is_empty() {
-            return;
+        if self.selected_section == Section::Graphics{
+            if self.gfx_device_index < self.app.gfx_devices.len() - 1{
+                self.gfx_device_index += 1;
+            }
         }
+        else if self.selected_section == Section::Process{
+            if self.app.selected_process.is_some() || process_table.is_empty() {
+                return;
+            }
 
-        self.selection_grace_start = Some(Instant::now());
-        if self.highlighted_row < process_table.len() - 1 {
-            self.highlighted_row += 1;
-        }
-        if self.process_table_row_start < process_table.len()
-            && self.highlighted_row > (self.process_table_row_start + process_table_height as usize)
-        {
-            self.process_table_row_start += 1;
+            self.selection_grace_start = Some(Instant::now());
+            if self.highlighted_row < process_table.len() - 1 {
+                self.highlighted_row += 1;
+            }
+            if self.process_table_row_start < process_table.len()
+                && self.highlighted_row > (self.process_table_row_start + process_table_height as usize)
+            {
+                self.process_table_row_start += 1;
+            }
         }
     }
 

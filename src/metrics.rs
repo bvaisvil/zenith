@@ -13,6 +13,8 @@ use heim::units::time;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, SystemTime};
+use std::mem::swap;
+use std::cmp::Ordering::{self, Equal};
 
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
@@ -661,12 +663,12 @@ impl CPUTimeApp {
                                 }
                                 debug!("{:}", gd);
                                 // mock device code to test multiple cards.
-                                //let mut gd2 = gd.clone();
+                                let mut gd2 = gd.clone();
                                 self.gfx_devices.push(gd);
                                 //
-                                // gd2.name = String::from("Card2");
-                                // gd2.max_clock = 1000;
-                                // self.gfx_devices.push(gd2);
+                                 gd2.name = String::from("Card2");
+                                 gd2.max_clock = 1000;
+                                 self.gfx_devices.push(gd2);
                             }
                             Err(e) => error!("Couldn't get UUID: {}", e),
                         },

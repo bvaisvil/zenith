@@ -136,8 +136,9 @@ impl ZProcess {
         }
     }
 
-    /// returns a pointer to a comparator function, not a closure
+    #[cfg(not(feature = "nvidia"))]
     pub fn field_comparator(sortfield: ProcessTableSortBy) -> fn(&Self, &Self) -> Ordering {
+        /// returns a pointer to a comparator function, not a closure
         match sortfield {
             ProcessTableSortBy::CPU => {
                 |pa, pb| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
@@ -163,6 +164,39 @@ impl ZProcess {
                     .partial_cmp(&pb.get_write_bytes_sec())
                     .unwrap_or(Equal)
             },
+        }
+    }
+
+    #[cfg(feature = "nvidia")]
+    pub fn field_comparator(sortfield: ProcessTableSortBy) -> fn(&Self, &Self) -> Ordering {
+        /// returns a pointer to a comparator function, not a closure
+        match sortfield {
+            ProcessTableSortBy::CPU => {
+                |pa, pb| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
+            }
+            ProcessTableSortBy::Mem => |pa, pb| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::MemPerc => |pa, pb| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::User => |pa, pb| pa.user_name.cmp(&pb.user_name),
+            ProcessTableSortBy::Pid => |pa, pb| pa.pid.cmp(&pb.pid),
+            ProcessTableSortBy::Status => {
+                |pa, pb| pa.status.to_single_char().cmp(pb.status.to_single_char())
+            }
+            ProcessTableSortBy::Priority => |pa, pb| pa.priority.cmp(&pb.priority),
+            ProcessTableSortBy::Nice => |pa, pb| pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
+            ProcessTableSortBy::Virt => |pa, pb| pa.virtual_memory.cmp(&pb.virtual_memory),
+            ProcessTableSortBy::Cmd => |pa, pb| pa.name.cmp(&pb.name),
+            ProcessTableSortBy::DiskRead => |pa, pb| {
+                pa.get_read_bytes_sec()
+                    .partial_cmp(&pb.get_read_bytes_sec())
+                    .unwrap_or(Equal)
+            },
+            ProcessTableSortBy::DiskWrite => |pa, pb| {
+                pa.get_write_bytes_sec()
+                    .partial_cmp(&pb.get_write_bytes_sec())
+                    .unwrap_or(Equal)
+            },
+            ProcessTableSortBy::GPU => |pa, pb| pa.gpu_usage.cmp(&pb.gpu_usage),
+            ProcessTableSortBy::GPUM => |pa, pb| pa.gpu_memory.cmp(&pb.gpu_memory)
         }
     }
 }
