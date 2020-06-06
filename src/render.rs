@@ -234,19 +234,18 @@ fn render_process_table(
         String::from("WRITE/s  "),
     ];
     //figure column widths
-    let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
-    let s: u16 = widths.iter().sum();
-    let mut cmd_width = width as i16 - s as i16 - 3;
-    if cmd_width < 0 {
-        cmd_width = 0;
+    let mut widths = Vec::with_capacity(header.len() + 1);
+    let mut used_width = 0;
+    for item in &header {
+        let len = item.len() as u16;
+        widths.push(Constraint::Length(len));
+        used_width += len;
     }
-    let cmd_width = cmd_width as u16;
-    let mut cmd_header = String::from("CMD");
-    for _i in 3..cmd_width {
-        cmd_header.push(' ');
-    }
+    let cmd_width = width.saturating_sub(used_width).saturating_sub(3);
+    let cmd_header = format!("{:<width$}", "CMD", width = cmd_width as usize);
+    widths.push(Constraint::Min(cmd_width));
     header.push(cmd_header);
-    widths.push(header.last().unwrap().len() as u16);
+
     header[app.psortby as usize].pop();
     let sort_ind = match app.psortorder {
         ProcessTableSortOrder::Ascending => '↑',
@@ -279,7 +278,6 @@ fn render_process_table(
             app.threads_total
         )
     };
-    let widths: Vec<_> = widths.iter().map(|w| Constraint::Length(*w)).collect();
 
     Table::new(header.into_iter(), rows)
         .block(
