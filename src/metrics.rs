@@ -447,7 +447,6 @@ pub struct CPUTimeApp {
     pub network_interfaces: Vec<NetworkInterface>,
     pub sensors: Vec<Sensor>,
     pub gfx_devices: Vec<GFXDevice>,
-    pub tick: Duration,
     pub processor_name: String,
     pub started: chrono::DateTime<chrono::Local>,
     pub selected_process: Option<ZProcess>,
@@ -462,7 +461,6 @@ impl CPUTimeApp {
         let histogram_map = HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db);
         let mut s = CPUTimeApp {
             histogram_map,
-            tick,
             cpus: vec![],
             system: System::new(),
             cpu_utilization: 0,
@@ -550,43 +548,49 @@ impl CPUTimeApp {
     async fn get_nics(&mut self) {
         debug!("Updating Network Interfaces");
         self.network_interfaces.clear();
-        let mut nics = net::nic();
-        while let Some(n) = nics.next().await {
-            match n {
-                Ok(n) => {
-                    if !n.is_up() || n.is_loopback() {
-                        continue;
+        let nics = net::nic().await;
+        match nics {
+            Ok(nics) => {
+                ::futures::pin_mut!(nics);
+                while let Some(n) = nics.next().await {
+                    match n {
+                        Ok(n) => {
+                            if !n.is_up() || n.is_loopback() {
+                                continue;
+                            }
+                            if n.name().starts_with("utun")
+                                || n.name().starts_with("awd")
+                                || n.name().starts_with("ham")
+                            {
+                                continue;
+                            }
+                            let ip = match n.address() {
+                                Address::Inet(n) => n.to_string(),
+                                _ => format!(""),
+                            }
+                            .trim_end_matches(":0")
+                            .to_string();
+                            if ip.is_empty() {
+                                continue;
+                            }
+                            let dest = match n.destination() {
+                                Some(d) => match d {
+                                    Address::Inet(d) => d.to_string(),
+                                    _ => format!(""),
+                                },
+                                None => format!(""),
+                            };
+                            self.network_interfaces.push(NetworkInterface {
+                                name: n.name().to_owned(),
+                                ip,
+                                dest,
+                            });
+                        }
+                        Err(_) => println!("Couldn't get information on a nic"),
                     }
-                    if n.name().starts_with("utun")
-                        || n.name().starts_with("awd")
-                        || n.name().starts_with("ham")
-                    {
-                        continue;
-                    }
-                    let ip = match n.address() {
-                        Address::Inet(n) => n.to_string(),
-                        _ => format!(""),
-                    }
-                    .trim_end_matches(":0")
-                    .to_string();
-                    if ip.is_empty() {
-                        continue;
-                    }
-                    let dest = match n.destination() {
-                        Some(d) => match d {
-                            Address::Inet(d) => d.to_string(),
-                            _ => format!(""),
-                        },
-                        None => format!(""),
-                    };
-                    self.network_interfaces.push(NetworkInterface {
-                        name: n.name().to_owned(),
-                        ip,
-                        dest,
-                    });
                 }
-                Err(_) => println!("Couldn't get information on a nic"),
             }
+            Err(_) => debug!("Couldn't get nic information"),
         }
     }
 
@@ -750,9 +754,8 @@ impl CPUTimeApp {
         }
     }
 
-    fn update_process_list(&mut self) {
+    fn update_process_list(&mut self, keep_order: bool) {
         debug!("Updating Process List");
-        self.processes.clear();
         let process_list = self.system.get_process_list();
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
         let mut top_pid: Option<i32> = None;
@@ -844,8 +847,13 @@ impl CPUTimeApp {
                 }
                 self.process_map.insert(zprocess.pid, zprocess);
             }
-            self.processes.push(*pid);
             current_pids.insert(*pid);
+        }
+
+        if keep_order {
+            self.processes.retain(|pid| current_pids.contains(pid));
+        } else {
+            self.processes = current_pids.iter().cloned().collect();
         }
 
         // remove pids that are gone
@@ -892,7 +900,9 @@ impl CPUTimeApp {
             }
         }
 
-        self.sort_process_table();
+        if !keep_order {
+            self.sort_process_table();
+        }
     }
 
     #[cfg(not(feature = "nvidia"))]
@@ -1112,7 +1122,7 @@ impl CPUTimeApp {
             .add_value_to("cpu_usage_histogram", self.cpu_utilization);
     }
 
-    pub async fn update(&mut self, width: u16) {
+    pub async fn update(&mut self, width: u16, keep_order: bool) {
         debug!("Updating Metrics");
         self.system.refresh_all();
         self.update_cpu().await;
@@ -1138,7 +1148,7 @@ impl CPUTimeApp {
         self.net_out = net.get_outcome();
         self.histogram_map.add_value_to("net_in", self.net_in);
         self.histogram_map.add_value_to("net_out", self.net_out);
-        self.update_process_list();
+        self.update_process_list(keep_order);
         self.update_frequency().await;
         self.update_disk(width);
         self.get_platform().await;

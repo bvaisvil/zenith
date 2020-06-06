@@ -1,4 +1,4 @@
-name: Build
+name: Audit and Build
 
 on:
   push:
@@ -7,10 +7,25 @@ on:
     branches: [ master ]
 
 jobs:
+  clippy:
+     runs-on: ubuntu-latest
+     steps:
+       - name: Checkout Sources
+         uses: actions/checkout@v2
+       - name: Install stable toolchain
+         uses: actions-rs/toolchain@v1
+         with:
+           profile: minimal
+           toolchain: stable
+           override: true
+       - name: Cargo clippy
+         run: cargo clippy
   build:
 
-    runs-on: ubuntu-latest
-
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest]
     steps:
     - uses: actions/checkout@v2
     - name: Build
