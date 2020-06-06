@@ -157,8 +157,6 @@ fn render_process_table(
         return None;
     }
 
-    let end = process_table_start + display_height;
-
     let procs: Vec<&ZProcess> = process_table
         .iter()
         .map(|pid| {
@@ -175,9 +173,12 @@ fn render_process_table(
     if area.height < 5 {
         return highlighted_process; // not enough space to draw anything
     }
-    let rows: Vec<Vec<String>> = procs
+    let rows: Vec<(Vec<String>, Option<Style>)> = procs
         .iter()
-        .map(|p| {
+        .enumerate()
+        .skip(process_table_start)
+        .take(display_height)
+        .map(|(i, p)| {
             let cmd_string = if show_paths {
                 if p.command.len() > 1 {
                     format!(" - {:}", p.command.join(" "))
@@ -219,7 +220,14 @@ fn render_process_table(
                 row.push(format!("{:>4.0}", p.fb_utilization));
             }
             row.push(format!("{:}{:}", p.name, cmd_string));
-            row
+
+            let style = if i == highlighted_row {
+                Some(Style::default().fg(Color::Magenta).modifier(Modifier::BOLD))
+            } else {
+                None
+            };
+
+            (row, style)
         })
         .collect();
 
@@ -259,18 +267,11 @@ fn render_process_table(
         ProcessTableSortOrder::Descending => '↓',
     };
     header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
-    let rows = rows.iter().enumerate().filter_map(|(i, r)| {
-        if i >= process_table_start && i < end {
-            if highlighted_row == i {
-                Some(Row::StyledData(
-                    r.iter(),
-                    Style::default().fg(Color::Magenta).modifier(Modifier::BOLD),
-                ))
-            } else {
-                Some(Row::Data(r.iter()))
-            }
+    let rows_view = rows.iter().map(|(row, style)| {
+        if let Some(style) = style {
+            Row::StyledData(row.iter(), *style)
         } else {
-            None
+            Row::Data(row.iter())
         }
     });
 
@@ -286,7 +287,7 @@ fn render_process_table(
         )
     };
 
-    Table::new(header.into_iter(), rows)
+    Table::new(header.into_iter(), rows_view)
         .block(
             Block::default()
                 .borders(Borders::ALL)
