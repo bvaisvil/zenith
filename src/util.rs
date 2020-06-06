@@ -158,3 +158,11 @@ async fn name_of_process_for_pidfile(path: &Path) -> Option<String> {
     let process = heim::process::get(pid).await.ok()?;
     process.name().await.ok()
 }
+
+pub fn percent_of(numerator: u64, denominator: u64) -> f32 {
+    if numerator == 0 || denominator == 0 {
+        0.0
+    } else {
+        (numerator as f32 / denominator as f32) * 100.0
+    }
+}
