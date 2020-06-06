@@ -42,7 +42,7 @@ macro_rules! float_to_byte_string {
     ($x:expr, $unit:expr) => {
         match Byte::from_unit($x, $unit) {
             Ok(b) => b.get_appropriate_unit(false).to_string().replace(" ", ""),
-            Err(_) => String::from(""),
+            Err(_) => String::from("Err"),
         }
     };
 }
@@ -200,7 +200,7 @@ fn render_process_table(
             ];
             if app.gfx_devices.len() >0 {
                 row.push(format!("{:>4.0}", p.gpu_usage));
-                row.push(format!("{:>4.0}", p.gpu_memory));
+                row.push(format!("{:>4.0}", p.fb_utilization));
             }
             row.push(format!("{:}{:}", p.name, cmd_string));
             row
@@ -222,7 +222,7 @@ fn render_process_table(
     ];
     if app.gfx_devices.len() > 0{
         header.push(String::from("GPU% "));
-        header.push(String::from("GPUM% "));
+        header.push(String::from("FB%  "));
     }
     //figure column widths
     let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
@@ -656,11 +656,17 @@ fn render_process(
                 Text::raw("\n"),
             ];
             if app.gfx_devices.len() > 0{
-                text.push(Text::raw("GPU Util:              "));
-                text.push(Text::styled(format!("{:7.2} %", p.gpu_usage as f64), rhs_style));
+                text.push(Text::raw("SM Util:            "));
+                text.push(Text::styled(format!("{:7.2} %", p.sm_utilization as f64), rhs_style));
                 text.push(Text::raw("\n"));
-                text.push(Text::raw("GPU Memory Util:       "));
-                text.push(Text::styled(format!("{:7.2} %", p.gpu_memory as f64), rhs_style));
+                text.push(Text::raw("Frame Buffer:       "));
+                text.push(Text::styled(format!("{:7.2} %", p.fb_utilization as f64), rhs_style));
+                text.push(Text::raw("\n"));
+                text.push(Text::raw("Encoder Util:       "));
+                text.push(Text::styled(format!("{:7.2} %", p.enc_utilization as f64), rhs_style));
+                text.push(Text::raw("\n"));
+                text.push(Text::raw("Decoder Util:       "));
+                text.push(Text::styled(format!("{:7.2} %", p.dec_utilization as f64), rhs_style));
                 text.push(Text::raw("\n"));
             }
 
@@ -918,10 +924,15 @@ fn render_graphics(
         .block(
             Block::default().title(
                 format!(
-                    "MEM [ {:} ] Usage [{:3.0}%] {:} Pwr [{:} W / {:} W] Tmp [{:} C / {:} C]",
-                    float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+                    "FB [{:3.0}%] MEM [{:} / {:}] {:} Pwr [{:} W / {:} W] Tmp [{:} C / {:} C]",
                     gd.mem_utilization,
-                    fan, gd.power_usage/1000, gd.max_power/1000, gd.temperature, gd.temperature_max
+                    float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
+                    float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+                    fan,
+                    gd.power_usage/1000,
+                    gd.max_power/1000,
+                    gd.temperature,
+                    gd.temperature_max
                 )
                 .as_str(),
             ),

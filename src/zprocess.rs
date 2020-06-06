@@ -54,7 +54,10 @@ pub struct ZProcess {
     pub end_time: Option<u64>,
     pub start_time: u64,
     pub gpu_usage: u64,
-    pub gpu_memory: u64,
+    pub fb_utilization: u64,
+    pub enc_utilization: u64,
+    pub dec_utilization: u64,
+    pub sm_utilization: u64,
 }
 
 impl ZProcess {
@@ -137,8 +140,8 @@ impl ZProcess {
     }
 
     #[cfg(not(feature = "nvidia"))]
+    /// returns a pointer to a comparator function, not a closure
     pub fn field_comparator(sortfield: ProcessTableSortBy) -> fn(&Self, &Self) -> Ordering {
-        /// returns a pointer to a comparator function, not a closure
         match sortfield {
             ProcessTableSortBy::CPU => {
                 |pa, pb| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
@@ -168,8 +171,8 @@ impl ZProcess {
     }
 
     #[cfg(feature = "nvidia")]
+    /// returns a pointer to a comparator function, not a closure
     pub fn field_comparator(sortfield: ProcessTableSortBy) -> fn(&Self, &Self) -> Ordering {
-        /// returns a pointer to a comparator function, not a closure
         match sortfield {
             ProcessTableSortBy::CPU => {
                 |pa, pb| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
@@ -196,7 +199,7 @@ impl ZProcess {
                     .unwrap_or(Equal)
             },
             ProcessTableSortBy::GPU => |pa, pb| pa.gpu_usage.cmp(&pb.gpu_usage),
-            ProcessTableSortBy::GPUM => |pa, pb| pa.gpu_memory.cmp(&pb.gpu_memory)
+            ProcessTableSortBy::FB => |pa, pb| pa.fb_utilization.cmp(&pb.fb_utilization)
         }
     }
 }

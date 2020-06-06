@@ -50,7 +50,7 @@ pub enum ProcessTableSortBy {
     DiskRead = 9,
     DiskWrite = 10,
     GPU = 11,
-    GPUM = 12,
+    FB = 12,
     Cmd = 13,
 }
 
@@ -663,12 +663,12 @@ impl CPUTimeApp {
                                 }
                                 debug!("{:}", gd);
                                 // mock device code to test multiple cards.
-                                let mut gd2 = gd.clone();
+                                //let mut gd2 = gd.clone();
                                 self.gfx_devices.push(gd);
                                 //
-                                 gd2.name = String::from("Card2");
-                                 gd2.max_clock = 1000;
-                                 self.gfx_devices.push(gd2);
+                                 //gd2.name = String::from("Card2");
+                                 //gd2.max_clock = 1000;
+                                 //self.gfx_devices.push(gd2);
                             }
                             Err(e) => error!("Couldn't get UUID: {}", e),
                         },
@@ -751,7 +751,10 @@ impl CPUTimeApp {
             end_time: None,
             start_time: process.start_time(),
             gpu_usage: 0,
-            gpu_memory: 0
+            fb_utilization: 0,
+            enc_utilization: 0,
+            dec_utilization: 0,
+            sm_utilization: 0
         }
     }
 
@@ -906,7 +909,7 @@ impl CPUTimeApp {
         }
     }
 
-    #[cfg(not(feature = "nvidia"))]
+    //#[cfg(not(feature = "nvidia"))]
     pub fn sort_process_table(&mut self) {
         debug!("Sorting Process Table");
         let pm = &self.process_map;
@@ -920,59 +923,6 @@ impl CPUTimeApp {
             match sortorder {
                 ProcessTableSortOrder::Ascending => ord,
                 ProcessTableSortOrder::Descending => ord.reverse(),
-            }
-        });
-    }
-
-    #[cfg(feature = "nvidia")]
-    pub fn sort_process_table(&mut self) {
-        debug!("Sorting Process Table");
-        let pm = &self.process_map;
-        let sortfield = &self.psortby;
-        let sortorder = &self.psortorder;
-        self.processes.sort_by(|a, b| {
-            let mut pa = pm.get(a).expect("Error in sorting the process table.");
-            let mut pb = pm.get(b).expect("Error in sorting the process table.");
-            match sortorder {
-                ProcessTableSortOrder::Ascending => {
-                    //do nothing
-                }
-                ProcessTableSortOrder::Descending => {
-                    swap(&mut pa, &mut pb);
-                }
-            }
-            match sortfield {
-                ProcessTableSortBy::CPU => pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal),
-                ProcessTableSortBy::Mem => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
-                ProcessTableSortBy::MemPerc => pa.memory.partial_cmp(&pb.memory).unwrap_or(Equal),
-                ProcessTableSortBy::User => {
-                    pa.user_name.partial_cmp(&pb.user_name).unwrap_or(Equal)
-                }
-                ProcessTableSortBy::Pid => pa.pid.partial_cmp(&pb.pid).unwrap_or(Equal),
-                ProcessTableSortBy::Status => pa
-                    .status
-                    .to_single_char()
-                    .partial_cmp(pb.status.to_single_char())
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::Priority => {
-                    pa.priority.partial_cmp(&pb.priority).unwrap_or(Equal)
-                }
-                ProcessTableSortBy::Nice => pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
-                ProcessTableSortBy::Virt => pa
-                    .virtual_memory
-                    .partial_cmp(&pb.virtual_memory)
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::Cmd => pa.name.partial_cmp(&pb.name).unwrap_or(Equal),
-                ProcessTableSortBy::DiskRead => pa
-                    .get_read_bytes_sec()
-                    .partial_cmp(&pb.get_read_bytes_sec())
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::DiskWrite => pa
-                    .get_write_bytes_sec()
-                    .partial_cmp(&pb.get_write_bytes_sec())
-                    .unwrap_or(Equal),
-                ProcessTableSortBy::GPU => pa.gpu_usage.partial_cmp(&pb.gpu_usage).unwrap_or(Equal),
-                ProcessTableSortBy::GPUM => pa.gpu_memory.partial_cmp(&pb.gpu_memory).unwrap_or(Equal),
             }
         });
     }
@@ -991,7 +941,10 @@ impl CPUTimeApp {
                 match self.process_map.get_mut(&p.pid){
                     Some(proc) => {
                         proc.gpu_usage = (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;
-                        proc.gpu_memory = p.mem_utilization as u64;
+                        proc.fb_utilization = p.mem_utilization as u64;
+                        proc.dec_utilization = p.dec_utilization as u64;
+                        proc.enc_utilization = p.enc_utilization as u64;
+                        proc.enc_utilization = p.enc_utilization as u64;
                     },
                     None => {
 
