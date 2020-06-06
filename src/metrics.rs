@@ -13,8 +13,6 @@ use heim::units::time;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, SystemTime};
-use std::mem::swap;
-use std::cmp::Ordering::{self, Equal};
 
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
@@ -254,9 +252,11 @@ impl HistogramMap {
     }
 
     fn add_value_to(&mut self, name: &str, val: u64) {
-        let h: &mut Histogram = match self.has(name) {
-            true => self.get_mut(name).expect("Couldn't get mutable reference"),
-            false => self.add(name),
+        let h: &mut Histogram = if self.has(name) {
+            self.get_mut(name).expect("Couldn't get mutable reference")
+        }
+        else{
+            self.add(name)
         };
         h.data.push(val);
         debug!("Adding {} to {} chart.", val, name);
@@ -376,6 +376,8 @@ pub struct GFXDevice {
 }
 
 impl GFXDevice {
+
+    #[allow(dead_code)]
     fn new(uuid: String) -> GFXDevice {
         GFXDevice {
             name: String::from(""),
@@ -938,17 +940,13 @@ impl CPUTimeApp {
     async fn update_gpu_utilization(&mut self){
         for d in &mut self.gfx_devices{
             for p in &d.processes{
-                match self.process_map.get_mut(&p.pid){
-                    Some(proc) => {
-                        proc.gpu_usage = (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;
-                        proc.fb_utilization = p.mem_utilization as u64;
-                        proc.dec_utilization = p.dec_utilization as u64;
-                        proc.enc_utilization = p.enc_utilization as u64;
-                        proc.enc_utilization = p.enc_utilization as u64;
-                    },
-                    None => {
-
-                    }
+                let proc = self.process_map.get_mut(&p.pid);
+                if let Some(proc) = proc {
+                    proc.gpu_usage = (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;
+                    proc.fb_utilization = p.mem_utilization as u64;
+                    proc.dec_utilization = p.dec_utilization as u64;
+                    proc.enc_utilization = p.enc_utilization as u64;
+                    proc.enc_utilization = p.enc_utilization as u64;
                 }
             }
         }

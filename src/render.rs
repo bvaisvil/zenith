@@ -198,7 +198,7 @@ fn render_process_table(
                 ),
 
             ];
-            if app.gfx_devices.len() >0 {
+            if !app.gfx_devices.is_empty() {
                 row.push(format!("{:>4.0}", p.gpu_usage));
                 row.push(format!("{:>4.0}", p.fb_utilization));
             }
@@ -220,7 +220,7 @@ fn render_process_table(
         String::from("READ/s   "),
         String::from("WRITE/s  "),
     ];
-    if app.gfx_devices.len() > 0{
+    if !app.gfx_devices.is_empty(){
         header.push(String::from("GPU% "));
         header.push(String::from("FB%  "));
     }
@@ -655,7 +655,7 @@ fn render_process(
                 ),
                 Text::raw("\n"),
             ];
-            if app.gfx_devices.len() > 0{
+            if !app.gfx_devices.is_empty(){
                 text.push(Text::raw("SM Util:            "));
                 text.push(Text::styled(format!("{:7.2} %", p.sm_utilization as f64), rhs_style));
                 text.push(Text::raw("\n"));
@@ -892,10 +892,6 @@ fn render_graphics(
         format!("Fan [{:3.0}%]", gd.fans[0])
     } else {
         String::from("")
-    };
-    let p = match gd.processes.get(0){
-        Some(p) => p.pid,
-        None => 0
     };
     Sparkline::default()
         .block(
@@ -1566,7 +1562,7 @@ impl<'a> TerminalRenderer {
                 self.gfx_device_index -= 1;
             }
         }
-        if self.selected_section == Section::Process{
+        else if self.selected_section == Section::Process{
             if self.app.selected_process.is_some() || process_table.is_empty() {
                 return;
             }
