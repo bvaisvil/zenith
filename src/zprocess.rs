@@ -62,9 +62,11 @@ pub struct ZProcess {
 
 impl ZProcess {
     pub fn get_read_bytes_sec(&self) -> f64 {
+        debug!("Pid {:?} Read {:?} Prev {:?}", self.pid, self.read_bytes, self.prev_read_bytes);
         (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
     pub fn get_write_bytes_sec(&self) -> f64 {
+        debug!("Pid {:?} Write {:?} Prev {:?}", self.pid, self.write_bytes, self.prev_write_bytes);
         (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
 

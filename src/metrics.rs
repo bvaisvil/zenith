@@ -25,7 +25,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use sysinfo::{Disk, DiskExt, NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use users::{Users, UsersCache};
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
@@ -415,6 +415,29 @@ impl fmt::Display for GFXDevice {
     }
 }
 
+pub struct ZDisk{
+    pub mount_point: PathBuf,
+    pub available_bytes: u64,
+    pub size_bytes: u64
+}
+
+impl ZDisk{
+    fn from_disk(d: &Disk) -> ZDisk{
+        ZDisk{
+            mount_point: d.get_mount_point().clone().to_path_buf(),
+            available_bytes: d.get_available_space(),
+            size_bytes: d.get_total_space()
+        }
+    }
+
+    pub fn get_perc_free_space(&self) -> f32{
+        if self.size_bytes < 1 {
+            return 0.0;
+        }
+        percent_of(self.available_bytes, self.size_bytes)
+    }
+}
+
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
     pub cpu_utilization: u64,
@@ -422,7 +445,7 @@ pub struct CPUTimeApp {
     pub mem_total: u64,
     pub swap_utilization: u64,
     pub swap_total: u64,
-    pub disks: Vec<Disk>,
+    pub disks: Vec<ZDisk>,
     pub disk_total: u64,
     pub disk_available: u64,
     pub disk_write: u64,
@@ -730,6 +753,7 @@ impl CPUTimeApp {
             Some(user) => user.name().to_string_lossy().to_string(),
             None => String::from(""),
         };
+        let disk_usage = process.disk_usage();
         ZProcess {
             uid: process.uid,
             user_name,
@@ -741,14 +765,14 @@ impl CPUTimeApp {
             exe: format!("{}", process.exe().display()),
             name: process.name().to_string(),
             cum_cpu_usage: process.cpu_usage() as f64,
-            priority: process.priority,
-            nice: process.nice,
+            priority: 0,
+            nice: 0,
             virtual_memory: process.virtual_memory(),
-            threads_total: process.threads_total,
-            read_bytes: process.read_bytes,
-            write_bytes: process.write_bytes,
-            prev_read_bytes: process.read_bytes,
-            prev_write_bytes: process.write_bytes,
+            threads_total: 0,
+            read_bytes: disk_usage.total_read_bytes,
+            write_bytes: disk_usage.total_written_bytes,
+            prev_read_bytes: disk_usage.total_read_bytes,
+            prev_write_bytes: disk_usage.total_written_bytes,
             last_updated: SystemTime::now(),
             end_time: None,
             start_time: process.start_time(),
@@ -762,7 +786,7 @@ impl CPUTimeApp {
 
     fn update_process_list(&mut self, keep_order: bool) {
         debug!("Updating Process List");
-        let process_list = self.system.get_process_list();
+        let process_list = self.system.get_processes();
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
         let mut top_pid: Option<i32> = None;
         let mut top_cum_cpu_usage: f64 = match &self.cum_cpu_process {
@@ -780,20 +804,21 @@ impl CPUTimeApp {
         for (pid, process) in process_list {
             if let Some(zp) = self.process_map.get_mut(pid) {
                 if zp.start_time == process.start_time() {
+                    let disk_usage = process.disk_usage();
                     // check for PID reuse
                     zp.memory = process.memory();
                     zp.cpu_usage = process.cpu_usage();
                     zp.cum_cpu_usage += zp.cpu_usage as f64;
                     zp.status = process.status();
-                    zp.priority = process.priority;
-                    zp.nice = process.nice;
+                    zp.priority = 0;
+                    zp.nice = 0;
                     zp.virtual_memory = process.virtual_memory();
-                    zp.threads_total = process.threads_total;
+                    zp.threads_total = 0;
                     self.threads_total += zp.threads_total as usize;
                     zp.prev_read_bytes = zp.read_bytes;
                     zp.prev_write_bytes = zp.write_bytes;
-                    zp.read_bytes = process.read_bytes;
-                    zp.write_bytes = process.write_bytes;
+                    zp.read_bytes = disk_usage.total_read_bytes;
+                    zp.write_bytes = disk_usage.total_written_bytes;
                     zp.last_updated = SystemTime::now();
                     if zp.cum_cpu_usage > top_cum_cpu_usage {
                         top_pid = Some(zp.pid);
@@ -990,7 +1015,7 @@ impl CPUTimeApp {
             self.disk_available += d.get_available_space();
             self.disk_total += d.get_total_space();
 
-            self.disks.push(d.clone());
+            self.disks.push(ZDisk::from_disk(d));
         }
 
         self.disk_read = self
@@ -1011,7 +1036,7 @@ impl CPUTimeApp {
 
     pub async fn update_cpu(&mut self) {
         debug!("Updating CPU");
-        let procs = self.system.get_processor_list();
+        let procs = self.system.get_processors();
         let mut num_procs = 0;
         let mut usage: f32 = 0.0;
         self.cpus.clear();
@@ -1041,6 +1066,19 @@ impl CPUTimeApp {
             .add_value_to("cpu_usage_histogram", self.cpu_utilization);
     }
 
+    pub async fn update_networks(&mut self){
+        let mut net_in = 0;
+        let mut net_out = 0;
+        for (_iface, data) in self.system.get_networks(){
+            net_in += data.get_received();
+            net_out += data.get_transmitted();
+        }
+        self.net_in = net_in;
+        self.net_out = net_out;
+        self.histogram_map.add_value_to("net_in", self.net_in);
+        self.histogram_map.add_value_to("net_out", self.net_out);
+    }
+
     pub async fn update(&mut self, width: u16, keep_order: bool) {
         debug!("Updating Metrics");
         self.system.refresh_all();
@@ -1057,12 +1095,7 @@ impl CPUTimeApp {
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();
 
-        let net = self.system.get_network();
-
-        self.net_in = net.get_income();
-        self.net_out = net.get_outcome();
-        self.histogram_map.add_value_to("net_in", self.net_in);
-        self.histogram_map.add_value_to("net_out", self.net_out);
+        self.update_networks().await;
         self.update_process_list(keep_order);
         self.update_frequency().await;
         self.update_disk(width);

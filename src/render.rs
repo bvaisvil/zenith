@@ -819,7 +819,7 @@ fn render_disk(
                 Cow::Owned(format!(
                     "{:3.0}%: {}",
                     d.get_perc_free_space(),
-                    d.get_mount_point().display()
+                    d.mount_point.display()
                 )),
                 Style::default().fg(Color::Red).modifier(Modifier::BOLD),
             )
@@ -828,7 +828,7 @@ fn render_disk(
                 Cow::Owned(format!(
                     "{:3.0}%: {}",
                     d.get_perc_free_space(),
-                    d.get_mount_point().display()
+                    d.mount_point.display()
                 )),
                 Style::default().fg(Color::Green),
             )
