@@ -1037,30 +1037,27 @@ impl CPUTimeApp {
     pub async fn update_cpu(&mut self) {
         debug!("Updating CPU");
         let procs = self.system.get_processors();
-        let mut num_procs = 0;
         let mut usage: f32 = 0.0;
         self.cpus.clear();
         let mut usagev: Vec<f32> = vec![];
         for (i, p) in procs.iter().enumerate() {
             if i == 0 {
                 self.processor_name = p.get_name().to_owned();
-                continue;
             }
             let mut u = p.get_cpu_usage();
             if u.is_nan() {
                 u = 0.0;
             }
             self.cpus
-                .push((format!("{}", num_procs + 1), (u * 100.0) as u64));
+                .push((format!("{}", i + 1), u as u64));
             usage += u;
             usagev.push(u);
-            num_procs += 1;
         }
-        if num_procs == 0 {
+        if procs.len() == 0 {
             self.cpu_utilization = 0;
         } else {
-            usage /= num_procs as f32;
-            self.cpu_utilization = (usage * 100.0) as u64;
+            usage /= procs.len() as f32;
+            self.cpu_utilization = usage as u64;
         }
         self.histogram_map
             .add_value_to("cpu_usage_histogram", self.cpu_utilization);
