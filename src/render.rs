@@ -1521,15 +1521,18 @@ impl<'a> TerminalRenderer {
             Event::Tick => {
                 debug!("Event Tick");
 
-                if let Some(start) = self.selection_grace_start {
-                    if start.elapsed() > PROCESS_SELECTION_GRACE {
-                        self.selection_grace_start = None;
+                if self.app.selected_process.is_none() {
+                    if let Some(start) = self.selection_grace_start {
+                        if start.elapsed() > PROCESS_SELECTION_GRACE {
+                            self.selection_grace_start = None;
+                        }
                     }
                 }
 
-                self.app
-                    .update(width, self.selection_grace_start.is_some())
-                    .await;
+                let keep_order =
+                    self.app.selected_process.is_some() || self.selection_grace_start.is_some();
+
+                self.app.update(width, keep_order).await;
                 self.update_number += 1;
                 if self.update_number == self.zoom_factor {
                     self.update_number = 0;
@@ -1557,7 +1560,6 @@ impl<'a> TerminalRenderer {
                 self.app.select_process(highlighted_process);
                 self.process_message = None;
                 self.show_find = false;
-                self.highlighted_row = 0;
                 self.process_table_row_start = 0;
             }
             Key::Ctrl('c') => {
