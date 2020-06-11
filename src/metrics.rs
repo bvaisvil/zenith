@@ -488,7 +488,7 @@ impl CPUTimeApp {
         let mut s = CPUTimeApp {
             histogram_map,
             cpus: vec![],
-            system: System::new(),
+            system: System::new_all(),
             cpu_utilization: 0,
             mem_utilization: 0,
             mem_total: 0,
@@ -765,10 +765,10 @@ impl CPUTimeApp {
             exe: format!("{}", process.exe().display()),
             name: process.name().to_string(),
             cum_cpu_usage: process.cpu_usage() as f64,
-            priority: 0,
-            nice: 0,
+            priority: process.priority,
+            nice: process.nice,
             virtual_memory: process.virtual_memory(),
-            threads_total: 0,
+            threads_total: process.threads_total,
             read_bytes: disk_usage.total_read_bytes,
             write_bytes: disk_usage.total_written_bytes,
             prev_read_bytes: disk_usage.total_read_bytes,
@@ -810,10 +810,10 @@ impl CPUTimeApp {
                     zp.cpu_usage = process.cpu_usage();
                     zp.cum_cpu_usage += zp.cpu_usage as f64;
                     zp.status = process.status();
-                    zp.priority = 0;
-                    zp.nice = 0;
+                    zp.priority = process.priority;
+                    zp.nice = process.nice;
                     zp.virtual_memory = process.virtual_memory();
-                    zp.threads_total = 0;
+                    zp.threads_total = process.threads_total;
                     self.threads_total += zp.threads_total as usize;
                     zp.prev_read_bytes = zp.read_bytes;
                     zp.prev_write_bytes = zp.write_bytes;
@@ -997,21 +997,21 @@ impl CPUTimeApp {
         for d in self.system.get_disks().iter() {
             let name = d.get_name().to_string_lossy();
             let mp = d.get_mount_point().to_string_lossy();
-            if cfg!(target_os = "linux") {
-                let fs = d.get_file_system();
-                if IGNORED_FILE_SYSTEMS.iter().any(|ignored| &fs == ignored) {
-                    continue;
-                }
-                if mp.starts_with("/sys")
-                    || mp.starts_with("/proc")
-                    || mp.starts_with("/run")
-                    || mp.starts_with("/dev")
-                    || name.starts_with("shm")
-                    || name.starts_with("sunrpc")
-                {
-                    continue;
-                }
-            }
+            // if cfg!(target_os = "linux") {
+            //     let fs = d.get_file_system();
+            //     if IGNORED_FILE_SYSTEMS.iter().any(|ignored| &fs == ignored) {
+            //         continue;
+            //     }
+            //     if mp.starts_with("/sys")
+            //         || mp.starts_with("/proc")
+            //         || mp.starts_with("/run")
+            //         || mp.starts_with("/dev")
+            //         || name.starts_with("shm")
+            //         || name.starts_with("sunrpc")
+            //     {
+            //         continue;
+            //     }
+            // }
             self.disk_available += d.get_available_space();
             self.disk_total += d.get_total_space();
 
