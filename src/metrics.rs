@@ -997,21 +997,21 @@ impl CPUTimeApp {
         for d in self.system.get_disks().iter() {
             let name = d.get_name().to_string_lossy();
             let mp = d.get_mount_point().to_string_lossy();
-            // if cfg!(target_os = "linux") {
-            //     let fs = d.get_file_system();
-            //     if IGNORED_FILE_SYSTEMS.iter().any(|ignored| &fs == ignored) {
-            //         continue;
-            //     }
-            //     if mp.starts_with("/sys")
-            //         || mp.starts_with("/proc")
-            //         || mp.starts_with("/run")
-            //         || mp.starts_with("/dev")
-            //         || name.starts_with("shm")
-            //         || name.starts_with("sunrpc")
-            //     {
-            //         continue;
-            //     }
-            // }
+            if cfg!(target_os = "linux") {
+                let fs = d.get_file_system();
+                if IGNORED_FILE_SYSTEMS.iter().any(|ignored| &fs == ignored) {
+                    continue;
+                }
+                if mp.starts_with("/sys")
+                    || mp.starts_with("/proc")
+                    || mp.starts_with("/run")
+                    || mp.starts_with("/dev")
+                    || name.starts_with("shm")
+                    || name.starts_with("sunrpc")
+                {
+                    continue;
+                }
+            }
             self.disk_available += d.get_available_space();
             self.disk_total += d.get_total_space();
 
