@@ -26,17 +26,36 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 
 use std::ops::Mul;
+use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{
-    BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text, Widget,
-};
+use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text};
 use tui::Frame;
 use tui::Terminal;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 
 type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
+
+/// Compatibility trait, that preserves an older method from tui 0.6.5
+/// Exists mostly to keep the caller code idiomatic for the use cases in this file
+/// May be refactored out later if the widget usage patterns change
+trait Render<B>
+where
+    B: Backend,
+{
+    fn render(self, f: &mut Frame<B>, area: Rect);
+}
+
+impl<T, B> Render<B> for T
+where
+    T: tui::widgets::Widget,
+    B: Backend,
+{
+    fn render(self, f: &mut Frame<B>, area: Rect) {
+        f.render_widget(self, area)
+    }
+}
 
 macro_rules! float_to_byte_string {
     ($x:expr, $unit:expr) => {
@@ -225,19 +244,18 @@ fn render_process_table(
         header.push(String::from("FB%  "));
     }
     //figure column widths
-    let mut widths: Vec<u16> = header.iter().map(|item| item.len() as u16).collect();
-    let s: u16 = widths.iter().sum();
-    let mut cmd_width = width as i16 - s as i16 - 3;
-    if cmd_width < 0 {
-        cmd_width = 0;
+    let mut widths = Vec::with_capacity(header.len() + 1);
+    let mut used_width = 0;
+    for item in &header {
+        let len = item.len() as u16;
+        widths.push(Constraint::Length(len));
+        used_width += len;
     }
-    let cmd_width = cmd_width as u16;
-    let mut cmd_header = String::from("CMD");
-    for _i in 3..cmd_width {
-        cmd_header.push(' ');
-    }
+    let cmd_width = width.saturating_sub(used_width).saturating_sub(3);
+    let cmd_header = format!("{:<width$}", "CMD", width = cmd_width as usize);
+    widths.push(Constraint::Min(cmd_width));
     header.push(cmd_header);
-    widths.push(header.last().unwrap().len() as u16);
+
     header[app.psortby as usize].pop();
     let sort_ind = match app.psortorder {
         ProcessTableSortOrder::Ascending => '↑',

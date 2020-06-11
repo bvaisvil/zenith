@@ -708,15 +708,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
@@ -1354,15 +1345,14 @@ dependencies = [
 
 [[package]]
 name = "tui"
-version = "0.6.2"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73b422ff4986065d33272b587907654f918a3fe8702786a8110bf68dede0d8ee"
+checksum = "9533d39bef0ae8f510e8a99d78702e68d1bbf0b98a78ec9740509d287010ae1e"
 dependencies = [
  "bitflags",
  "cassowary",
  "either",
- "itertools 0.8.2",
- "log",
+ "itertools",
  "termion",
  "unicode-segmentation",
  "unicode-width",
@@ -1478,7 +1468,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "382f6877399646e1b88f4b89813b4577147fa924464317378eb39c280d1e9e4c"
 dependencies = [
- "itertools 0.9.0",
+ "itertools",
  "proc-macro2",
  "pulldown-cmark",
  "regex",
