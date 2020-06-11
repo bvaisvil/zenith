@@ -424,7 +424,7 @@ pub struct ZDisk{
 impl ZDisk{
     fn from_disk(d: &Disk) -> ZDisk{
         ZDisk{
-            mount_point: d.get_mount_point().clone().to_path_buf(),
+            mount_point: d.get_mount_point().to_path_buf(),
             available_bytes: d.get_available_space(),
             size_bytes: d.get_total_space()
         }
