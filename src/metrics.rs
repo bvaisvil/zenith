@@ -892,13 +892,11 @@ impl CPUTimeApp {
                 self.cum_cpu_process = Some(p.clone())
             }
         } else if let Some(p) = &mut self.cum_cpu_process {
-            if self.process_map.contains_key(&p.pid) {
-                if let Some(cp) = self.process_map.get(&p.pid) {
-                    if cp.start_time == p.start_time {
-                        self.cum_cpu_process = Some(cp.clone());
-                    } else {
-                        p.set_end_time();
-                    }
+            if let Some(cp) = self.process_map.get(&p.pid) {
+                if cp.start_time == p.start_time {
+                    self.cum_cpu_process = Some(cp.clone());
+                } else {
+                    p.set_end_time();
                 }
             } else {
                 // our cumulative winner is dead
@@ -920,8 +918,8 @@ impl CPUTimeApp {
         // update selected process
         if let Some(p) = self.selected_process.as_mut() {
             let pid = &p.pid;
-            if self.process_map.contains_key(pid) {
-                self.selected_process = Some(self.process_map[pid].clone());
+            if let Some(proc) = self.process_map.get(pid) {
+                self.selected_process = Some(proc.clone());
             } else {
                 p.set_end_time();
             }
