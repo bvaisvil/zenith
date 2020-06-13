@@ -554,181 +554,179 @@ fn render_process(
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default(),
     };
-    match &app.selected_process {
-        Some(p) => {
-            Block::default()
-                .title(format!("Process: {0}", p.name).as_str())
-                .borders(Borders::ALL)
-                .border_style(style)
-                .title_style(style)
-                .render(f, layout);
-            let v_sections = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(1)
-                .constraints([Constraint::Length(2), Constraint::Min(1)].as_ref())
-                .split(layout);
+    let p = match &app.selected_process {
+        Some(p) => p,
+        None => return,
+    };
+    Block::default()
+        .title(format!("Process: {0}", p.name).as_str())
+        .borders(Borders::ALL)
+        .border_style(style)
+        .title_style(style)
+        .render(f, layout);
+    let v_sections = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([Constraint::Length(2), Constraint::Min(1)].as_ref())
+        .split(layout);
 
-            Block::default()
+    Block::default()
                 .title(format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
                                         process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
                 .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
 
-            //Block::default().borders(Borders::LEFT).render(f, h_sections[1]);
+    //Block::default().borders(Borders::LEFT).render(f, h_sections[1]);
 
-            let alive = if p.end_time.is_some() {
-                format!(
-                    "dead since {:}",
-                    DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.end_time.unwrap()))
-                )
-            } else {
-                "alive".to_string()
-            };
-            let start_time =
-                DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
-            let et = match p.end_time {
-                Some(t) => DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(t)),
-                None => Local::now(),
-            };
-            let d = et - start_time;
-            let d = format!(
-                "{:0>2}:{:0>2}:{:0>2}",
-                d.num_hours(),
-                d.num_minutes() % 60,
-                d.num_seconds() % 60
-            );
-
-            let rhs_style = Style::default().fg(Color::Green);
-            let mut text = vec![
-                Text::raw("Name:                  "),
-                Text::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
-                Text::raw("\n"),
-                Text::raw("PID:                   "),
-                Text::styled(
-                    format!("{:>width$}", &p.pid, width = *max_pid_len),
-                    rhs_style,
-                ),
-                Text::raw("\n"),
-                Text::raw("Command:               "),
-                Text::styled(p.command.join(" "), rhs_style),
-                Text::raw("\n"),
-                Text::raw("User:                  "),
-                Text::styled(&p.user_name, rhs_style),
-                Text::raw("\n"),
-                Text::raw("Start Time:            "),
-                Text::styled(format!("{:}", start_time), rhs_style),
-                Text::raw("\n"),
-                Text::raw("Total Run Time:        "),
-                Text::styled(d, rhs_style),
-                Text::raw("\n"),
-                Text::raw("CPU Usage:             "),
-                Text::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
-                Text::raw("\n"),
-                Text::raw("Threads:               "),
-                Text::styled(format!("{:>7}", &p.threads_total), rhs_style),
-                Text::raw("\n"),
-                Text::raw("Status:                "),
-                Text::styled(format!("{:}", p.status), rhs_style),
-                Text::raw("\n"),
-                Text::raw("Priority:              "),
-                Text::styled(format!("{:>7}", p.priority), rhs_style),
-                Text::raw("\n"),
-                Text::raw("Nice:                  "),
-                Text::styled(format!("{:>7}", p.nice), rhs_style),
-                Text::raw("\n"),
-                Text::raw("MEM Usage:             "),
-                Text::styled(
-                    format!("{:>7.2} %", percent_of(p.memory, app.mem_total)),
-                    rhs_style,
-                ),
-                Text::raw("\n"),
-                Text::raw("Total Memory:          "),
-                Text::styled(
-                    format!(
-                        "{:>10}",
-                        float_to_byte_string!(p.memory as f64, ByteUnit::KB)
-                    ),
-                    rhs_style,
-                ),
-                Text::raw("\n"),
-                Text::raw("Disk Read:             "),
-                Text::styled(
-                    format!(
-                        "{:>10} {:}/s",
-                        float_to_byte_string!(p.read_bytes as f64, ByteUnit::B),
-                        float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B)
-                    ),
-                    rhs_style,
-                ),
-                Text::raw("\n"),
-                Text::raw("Disk Write:            "),
-                Text::styled(
-                    format!(
-                        "{:>10} {:}/s",
-                        float_to_byte_string!(p.write_bytes as f64, ByteUnit::B),
-                        float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B)
-                    ),
-                    rhs_style,
-                ),
-                Text::raw("\n"),
-            ];
-            if !app.gfx_devices.is_empty() {
-                text.push(Text::raw("SM Util:            "));
-                text.push(Text::styled(
-                    format!("{:7.2} %", p.sm_utilization as f64),
-                    rhs_style,
-                ));
-                text.push(Text::raw("\n"));
-                text.push(Text::raw("Frame Buffer:       "));
-                text.push(Text::styled(
-                    format!("{:7.2} %", p.fb_utilization as f64),
-                    rhs_style,
-                ));
-                text.push(Text::raw("\n"));
-                text.push(Text::raw("Encoder Util:       "));
-                text.push(Text::styled(
-                    format!("{:7.2} %", p.enc_utilization as f64),
-                    rhs_style,
-                ));
-                text.push(Text::raw("\n"));
-                text.push(Text::raw("Decoder Util:       "));
-                text.push(Text::styled(
-                    format!("{:7.2} %", p.dec_utilization as f64),
-                    rhs_style,
-                ));
-                text.push(Text::raw("\n"));
-            }
-
-            if text.len() > v_sections[1].height as usize * 3 {
-                let h_sections = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .margin(0)
-                    .constraints(
-                        [
-                            Constraint::Percentage(50),
-                            Constraint::Length(1),
-                            Constraint::Percentage(50),
-                        ]
-                        .as_ref(),
-                    )
-                    .split(v_sections[1]);
-                Paragraph::new(text[0..h_sections[0].height as usize * 3].iter())
-                    .block(Block::default())
-                    .wrap(false)
-                    .render(f, h_sections[0]);
-
-                Paragraph::new(text[h_sections[0].height as usize * 3..].iter())
-                    .block(Block::default())
-                    .wrap(false)
-                    .render(f, h_sections[2]);
-            } else {
-                Paragraph::new(text.iter())
-                    .block(Block::default())
-                    .wrap(true)
-                    .render(f, v_sections[1]);
-            }
-        }
-        None => {}
+    let alive = if p.end_time.is_some() {
+        format!(
+            "dead since {:}",
+            DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.end_time.unwrap()))
+        )
+    } else {
+        "alive".to_string()
     };
+    let start_time = DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
+    let et = match p.end_time {
+        Some(t) => DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(t)),
+        None => Local::now(),
+    };
+    let d = et - start_time;
+    let d = format!(
+        "{:0>2}:{:0>2}:{:0>2}",
+        d.num_hours(),
+        d.num_minutes() % 60,
+        d.num_seconds() % 60
+    );
+
+    let rhs_style = Style::default().fg(Color::Green);
+    let mut text = vec![
+        Text::raw("Name:                  "),
+        Text::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
+        Text::raw("\n"),
+        Text::raw("PID:                   "),
+        Text::styled(
+            format!("{:>width$}", &p.pid, width = *max_pid_len),
+            rhs_style,
+        ),
+        Text::raw("\n"),
+        Text::raw("Command:               "),
+        Text::styled(p.command.join(" "), rhs_style),
+        Text::raw("\n"),
+        Text::raw("User:                  "),
+        Text::styled(&p.user_name, rhs_style),
+        Text::raw("\n"),
+        Text::raw("Start Time:            "),
+        Text::styled(format!("{:}", start_time), rhs_style),
+        Text::raw("\n"),
+        Text::raw("Total Run Time:        "),
+        Text::styled(d, rhs_style),
+        Text::raw("\n"),
+        Text::raw("CPU Usage:             "),
+        Text::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
+        Text::raw("\n"),
+        Text::raw("Threads:               "),
+        Text::styled(format!("{:>7}", &p.threads_total), rhs_style),
+        Text::raw("\n"),
+        Text::raw("Status:                "),
+        Text::styled(format!("{:}", p.status), rhs_style),
+        Text::raw("\n"),
+        Text::raw("Priority:              "),
+        Text::styled(format!("{:>7}", p.priority), rhs_style),
+        Text::raw("\n"),
+        Text::raw("Nice:                  "),
+        Text::styled(format!("{:>7}", p.nice), rhs_style),
+        Text::raw("\n"),
+        Text::raw("MEM Usage:             "),
+        Text::styled(
+            format!("{:>7.2} %", percent_of(p.memory, app.mem_total)),
+            rhs_style,
+        ),
+        Text::raw("\n"),
+        Text::raw("Total Memory:          "),
+        Text::styled(
+            format!(
+                "{:>10}",
+                float_to_byte_string!(p.memory as f64, ByteUnit::KB)
+            ),
+            rhs_style,
+        ),
+        Text::raw("\n"),
+        Text::raw("Disk Read:             "),
+        Text::styled(
+            format!(
+                "{:>10} {:}/s",
+                float_to_byte_string!(p.read_bytes as f64, ByteUnit::B),
+                float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B)
+            ),
+            rhs_style,
+        ),
+        Text::raw("\n"),
+        Text::raw("Disk Write:            "),
+        Text::styled(
+            format!(
+                "{:>10} {:}/s",
+                float_to_byte_string!(p.write_bytes as f64, ByteUnit::B),
+                float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B)
+            ),
+            rhs_style,
+        ),
+        Text::raw("\n"),
+    ];
+    if !app.gfx_devices.is_empty() {
+        text.push(Text::raw("SM Util:            "));
+        text.push(Text::styled(
+            format!("{:7.2} %", p.sm_utilization as f64),
+            rhs_style,
+        ));
+        text.push(Text::raw("\n"));
+        text.push(Text::raw("Frame Buffer:       "));
+        text.push(Text::styled(
+            format!("{:7.2} %", p.fb_utilization as f64),
+            rhs_style,
+        ));
+        text.push(Text::raw("\n"));
+        text.push(Text::raw("Encoder Util:       "));
+        text.push(Text::styled(
+            format!("{:7.2} %", p.enc_utilization as f64),
+            rhs_style,
+        ));
+        text.push(Text::raw("\n"));
+        text.push(Text::raw("Decoder Util:       "));
+        text.push(Text::styled(
+            format!("{:7.2} %", p.dec_utilization as f64),
+            rhs_style,
+        ));
+        text.push(Text::raw("\n"));
+    }
+
+    if text.len() > v_sections[1].height as usize * 3 {
+        let h_sections = Layout::default()
+            .direction(Direction::Horizontal)
+            .margin(0)
+            .constraints(
+                [
+                    Constraint::Percentage(50),
+                    Constraint::Length(1),
+                    Constraint::Percentage(50),
+                ]
+                .as_ref(),
+            )
+            .split(v_sections[1]);
+        Paragraph::new(text[0..h_sections[0].height as usize * 3].iter())
+            .block(Block::default())
+            .wrap(false)
+            .render(f, h_sections[0]);
+
+        Paragraph::new(text[h_sections[0].height as usize * 3..].iter())
+            .block(Block::default())
+            .wrap(false)
+            .render(f, h_sections[2]);
+    } else {
+        Paragraph::new(text.iter())
+            .block(Block::default())
+            .wrap(true)
+            .render(f, v_sections[1]);
+    }
 }
 
 fn render_disk(
