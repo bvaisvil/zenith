@@ -34,7 +34,7 @@ use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Ta
 use tui::Frame;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
-const LEFT_PANE_WIDTH: u16 = 30u16;
+const LEFT_PANE_WIDTH: u16 = 34u16;
 
 type ZBackend = CrosstermBackend<Stdout>;
 
@@ -371,75 +371,114 @@ fn render_cpu_bars(
     f: &mut Frame<'_, ZBackend>,
     style: &Style,
 ) {
-    let mut cpus = app.cpus.to_owned();
-    let mut bars: Vec<(&str, u64)> = vec![];
-    let mut bar_gap: u16 = 1;
-
-    let mut np = cpus.len() as u16;
-    if np == 0 {
-        np = 1;
+    let cpus = app.cpus.to_owned();
+    if cpus.is_empty() {
+        return;
     }
 
-    let mut constraints: Vec<Constraint> = vec![];
-    let half = if np > width - 2 {
-        constraints.push(Constraint::Percentage(50));
-        constraints.push(Constraint::Percentage(50));
-        np as usize / 2
-    } else {
-        constraints.push(Constraint::Percentage(100));
-        np as usize
-    };
-    //compute bar width and gutter/gap
-
-    if width > 2 && (half * 2) >= (width - 2) as usize {
-        bar_gap = 0;
-    }
-    let width = width - 2;
-    let mut cpu_bw = ((width as f32 - (half as u16 * bar_gap) as f32) / half as f32) as i16;
-    if cpu_bw < 1 {
-        cpu_bw = 1;
-    }
-    let cpu_bw = cpu_bw as u16;
-    for (i, (p, u)) in cpus.iter_mut().enumerate() {
-        if i > 8 && cpu_bw == 1 {
-            p.remove(0);
-        }
-        bars.push((p.as_str(), *u));
-    }
+    let core_count = cpus.len() as u16;
+    let widest_label = cpus.iter().map(|(s, _)| s.len()).max().unwrap_or(0) as u16;
+    let full_width = widest_label * core_count + (core_count - 1);
 
     Block::default()
-        .title(format!("CPU(S) {}@{} MHz", np, app.frequency).as_str())
+        .title(
+            format!(
+                "CPU{} {}@{} MHz",
+                core_count,
+                if core_count > 1 { "S" } else { "" },
+                app.frequency
+            )
+            .as_str(),
+        )
         .borders(Borders::ALL)
         .border_style(*style)
         .title_style(*style)
         .render(f, area);
-    let cpu_bar_layout = Layout::default()
-        .margin(1)
-        .direction(Direction::Vertical)
-        .constraints(constraints.as_ref())
-        .split(area);
 
-    if np > width {
+    assert_eq!(area.width, width);
+
+    let layout = Layout::default().margin(1).direction(Direction::Vertical);
+
+    if full_width > 2 * width {
+        // won't fit in 2 rows of bars, using grid layout
+
+        let layout = layout
+            .constraints(vec![Constraint::Percentage(100)])
+            .split(area);
+
+        let cols = 4;
+
+        let nrows = ((cpus.len() as u16 + cols - 1) / cols) as usize;
+
+        let mut items = vec![];
+        for i in 0..nrows {
+            cpus.iter()
+                .skip(i)
+                .step_by(nrows)
+                .take(cols.into())
+                .for_each(|(label, load)| {
+                    items.push(Text::raw(format!("{:>2} ", label)));
+                    let color = if *load < 90 { Color::Green } else { Color::Red };
+                    items.push(Text::styled(
+                        format!("{:3}", load),
+                        Style::default().fg(color),
+                    ));
+                    items.push(Text::raw("% "));
+                });
+
+            items.push(Text::raw("\n"));
+        }
+
+        Paragraph::new(items.iter())
+            .wrap(false)
+            .render(f, layout[0]);
+
+        return;
+    }
+
+    // displaying as bars
+    let bar_gap: u16 = 1;
+    let bars: Vec<(&str, u64)> = cpus.iter().map(|(p, u)| (p.as_str(), *u)).collect();
+
+    if full_width <= width {
+        // fits in one row
+
+        let cpu_bar_layout = layout
+            .constraints(vec![Constraint::Percentage(100)])
+            .split(area);
+
+        let bar_width = (width - (core_count - 1)) / core_count;
+
         BarChart::default()
-            .data(&bars[0..half])
-            .bar_width(cpu_bw)
+            .data(bars.as_slice())
+            .bar_width(bar_width)
             .bar_gap(bar_gap)
             .max(100)
             .style(Style::default().fg(Color::Green))
             .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
             .render(f, cpu_bar_layout[0]);
+    } else {
+        // fits on two rows
+
+        let half = bars.len() / 2;
+
+        let cpu_bar_layout = layout
+            .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(area);
+
+        let bar_width = (width * 2 - (core_count - 1)) / core_count;
+
         BarChart::default()
             .data(&bars[half..])
-            .bar_width(cpu_bw)
+            .bar_width(bar_width)
             .bar_gap(bar_gap)
             .max(100)
             .style(Style::default().fg(Color::Green))
             .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
             .render(f, cpu_bar_layout[1]);
-    } else {
         BarChart::default()
-            .data(bars.as_slice())
-            .bar_width(cpu_bw)
+            .data(&bars[0..half])
+            .bar_width(bar_width)
             .bar_gap(bar_gap)
             .max(100)
             .style(Style::default().fg(Color::Green))
