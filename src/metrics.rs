@@ -208,35 +208,32 @@ impl HistogramMap {
         width: usize,
         offset: usize,
     ) -> Option<Histogram> {
-        match self.get(name) {
-            Some(h) => {
-                let mut nh = Histogram::new(width);
-                let mut h = h.clone();
-                for _i in 0..zoom_factor as usize * offset {
-                    h.data.pop();
-                }
-                let nh_len = nh.data.len();
-                let zf = zoom_factor as usize;
-                let mut si: usize = if (width * zf) > h.data.len() {
-                    0
-                } else {
-                    h.data.len() - (width * zf) - update_number as usize
-                };
+        let h = self.get(name)?;
 
-                for index in 0..nh_len {
-                    if si + zf <= h.data.len() {
-                        nh.data[index] = h.data[si..si + zf].iter().sum::<u64>();
-                    } else {
-                        nh.data[index] = h.data[si..].iter().sum::<u64>();
-                    }
-                    si += zf;
-                }
-
-                nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();
-                Some(nh)
-            }
-            None => None,
+        let mut nh = Histogram::new(width);
+        let mut h = h.clone();
+        for _i in 0..zoom_factor as usize * offset {
+            h.data.pop();
         }
+        let nh_len = nh.data.len();
+        let zf = zoom_factor as usize;
+        let mut si: usize = if (width * zf) > h.data.len() {
+            0
+        } else {
+            h.data.len() - (width * zf) - update_number as usize
+        };
+
+        for index in 0..nh_len {
+            if si + zf <= h.data.len() {
+                nh.data[index] = h.data[si..si + zf].iter().sum::<u64>();
+            } else {
+                nh.data[index] = h.data[si..].iter().sum::<u64>();
+            }
+            si += zf;
+        }
+
+        nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();
+        Some(nh)
     }
 
     pub fn get(&self, name: &str) -> Option<&Histogram> {
@@ -576,48 +573,50 @@ impl CPUTimeApp {
         debug!("Updating Network Interfaces");
         self.network_interfaces.clear();
         let nics = net::nic().await;
-        match nics {
-            Ok(nics) => {
-                ::futures::pin_mut!(nics);
-                while let Some(n) = nics.next().await {
-                    match n {
-                        Ok(n) => {
-                            if !n.is_up() || n.is_loopback() {
-                                continue;
-                            }
-                            if n.name().starts_with("utun")
-                                || n.name().starts_with("awd")
-                                || n.name().starts_with("ham")
-                            {
-                                continue;
-                            }
-                            let ip = match n.address() {
-                                Address::Inet(n) => n.to_string(),
-                                _ => format!(""),
-                            }
-                            .trim_end_matches(":0")
-                            .to_string();
-                            if ip.is_empty() {
-                                continue;
-                            }
-                            let dest = match n.destination() {
-                                Some(d) => match d {
-                                    Address::Inet(d) => d.to_string(),
-                                    _ => format!(""),
-                                },
-                                None => format!(""),
-                            };
-                            self.network_interfaces.push(NetworkInterface {
-                                name: n.name().to_owned(),
-                                ip,
-                                dest,
-                            });
-                        }
-                        Err(_) => println!("Couldn't get information on a nic"),
-                    }
-                }
+        let nics = match nics {
+            Ok(nics) => nics,
+            Err(_) => {
+                debug!("Couldn't get nic information");
+                return;
             }
-            Err(_) => debug!("Couldn't get nic information"),
+        };
+        ::futures::pin_mut!(nics);
+        while let Some(n) = nics.next().await {
+            match n {
+                Ok(n) => {
+                    if !n.is_up() || n.is_loopback() {
+                        continue;
+                    }
+                    if n.name().starts_with("utun")
+                        || n.name().starts_with("awd")
+                        || n.name().starts_with("ham")
+                    {
+                        continue;
+                    }
+                    let ip = match n.address() {
+                        Address::Inet(n) => n.to_string(),
+                        _ => format!(""),
+                    }
+                    .trim_end_matches(":0")
+                    .to_string();
+                    if ip.is_empty() {
+                        continue;
+                    }
+                    let dest = match n.destination() {
+                        Some(d) => match d {
+                            Address::Inet(d) => d.to_string(),
+                            _ => format!(""),
+                        },
+                        None => format!(""),
+                    };
+                    self.network_interfaces.push(NetworkInterface {
+                        name: n.name().to_owned(),
+                        ip,
+                        dest,
+                    });
+                }
+                Err(_) => println!("Couldn't get information on a nic"),
+            }
         }
     }
 
@@ -628,84 +627,90 @@ impl CPUTimeApp {
     async fn update_gfx_devices(&mut self) {
         self.gfx_devices.clear();
         let nvml = NVML::init();
-        match nvml {
-            Ok(n) => {
-                let count = n.device_count().unwrap_or(0);
-                for i in 0..count {
-                    match n.device_by_index(i) {
-                        Ok(d) => match d.uuid() {
-                            Ok(uuid) => {
-                                let mut gd = GFXDevice::new(uuid);
-                                match d.memory_info() {
-                                    Ok(m) => {
-                                        gd.total_memory = m.total;
-                                        gd.used_memory = m.used;
-                                    }
-                                    Err(e) => error!("Failed Getting Memory Info {:?}", e),
-                                }
-                                gd.name = d.name().unwrap_or(String::from(""));
-                                gd.clock = d.clock_info(Clock::Graphics).unwrap_or(0);
-                                gd.max_clock = d.max_clock_info(Clock::Graphics).unwrap_or(0);
-                                gd.power_usage = d.power_usage().unwrap_or(0);
-                                gd.max_power = d.power_management_limit().unwrap_or(0);
-                                gd.temperature = d.temperature(TemperatureSensor::Gpu).unwrap_or(0);
-                                gd.temperature_max = d
-                                    .temperature_threshold(TemperatureThreshold::GpuMax)
-                                    .unwrap_or(0);
-                                for i in 0..4 {
-                                    let r = d.fan_speed(i);
-                                    if r.is_ok() {
-                                        gd.fans.push(r.unwrap_or(0));
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                gd.decoder_utilization = match d.decoder_utilization() {
-                                    Ok(u) => u.utilization,
-                                    Err(_) => 0,
-                                };
-                                gd.encoder_utilization = match d.encoder_utilization() {
-                                    Ok(u) => u.utilization,
-                                    Err(_) => 0,
-                                };
-                                match d.utilization_rates() {
-                                    Ok(u) => {
-                                        self.histogram_map.add_value_to(
-                                            format!("{}_gpu", gd.uuid).as_str(),
-                                            u.gpu as u64,
-                                        );
-                                        self.histogram_map.add_value_to(
-                                            format!("{}_mem", gd.uuid).as_str(),
-                                            u.memory as u64,
-                                        );
-                                        gd.gpu_utilization = u.gpu;
-                                        gd.mem_utilization = u.memory;
-                                    }
-                                    Err(e) => error!("Couldn't get utilization rates: {:?}", e),
-                                }
-                                match d.process_utilization_stats(None) {
-                                    Ok(ps) => gd.processes_from_nvml(ps),
-                                    Err(_) => debug!(
-                                        "Couldn't retrieve process utilization stats for {:}",
-                                        gd.name
-                                    ),
-                                }
-                                debug!("{:}", gd);
-                                // mock device code to test multiple cards.
-                                //let mut gd2 = gd.clone();
-                                self.gfx_devices.push(gd);
-                                //
-                                //gd2.name = String::from("Card2");
-                                //gd2.max_clock = 1000;
-                                //self.gfx_devices.push(gd2);
-                            }
-                            Err(e) => error!("Couldn't get UUID: {}", e),
-                        },
-                        Err(e) => error!("Couldn't get gfx device at index: {}: {:?}", i, e),
-                    }
+        let n = match nvml {
+            Ok(n) => n,
+            Err(e) => {
+                error!("Couldn't init NVML: {:?}", e);
+                return;
+            }
+        };
+
+        let count = n.device_count().unwrap_or(0);
+        for i in 0..count {
+            let d = match n.device_by_index(i) {
+                Ok(d) => d,
+                Err(e) => {
+                    error!("Couldn't get gfx device at index: {}: {:?}", i, e);
+                    continue;
+                }
+            };
+
+            let uuid = match d.uuid() {
+                Ok(uuid) => uuid,
+                Err(e) => {
+                    error!("Couldn't get UUID: {}", e);
+                    continue;
+                }
+            };
+            let mut gd = GFXDevice::new(uuid);
+            match d.memory_info() {
+                Ok(m) => {
+                    gd.total_memory = m.total;
+                    gd.used_memory = m.used;
+                }
+                Err(e) => error!("Failed Getting Memory Info {:?}", e),
+            }
+            gd.name = d.name().unwrap_or(String::from(""));
+            gd.clock = d.clock_info(Clock::Graphics).unwrap_or(0);
+            gd.max_clock = d.max_clock_info(Clock::Graphics).unwrap_or(0);
+            gd.power_usage = d.power_usage().unwrap_or(0);
+            gd.max_power = d.power_management_limit().unwrap_or(0);
+            gd.temperature = d.temperature(TemperatureSensor::Gpu).unwrap_or(0);
+            gd.temperature_max = d
+                .temperature_threshold(TemperatureThreshold::GpuMax)
+                .unwrap_or(0);
+            for i in 0..4 {
+                let r = d.fan_speed(i);
+                if r.is_ok() {
+                    gd.fans.push(r.unwrap_or(0));
+                } else {
+                    break;
                 }
             }
-            Err(e) => error!("Couldn't init NVML: {:?}", e),
+            gd.decoder_utilization = match d.decoder_utilization() {
+                Ok(u) => u.utilization,
+                Err(_) => 0,
+            };
+            gd.encoder_utilization = match d.encoder_utilization() {
+                Ok(u) => u.utilization,
+                Err(_) => 0,
+            };
+            match d.utilization_rates() {
+                Ok(u) => {
+                    self.histogram_map
+                        .add_value_to(format!("{}_gpu", gd.uuid).as_str(), u.gpu as u64);
+                    self.histogram_map
+                        .add_value_to(format!("{}_mem", gd.uuid).as_str(), u.memory as u64);
+                    gd.gpu_utilization = u.gpu;
+                    gd.mem_utilization = u.memory;
+                }
+                Err(e) => error!("Couldn't get utilization rates: {:?}", e),
+            }
+            match d.process_utilization_stats(None) {
+                Ok(ps) => gd.processes_from_nvml(ps),
+                Err(_) => debug!(
+                    "Couldn't retrieve process utilization stats for {:}",
+                    gd.name
+                ),
+            }
+            debug!("{:}", gd);
+            // mock device code to test multiple cards.
+            //let mut gd2 = gd.clone();
+            self.gfx_devices.push(gd);
+            //
+            //gd2.name = String::from("Card2");
+            //gd2.max_clock = 1000;
+            //self.gfx_devices.push(gd2);
         }
     }
 
