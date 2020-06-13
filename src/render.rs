@@ -544,7 +544,6 @@ fn render_process(
     app: &CPUTimeApp,
     layout: Rect,
     f: &mut Frame<'_, ZBackend>,
-    _width: u16,
     selected_section: &Section,
     process_message: &Option<String>,
 ) {
@@ -1503,14 +1502,7 @@ impl<'a> TerminalRenderer {
                                         process_table_height = area.height - 5;
                                     }
                                 } else if app.selected_process.is_some() {
-                                    render_process(
-                                        &app,
-                                        *area,
-                                        &mut f,
-                                        width,
-                                        selected,
-                                        process_message,
-                                    );
+                                    render_process(&app, *area, &mut f, selected, process_message);
                                 }
                             }
                         }
