@@ -192,14 +192,6 @@ impl HistogramMap {
         }
     }
 
-    fn add(&mut self, name: &str) -> &mut Histogram {
-        let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
-        let names = name.to_owned();
-        let _r = self.map.insert(names, Histogram::new(size));
-        self.get_mut(name)
-            .expect("Unexpectedly couldn't get mutable reference to value we just added.")
-    }
-
     pub fn get_zoomed(
         &self,
         name: &str,
@@ -240,19 +232,14 @@ impl HistogramMap {
         self.map.get(name)
     }
 
-    fn get_mut(&mut self, name: &str) -> Option<&mut Histogram> {
-        self.map.get_mut(name)
-    }
-
-    fn has(&self, name: &str) -> bool {
-        self.map.contains_key(name)
-    }
-
     fn add_value_to(&mut self, name: &str, val: u64) {
-        let h: &mut Histogram = if self.has(name) {
-            self.get_mut(name).expect("Couldn't get mutable reference")
+        let h = if let Some(h) = self.map.get_mut(name) {
+            h
         } else {
-            self.add(name)
+            let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
+            self.map
+                .entry(name.to_string())
+                .or_insert_with(|| Histogram::new(size))
         };
         h.data.push(val);
         debug!("Adding {} to {} chart.", val, name);
