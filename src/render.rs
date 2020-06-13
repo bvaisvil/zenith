@@ -139,7 +139,6 @@ fn render_process_table(
     process_table_start: usize,
     f: &mut Frame<'_, ZBackend>,
     selected_section: &Section,
-    max_pid_len: &usize,
     show_paths: bool,
     show_find: bool,
     filter: &str,
@@ -191,7 +190,7 @@ fn render_process_table(
                 String::from("")
             };
             let mut row = vec![
-                format!("{: >width$}", p.pid, width = *max_pid_len),
+                format!("{: >width$}", p.pid, width = app.max_pid_len),
                 format!("{: <10}", p.user_name),
                 format!("{: <3}", p.priority),
                 format!("{: <3}", p.nice),
@@ -225,7 +224,7 @@ fn render_process_table(
         .collect();
 
     let mut header = vec![
-        format!("{:<width$}", "PID", width = *max_pid_len + 1),
+        format!("{:<width$}", "PID", width = app.max_pid_len + 1),
         String::from("USER       "),
         String::from("P   "),
         String::from("N   "),
@@ -548,7 +547,6 @@ fn render_process(
     _width: u16,
     selected_section: &Section,
     process_message: &Option<String>,
-    max_pid_len: &usize,
 ) {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
@@ -605,7 +603,7 @@ fn render_process(
         Text::raw("\n"),
         Text::raw("PID:                   "),
         Text::styled(
-            format!("{:>width$}", &p.pid, width = *max_pid_len),
+            format!("{:>width$}", &p.pid, width = app.max_pid_len),
             rhs_style,
         ),
         Text::raw("\n"),
@@ -1435,7 +1433,6 @@ impl<'a> TerminalRenderer {
             let process_message = &self.process_message;
             let offset = &self.hist_start_offset;
             let un = &self.update_number;
-            let max_pid_len = &self.app.max_pid_len;
             let show_help = self.show_help;
             let show_paths = self.show_paths;
             let filter = &self.filter;
@@ -1496,7 +1493,6 @@ impl<'a> TerminalRenderer {
                                         *pst,
                                         &mut f,
                                         selected,
-                                        max_pid_len,
                                         show_paths,
                                         show_find,
                                         filter,
@@ -1514,7 +1510,6 @@ impl<'a> TerminalRenderer {
                                         width,
                                         selected,
                                         process_message,
-                                        max_pid_len,
                                     );
                                 }
                             }
