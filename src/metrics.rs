@@ -25,7 +25,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use sysinfo::{Disk, DiskExt, NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use users::{Users, UsersCache};
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
@@ -254,8 +254,7 @@ impl HistogramMap {
     fn add_value_to(&mut self, name: &str, val: u64) {
         let h: &mut Histogram = if self.has(name) {
             self.get_mut(name).expect("Couldn't get mutable reference")
-        }
-        else{
+        } else {
             self.add(name)
         };
         h.data.push(val);
@@ -332,25 +331,25 @@ fn get_max_pid_length() -> usize {
 }
 
 #[derive(Clone)]
-pub struct GFXDeviceProcess{
+pub struct GFXDeviceProcess {
     pub pid: i32,
     pub timestamp: u64,
     pub sm_utilization: u32,
     pub mem_utilization: u32,
     pub enc_utilization: u32,
-    pub dec_utilization: u32
+    pub dec_utilization: u32,
 }
 
-impl GFXDeviceProcess{
+impl GFXDeviceProcess {
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
-    fn from_nvml(process: &ProcessUtilizationSample) -> GFXDeviceProcess{
-        GFXDeviceProcess{
+    fn from_nvml(process: &ProcessUtilizationSample) -> GFXDeviceProcess {
+        GFXDeviceProcess {
             pid: process.pid as i32,
             timestamp: process.timestamp,
             sm_utilization: process.sm_util,
             mem_utilization: process.mem_util,
             enc_utilization: process.enc_util,
-            dec_utilization: process.dec_util
+            dec_utilization: process.dec_util,
         }
     }
 }
@@ -372,11 +371,10 @@ pub struct GFXDevice {
     pub clock: u32,
     pub max_clock: u32,
     pub uuid: String,
-    pub processes: Vec<GFXDeviceProcess>
+    pub processes: Vec<GFXDeviceProcess>,
 }
 
 impl GFXDevice {
-
     #[allow(dead_code)]
     fn new(uuid: String) -> GFXDevice {
         GFXDevice {
@@ -395,13 +393,16 @@ impl GFXDevice {
             clock: 0,
             max_clock: 0,
             uuid,
-            processes: vec![]
+            processes: vec![],
         }
     }
 
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
-    fn processes_from_nvml(&mut self, processes: Vec<ProcessUtilizationSample>){
-        self.processes = processes.iter().map(|p| GFXDeviceProcess::from_nvml(p)).collect()
+    fn processes_from_nvml(&mut self, processes: Vec<ProcessUtilizationSample>) {
+        self.processes = processes
+            .iter()
+            .map(|p| GFXDeviceProcess::from_nvml(p))
+            .collect()
     }
 }
 
@@ -415,22 +416,22 @@ impl fmt::Display for GFXDevice {
     }
 }
 
-pub struct ZDisk{
+pub struct ZDisk {
     pub mount_point: PathBuf,
     pub available_bytes: u64,
-    pub size_bytes: u64
+    pub size_bytes: u64,
 }
 
-impl ZDisk{
-    fn from_disk(d: &Disk) -> ZDisk{
-        ZDisk{
+impl ZDisk {
+    fn from_disk(d: &Disk) -> ZDisk {
+        ZDisk {
             mount_point: d.get_mount_point().to_path_buf(),
             available_bytes: d.get_available_space(),
-            size_bytes: d.get_total_space()
+            size_bytes: d.get_total_space(),
         }
     }
 
-    pub fn get_perc_free_space(&self) -> f32{
+    pub fn get_perc_free_space(&self) -> f32 {
         if self.size_bytes < 1 {
             return 0.0;
         }
@@ -659,13 +660,13 @@ impl CPUTimeApp {
                                         break;
                                     }
                                 }
-                                gd.decoder_utilization = match d.decoder_utilization(){
+                                gd.decoder_utilization = match d.decoder_utilization() {
                                     Ok(u) => u.utilization,
-                                    Err(_) => 0
+                                    Err(_) => 0,
                                 };
-                                gd.encoder_utilization = match d.encoder_utilization(){
+                                gd.encoder_utilization = match d.encoder_utilization() {
                                     Ok(u) => u.utilization,
-                                    Err(_) => 0
+                                    Err(_) => 0,
                                 };
                                 match d.utilization_rates() {
                                     Ok(u) => {
@@ -682,18 +683,21 @@ impl CPUTimeApp {
                                     }
                                     Err(e) => error!("Couldn't get utilization rates: {:?}", e),
                                 }
-                                match d.process_utilization_stats(None){
+                                match d.process_utilization_stats(None) {
                                     Ok(ps) => gd.processes_from_nvml(ps),
-                                    Err(_) => { debug!("Couldn't retrieve process utilization stats for {:}", gd.name)}
+                                    Err(_) => debug!(
+                                        "Couldn't retrieve process utilization stats for {:}",
+                                        gd.name
+                                    ),
                                 }
                                 debug!("{:}", gd);
                                 // mock device code to test multiple cards.
                                 //let mut gd2 = gd.clone();
                                 self.gfx_devices.push(gd);
                                 //
-                                 //gd2.name = String::from("Card2");
-                                 //gd2.max_clock = 1000;
-                                 //self.gfx_devices.push(gd2);
+                                //gd2.name = String::from("Card2");
+                                //gd2.max_clock = 1000;
+                                //self.gfx_devices.push(gd2);
                             }
                             Err(e) => error!("Couldn't get UUID: {}", e),
                         },
@@ -780,7 +784,7 @@ impl CPUTimeApp {
             fb_utilization: 0,
             enc_utilization: 0,
             dec_utilization: 0,
-            sm_utilization: 0
+            sm_utilization: 0,
         }
     }
 
@@ -962,12 +966,13 @@ impl CPUTimeApp {
         }
     }
 
-    async fn update_gpu_utilization(&mut self){
-        for d in &mut self.gfx_devices{
-            for p in &d.processes{
+    async fn update_gpu_utilization(&mut self) {
+        for d in &mut self.gfx_devices {
+            for p in &d.processes {
                 let proc = self.process_map.get_mut(&p.pid);
                 if let Some(proc) = proc {
-                    proc.gpu_usage = (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;
+                    proc.gpu_usage =
+                        (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;
                     proc.fb_utilization = p.mem_utilization as u64;
                     proc.dec_utilization = p.dec_utilization as u64;
                     proc.enc_utilization = p.enc_utilization as u64;
@@ -1048,12 +1053,11 @@ impl CPUTimeApp {
             if u.is_nan() {
                 u = 0.0;
             }
-            self.cpus
-                .push((format!("{}", i + 1), u as u64));
+            self.cpus.push((format!("{}", i + 1), u as u64));
             usage += u;
             usagev.push(u);
         }
-        if procs.len() == 0 {
+        if procs.is_empty() {
             self.cpu_utilization = 0;
         } else {
             usage /= procs.len() as f32;
@@ -1063,10 +1067,10 @@ impl CPUTimeApp {
             .add_value_to("cpu_usage_histogram", self.cpu_utilization);
     }
 
-    pub async fn update_networks(&mut self){
+    pub async fn update_networks(&mut self) {
         let mut net_in = 0;
         let mut net_out = 0;
-        for (_iface, data) in self.system.get_networks(){
+        for (_iface, data) in self.system.get_networks() {
             net_in += data.get_received();
             net_out += data.get_transmitted();
         }

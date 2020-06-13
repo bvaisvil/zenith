@@ -18,7 +18,6 @@ use std::io;
 use std::io::Stdout;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, UNIX_EPOCH};
-use sysinfo::DiskExt;
 use termion::event::Key;
 use termion::input::MouseTerminal;
 use termion::raw::{IntoRawMode, RawTerminal};
@@ -215,7 +214,6 @@ fn render_process_table(
                     "{:>8}",
                     float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B).replace("B", "")
                 ),
-
             ];
             if !app.gfx_devices.is_empty() {
                 row.push(format!("{:>4.0}", p.gpu_usage));
@@ -239,7 +237,7 @@ fn render_process_table(
         String::from("READ/s   "),
         String::from("WRITE/s  "),
     ];
-    if !app.gfx_devices.is_empty(){
+    if !app.gfx_devices.is_empty() {
         header.push(String::from("GPU% "));
         header.push(String::from("FB%  "));
     }
@@ -673,18 +671,30 @@ fn render_process(
                 ),
                 Text::raw("\n"),
             ];
-            if !app.gfx_devices.is_empty(){
+            if !app.gfx_devices.is_empty() {
                 text.push(Text::raw("SM Util:            "));
-                text.push(Text::styled(format!("{:7.2} %", p.sm_utilization as f64), rhs_style));
+                text.push(Text::styled(
+                    format!("{:7.2} %", p.sm_utilization as f64),
+                    rhs_style,
+                ));
                 text.push(Text::raw("\n"));
                 text.push(Text::raw("Frame Buffer:       "));
-                text.push(Text::styled(format!("{:7.2} %", p.fb_utilization as f64), rhs_style));
+                text.push(Text::styled(
+                    format!("{:7.2} %", p.fb_utilization as f64),
+                    rhs_style,
+                ));
                 text.push(Text::raw("\n"));
                 text.push(Text::raw("Encoder Util:       "));
-                text.push(Text::styled(format!("{:7.2} %", p.enc_utilization as f64), rhs_style));
+                text.push(Text::styled(
+                    format!("{:7.2} %", p.enc_utilization as f64),
+                    rhs_style,
+                ));
                 text.push(Text::raw("\n"));
                 text.push(Text::raw("Decoder Util:       "));
-                text.push(Text::styled(format!("{:7.2} %", p.dec_utilization as f64), rhs_style));
+                text.push(Text::styled(
+                    format!("{:7.2} %", p.dec_utilization as f64),
+                    rhs_style,
+                ));
                 text.push(Text::raw("\n"));
             }
 
@@ -913,10 +923,18 @@ fn render_graphics(
     };
     Sparkline::default()
         .block(
-            Block::default()
-                .title(format!("GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:}/{:} Mhz]",
-                               gd.gpu_utilization, gd.encoder_utilization, gd.decoder_utilization,
-                               gd.processes.len(), gd.clock, gd.max_clock).as_str()),
+            Block::default().title(
+                format!(
+                    "GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:}/{:} Mhz]",
+                    gd.gpu_utilization,
+                    gd.encoder_utilization,
+                    gd.decoder_utilization,
+                    gd.processes.len(),
+                    gd.clock,
+                    gd.max_clock
+                )
+                .as_str(),
+            ),
         )
         .data(&h_gpu)
         .style(Style::default().fg(Color::LightYellow))
@@ -943,8 +961,8 @@ fn render_graphics(
                     float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
                     float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
                     fan,
-                    gd.power_usage/1000,
-                    gd.max_power/1000,
+                    gd.power_usage / 1000,
+                    gd.max_power / 1000,
                     gd.temperature,
                     gd.temperature_max
                 )
@@ -955,16 +973,22 @@ fn render_graphics(
         .style(Style::default().fg(Color::LightMagenta))
         .max(100)
         .render(f, area[1]);
-    let devices = app.gfx_devices.iter().enumerate().map(|(i,d)| {
-        let indicator = if i == *gfx_device_index {">"} else{" "};
+    let devices = app.gfx_devices.iter().enumerate().map(|(i, d)| {
+        let indicator = if i == *gfx_device_index { ">" } else { " " };
         if d.gpu_utilization > 90 {
             Text::Styled(
-                Cow::Owned(format!("{}{:3.0}%: {}", indicator, d.gpu_utilization, d.name)),
+                Cow::Owned(format!(
+                    "{}{:3.0}%: {}",
+                    indicator, d.gpu_utilization, d.name
+                )),
                 Style::default().fg(Color::Red).modifier(Modifier::BOLD),
             )
         } else {
             Text::Styled(
-                Cow::Owned(format!("{}{:3.0}%: {}", indicator, d.gpu_utilization, d.name)),
+                Cow::Owned(format!(
+                    "{}{:3.0}%: {}",
+                    indicator, d.gpu_utilization, d.name
+                )),
                 Style::default().fg(Color::Green),
             )
         }
@@ -1452,7 +1476,16 @@ impl<'a> TerminalRenderer {
                         render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
                         render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
                         render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
-                        render_graphics(&app, v_sections[4], &mut f, zf, un, gfx_device_index, offset, selected);
+                        render_graphics(
+                            &app,
+                            v_sections[4],
+                            &mut f,
+                            zf,
+                            un,
+                            gfx_device_index,
+                            offset,
+                            selected,
+                        );
 
                         if *process_height > 0 {
                             if let Some(area) = v_sections.last() {
@@ -1577,12 +1610,11 @@ impl<'a> TerminalRenderer {
     }
 
     fn key_up(&mut self, process_table: &[i32]) {
-        if self.selected_section == Section::Graphics{
-            if self.gfx_device_index > 0{
+        if self.selected_section == Section::Graphics {
+            if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
             }
-        }
-        else if self.selected_section == Section::Process{
+        } else if self.selected_section == Section::Process {
             if self.app.selected_process.is_some() || process_table.is_empty() {
                 return;
             }
@@ -1591,19 +1623,20 @@ impl<'a> TerminalRenderer {
             if self.highlighted_row != 0 {
                 self.highlighted_row -= 1;
             }
-            if self.process_table_row_start > 0 && self.highlighted_row < self.process_table_row_start {
+            if self.process_table_row_start > 0
+                && self.highlighted_row < self.process_table_row_start
+            {
                 self.process_table_row_start -= 1;
             }
         }
     }
 
     fn key_down(&mut self, process_table: &[i32], process_table_height: u16) {
-        if self.selected_section == Section::Graphics{
-            if self.gfx_device_index < self.app.gfx_devices.len() - 1{
+        if self.selected_section == Section::Graphics {
+            if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;
             }
-        }
-        else if self.selected_section == Section::Process{
+        } else if self.selected_section == Section::Process {
             if self.app.selected_process.is_some() || process_table.is_empty() {
                 return;
             }
@@ -1613,7 +1646,8 @@ impl<'a> TerminalRenderer {
                 self.highlighted_row += 1;
             }
             if self.process_table_row_start < process_table.len()
-                && self.highlighted_row > (self.process_table_row_start + process_table_height as usize)
+                && self.highlighted_row
+                    > (self.process_table_row_start + process_table_height as usize)
             {
                 self.process_table_row_start += 1;
             }
