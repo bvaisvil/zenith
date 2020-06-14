@@ -5,7 +5,9 @@ use crate::constants::DEFAULT_TICK;
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
-use libc::{getpriority, id_t, setpriority};
+#[cfg(target_os = "linux")]
+use libc::getpriority;
+use libc::{id_t, setpriority};
 use std::cmp::Ordering::{self, Equal};
 use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::ProcessStatus;
@@ -126,11 +128,7 @@ impl ZProcess {
 
     #[cfg(target_os = "macos")]
     pub fn set_priority(&mut self, priority: i32) -> String {
-        let mut result = -1;
-        unsafe {
-            result = setpriority(0, self.pid as id_t, priority);
-        }
-
+        let result = unsafe { setpriority(0, self.pid as id_t, priority) };
         if result < 0 {
             String::from("Couldn't set priority.")
         } else {
