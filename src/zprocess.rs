@@ -62,11 +62,17 @@ pub struct ZProcess {
 
 impl ZProcess {
     pub fn get_read_bytes_sec(&self) -> f64 {
-        debug!("Pid {:?} Read {:?} Prev {:?}", self.pid, self.read_bytes, self.prev_read_bytes);
+        debug!(
+            "Pid {:?} Read {:?} Prev {:?}",
+            self.pid, self.read_bytes, self.prev_read_bytes
+        );
         (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
     pub fn get_write_bytes_sec(&self) -> f64 {
-        debug!("Pid {:?} Write {:?} Prev {:?}", self.pid, self.write_bytes, self.prev_write_bytes);
+        debug!(
+            "Pid {:?} Write {:?} Prev {:?}",
+            self.pid, self.write_bytes, self.prev_write_bytes
+        );
         (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
     }
 
@@ -201,7 +207,7 @@ impl ZProcess {
                     .unwrap_or(Equal)
             },
             ProcessTableSortBy::GPU => |pa, pb| pa.gpu_usage.cmp(&pb.gpu_usage),
-            ProcessTableSortBy::FB => |pa, pb| pa.fb_utilization.cmp(&pb.fb_utilization)
+            ProcessTableSortBy::FB => |pa, pb| pa.fb_utilization.cmp(&pb.fb_utilization),
         }
     }
 }
