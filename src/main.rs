@@ -10,6 +10,7 @@ extern crate log;
 extern crate nvml_wrapper as nvml;
 
 mod constants;
+mod histogram;
 mod metrics;
 mod render;
 mod util;
