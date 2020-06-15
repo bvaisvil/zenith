@@ -1,5 +1,5 @@
 /**
- * Copyright 2019 Benjamin Vaisvil
+ * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
 use crate::graphics::{GraphicsDevice, GraphicsExt};
 use crate::histogram::HistogramMap;

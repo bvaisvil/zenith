@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 /**
- *
+ * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
 use crate::constants::DEFAULT_TICK;
 use signal_hook::{iterator::Signals, SIGABRT, SIGINT, SIGTERM};
