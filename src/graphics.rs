@@ -1,10 +1,13 @@
 /**
  * Copyright 2019 Benjamin Vaisvil
  */
-use std::fmt;
+pub trait GraphicsExt {
+    fn update_gfx_devices(&mut self);
+    fn update_gpu_utilization(&mut self);
+}
 
 #[derive(Clone)]
-pub struct GFXDeviceProcess {
+pub struct GraphicsDeviceProcess {
     pub pid: i32,
     pub timestamp: u64,
     pub sm_utilization: u32,
@@ -13,22 +16,8 @@ pub struct GFXDeviceProcess {
     pub dec_utilization: u32,
 }
 
-impl GFXDeviceProcess {
-    #[cfg(all(target_os = "linux", feature = "nvidia"))]
-    fn from_nvml(process: &ProcessUtilizationSample) -> GFXDeviceProcess {
-        GFXDeviceProcess {
-            pid: process.pid as i32,
-            timestamp: process.timestamp,
-            sm_utilization: process.sm_util,
-            mem_utilization: process.mem_util,
-            enc_utilization: process.enc_util,
-            dec_utilization: process.dec_util,
-        }
-    }
-}
-
 #[derive(Clone)]
-pub struct GFXDevice {
+pub struct GraphicsDevice {
     pub name: String,
     pub gpu_utilization: u32,
     pub decoder_utilization: u32,
@@ -44,13 +33,13 @@ pub struct GFXDevice {
     pub clock: u32,
     pub max_clock: u32,
     pub uuid: String,
-    pub processes: Vec<GFXDeviceProcess>,
+    pub processes: Vec<GraphicsDeviceProcess>,
 }
 
-impl GFXDevice {
+impl GraphicsDevice {
     #[allow(dead_code)]
-    fn new(uuid: String) -> GFXDevice {
-        GFXDevice {
+    pub(crate) fn new(uuid: String) -> GraphicsDevice {
+        GraphicsDevice {
             name: String::from(""),
             gpu_utilization: 0,
             encoder_utilization: 0,
@@ -68,23 +57,5 @@ impl GFXDevice {
             uuid,
             processes: vec![],
         }
-    }
-
-    #[cfg(all(target_os = "linux", feature = "nvidia"))]
-    fn processes_from_nvml(&mut self, processes: Vec<ProcessUtilizationSample>) {
-        self.processes = processes
-            .iter()
-            .map(|p| GFXDeviceProcess::from_nvml(p))
-            .collect()
-    }
-}
-
-impl fmt::Display for GFXDevice {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}: GPU: {}% MEM: {}%",
-            self.name, self.gpu_utilization, self.mem_utilization
-        )
     }
 }

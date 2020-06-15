@@ -11,6 +11,10 @@ extern crate nvml_wrapper as nvml;
 
 mod constants;
 mod graphics;
+#[cfg(not(feature = "nvidia"))]
+mod graphics_none;
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
+mod graphics_nvidia;
 mod histogram;
 mod metrics;
 mod render;
