@@ -3,15 +3,14 @@
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
 use crate::constants::DEFAULT_TICK;
+use crossterm::{event, event::Event as CEvent, event::KeyCode as Key, event::KeyEvent};
 use signal_hook::{iterator::Signals, SIGABRT, SIGINT, SIGTERM};
 use std::fs::{remove_file, File};
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use termion::event::Key;
-use termion::input::TermRead;
 
 pub enum Event<I> {
     Input(I),
@@ -22,7 +21,7 @@ pub enum Event<I> {
 
 #[allow(dead_code)]
 pub struct Events {
-    rx: mpsc::Receiver<Event<Key>>,
+    rx: mpsc::Receiver<Event<KeyEvent>>,
     input_handle: thread::JoinHandle<()>,
     tick_handle: thread::JoinHandle<()>,
     sig_handle: thread::JoinHandle<()>,
@@ -55,14 +54,9 @@ impl Events {
         let (tx, rx) = mpsc::channel();
         let input_handle = {
             let tx = tx.clone();
-            thread::spawn(move || {
-                let stdin = io::stdin();
-                for evt in stdin.keys() {
-                    if let Ok(key) = evt {
-                        if tx.send(Event::Input(key)).is_err() {
-                            return;
-                        }
-                    }
+            thread::spawn(move || loop {
+                if let CEvent::Key(key) = event::read().expect("Couldn't read event") {
+                    tx.send(Event::Input(key)).expect("Couldn't send event.");
                 }
             })
         };
@@ -101,7 +95,7 @@ impl Events {
         }
     }
 
-    pub fn next(&self) -> Result<Event<Key>, mpsc::RecvError> {
+    pub fn next(&self) -> Result<Event<KeyEvent>, mpsc::RecvError> {
         self.rx.recv()
     }
 }
