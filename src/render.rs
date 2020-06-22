@@ -1263,35 +1263,39 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
         Text::styled("m    ", key_style),
         Text::styled("    Shrinks highlighted section\n", main_style),
         Text::styled("-    ", key_style),
-        Text::styled("    Zoom Chart Out\n", main_style),
+        Text::styled("    Zoom chart out\n", main_style),
         Text::styled("+    ", key_style),
-        Text::styled("    Zoom Chart In\n", main_style),
+        Text::styled("    Zoom chart in\n", main_style),
         Text::styled("←    ", key_style),
-        Text::styled("    Move Back In Time\n", main_style),
+        Text::styled("    Move back in time\n", main_style),
         Text::styled("→    ", key_style),
-        Text::styled("    Move Forward In Time\n", main_style),
+        Text::styled("    Move forward In time\n", main_style),
         Text::styled("`    ", key_style),
-        Text::styled("    Reset Charts To Current\n", main_style),
+        Text::styled("    Reset charts to current\n", main_style),
         Text::styled("\n", header_style),
         Text::styled("Process Table\n", header_style),
         Text::styled("<RET> ", key_style),
-        Text::styled("    Focus on Process\n", main_style),
+        Text::styled("    Focus current process\n", main_style),
         Text::styled("↓     ", key_style),
-        Text::styled("    Move Down Process Table\n", main_style),
+        Text::styled("    Move one line down\n", main_style),
         Text::styled("↑     ", key_style),
-        Text::styled("    Move Up Process Table\n", main_style),
+        Text::styled("    Move one line up\n", main_style),
+        Text::styled("PgDown", key_style),
+        Text::styled("    Move view one screen down\n", main_style),
+        Text::styled("PgUp  ", key_style),
+        Text::styled("    Move view one screen up\n", main_style),
         Text::styled("/     ", key_style),
         Text::styled("    Change sort between ascending/descending\n", main_style),
         Text::styled(",     ", key_style),
-        Text::styled("    Cycle Columns Left\n", main_style),
+        Text::styled("    Cycle columns left\n", main_style),
         Text::styled(".     ", key_style),
-        Text::styled("    Cycle Columns Right\n", main_style),
+        Text::styled("    Cycle columns right\n", main_style),
         Text::styled("p     ", key_style),
-        Text::styled("    Toggle Paths On/Off\n", main_style),
+        Text::styled("    Toggle paths on/off\n", main_style),
         Text::styled("f     ", key_style),
-        Text::styled("    Toggle Filter Mode\n", main_style),
+        Text::styled("    Toggle filter mode\n", main_style),
         Text::styled("<ESC> ", key_style),
-        Text::styled("    Leave Filter Mode\n", main_style),
+        Text::styled("    Leave filter mode\n", main_style),
     ];
     let b = Block::default().borders(Borders::ALL);
     Paragraph::new(t.iter())
@@ -1571,8 +1575,14 @@ impl<'a> TerminalRenderer {
 
         debug!("Event Key: {:?}", input);
         match input {
-            Key::Up => self.key_up(process_table),
-            Key::Down => self.key_down(process_table, process_table_height),
+            Key::Up => self.view_up(process_table, 1),
+            Key::PageUp => self.view_up(process_table, process_table_height.into()),
+            Key::Down => self.view_down(process_table, process_table_height.into(), 1),
+            Key::PageDown => self.view_down(
+                process_table,
+                process_table_height.into(),
+                process_table_height.into(),
+            ),
             Key::Left => self.histogram_left(),
             Key::Right => self.histogram_right(),
             Key::Char('\n') => {
@@ -1595,7 +1605,7 @@ impl<'a> TerminalRenderer {
         Action::Continue
     }
 
-    fn key_up(&mut self, process_table: &[i32]) {
+    fn view_up(&mut self, process_table: &[i32], delta: usize) {
         if self.selected_section == Section::Graphics {
             if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
@@ -1607,17 +1617,18 @@ impl<'a> TerminalRenderer {
 
             self.selection_grace_start = Some(Instant::now());
             if self.highlighted_row != 0 {
-                self.highlighted_row -= 1;
+                self.highlighted_row = self.highlighted_row.saturating_sub(delta);
             }
             if self.process_table_row_start > 0
                 && self.highlighted_row < self.process_table_row_start
             {
-                self.process_table_row_start -= 1;
+                self.process_table_row_start = self.process_table_row_start.saturating_sub(delta);
             }
         }
     }
 
-    fn key_down(&mut self, process_table: &[i32], process_table_height: u16) {
+    fn view_down(&mut self, process_table: &[i32], process_table_height: usize, delta: usize) {
+        use std::cmp::min;
         if self.selected_section == Section::Graphics {
             if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;
@@ -1629,13 +1640,15 @@ impl<'a> TerminalRenderer {
 
             self.selection_grace_start = Some(Instant::now());
             if self.highlighted_row < process_table.len() - 1 {
-                self.highlighted_row += 1;
+                self.highlighted_row = min(self.highlighted_row + delta, process_table.len() - 1);
             }
             if self.process_table_row_start < process_table.len()
-                && self.highlighted_row
-                    > (self.process_table_row_start + process_table_height as usize)
+                && self.highlighted_row > (self.process_table_row_start + process_table_height)
             {
-                self.process_table_row_start += 1;
+                self.process_table_row_start = min(
+                    self.process_table_row_start + delta,
+                    process_table.len() - process_table_height - 1,
+                );
             }
         }
     }
