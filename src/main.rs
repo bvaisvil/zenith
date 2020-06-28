@@ -24,6 +24,13 @@ mod zprocess;
 use crate::render::TerminalRenderer;
 use clap::{App, Arg};
 
+use crossterm::{
+    cursor, execute,
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
+};
 use futures::executor::block_on;
 use std::error::Error;
 use std::fs;
@@ -32,11 +39,6 @@ use std::panic;
 use std::panic::PanicInfo;
 use std::path::Path;
 use std::process::exit;
-use termion::input::MouseTerminal;
-use termion::raw::IntoRawMode;
-use termion::screen::AlternateScreen;
-use tui::backend::TermionBackend;
-use tui::Terminal;
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -48,46 +50,28 @@ fn panic_hook(info: &PanicInfo<'_>) {
         },
     };
     error!("thread '<unnamed>' panicked at '{}', {}\r", msg, location);
-    println!(
-        "{}thread '<unnamed>' panicked at '{}', {}\r",
-        termion::screen::ToMainScreen,
-        msg,
-        location
-    );
+    restore_terminal();
+    println!("thread '<unnamed>' panicked at '{}', {}\r", msg, location);
 }
 
 fn init_terminal() {
     debug!("Initializing Terminal");
-    let raw_term = stdout()
-        .into_raw_mode()
-        .expect("Could not bind to STDOUT in raw mode.");
-    debug!("Create Mouse Term");
-    let mouse_term = MouseTerminal::from(raw_term);
-    debug!("Create Alternate Screen");
-    let mut screen = AlternateScreen::from(mouse_term);
-    debug!("Clear Screen");
-    // Need to clear screen for TTYs
-    write!(screen, "{}", termion::clear::All)
-        .expect("Attempt to write to alternate screen failed.");
+    let mut sout = stdout();
+    execute!(sout, EnterAlternateScreen).expect("Unable to enter alternate screen");
+    execute!(sout, cursor::Hide).expect("Unable to hide cursor");
+    execute!(sout, Clear(ClearType::All)).expect("Unable to clear screen.");
+    enable_raw_mode().expect("Unable to enter raw mode.");
 }
 
 fn restore_terminal() {
     debug!("Restoring Terminal");
-    let raw_term = stdout()
-        .into_raw_mode()
-        .expect("Could not bind to STDOUT in raw mode.");
-    let mut screen = AlternateScreen::from(raw_term);
+    let mut sout = stdout();
     // Restore cursor position and clear screen for TTYs
-    write!(
-        screen,
-        "{}{}",
-        termion::cursor::Goto(1, 1),
-        termion::clear::All
-    )
-    .expect("Attempt to write to alternate screen failed.");
-    let backend = TermionBackend::new(screen);
-    let mut terminal = Terminal::new(backend).expect("Could not create new terminal.");
-    terminal.show_cursor().expect("Restore cursor failed.");
+    execute!(sout, cursor::MoveTo(0, 0)).expect("Attempt to write to alternate screen failed.");
+    execute!(sout, Clear(ClearType::All)).expect("Unable to clear screen.");
+    execute!(sout, LeaveAlternateScreen).expect("Unable to leave alternate screen.");
+    execute!(sout, cursor::Show).expect("Unable to restore cursor.");
+    disable_raw_mode().expect("Unable to disable raw mode");
 }
 
 fn start_zenith(

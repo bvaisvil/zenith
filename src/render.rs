@@ -12,17 +12,19 @@ use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
 use chrono::{Datelike, Local, Timelike};
+use crossterm::{
+    event::{KeyCode as Key, KeyEvent, KeyModifiers},
+    execute,
+    terminal::EnterAlternateScreen,
+};
 use num_traits::FromPrimitive;
 use std::borrow::Cow;
 use std::io;
 use std::io::Stdout;
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, UNIX_EPOCH};
-use termion::event::Key;
-use termion::input::MouseTerminal;
-use termion::raw::{IntoRawMode, RawTerminal};
-use termion::screen::AlternateScreen;
-use tui::backend::TermionBackend;
+use tui::{backend::CrosstermBackend, Terminal};
 
 use std::ops::Mul;
 use tui::backend::Backend;
@@ -30,11 +32,10 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text};
 use tui::Frame;
-use tui::Terminal;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 
-type ZBackend = TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>;
+type ZBackend = CrosstermBackend<Stdout>;
 
 /// Compatibility trait, that preserves an older method from tui 0.6.5
 /// Exists mostly to keep the caller code idiomatic for the use cases in this file
@@ -1306,7 +1307,7 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
 }
 
 pub struct TerminalRenderer {
-    terminal: Terminal<TermionBackend<AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>>>,
+    terminal: Terminal<CrosstermBackend<Stdout>>,
     app: CPUTimeApp,
     events: Events,
     process_table_row_start: usize,
@@ -1343,12 +1344,9 @@ impl<'a> TerminalRenderer {
         db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
         debug!("Hide Cursor");
-        let stdout = io::stdout()
-            .into_raw_mode()
-            .expect("Could not bind to STDOUT in raw mode.");
-        let stdout = MouseTerminal::from(stdout);
-        let stdout = AlternateScreen::from(stdout);
-        let backend = TermionBackend::new(stdout);
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen).expect("Unable to enter alternate screen");
+        let backend = CrosstermBackend::new(stdout);
         let mut terminal =
             Terminal::new(backend).expect("Couldn't create new terminal with backend");
         terminal.hide_cursor().ok();
@@ -1574,7 +1572,7 @@ impl<'a> TerminalRenderer {
         };
 
         debug!("Event Key: {:?}", input);
-        match input {
+        match input.code {
             Key::Up => self.view_up(process_table, 1),
             Key::PageUp => self.view_up(process_table, process_table_height.into()),
             Key::Down => self.view_down(process_table, process_table_height.into(), 1),
@@ -1585,20 +1583,22 @@ impl<'a> TerminalRenderer {
             ),
             Key::Left => self.histogram_left(),
             Key::Right => self.histogram_right(),
-            Key::Char('\n') => {
+            Key::Enter => {
                 self.app.select_process(highlighted_process);
                 self.process_message = None;
                 self.show_find = false;
                 self.process_table_row_start = 0;
             }
-            Key::Ctrl('c') => {
-                return Action::Quit;
+            Key::Char('c') => {
+                if input.modifiers.contains(KeyModifiers::CONTROL) {
+                    return Action::Quit;
+                }
             }
-            other => {
+            _other => {
                 if self.show_find {
-                    self.process_find_input(other);
+                    self.process_find_input(input);
                 } else {
-                    return self.process_toplevel_input(other).await;
+                    return self.process_toplevel_input(input).await;
                 }
             }
         };
@@ -1669,8 +1669,8 @@ impl<'a> TerminalRenderer {
         }
     }
 
-    fn process_find_input(&mut self, input: Key) {
-        match input {
+    fn process_find_input(&mut self, input: KeyEvent) {
+        match input.code {
             Key::Esc => {
                 self.show_find = false;
                 self.filter = String::from("");
@@ -1691,8 +1691,8 @@ impl<'a> TerminalRenderer {
         }
     }
 
-    async fn process_toplevel_input(&mut self, input: Key) -> Action {
-        match input {
+    async fn process_toplevel_input(&mut self, input: KeyEvent) -> Action {
+        match input.code {
             Key::Char('q') => {
                 return Action::Quit;
             }
@@ -1777,7 +1777,7 @@ impl<'a> TerminalRenderer {
                     None => None,
                 };
             }
-            Key::Char('\t') => {
+            Key::Tab => {
                 let mut i = self.selected_section as u32 + 1;
                 if i > 4 {
                     i = 0;
