@@ -1593,6 +1593,9 @@ impl<'a> TerminalRenderer {
                 if input.modifiers.contains(KeyModifiers::CONTROL) {
                     return Action::Quit;
                 }
+                else if self.show_find {
+                    self.process_find_input(input);
+                }
             }
             _other => {
                 if self.show_find {
