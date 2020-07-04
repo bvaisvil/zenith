@@ -1592,8 +1592,7 @@ impl<'a> TerminalRenderer {
             Key::Char('c') => {
                 if input.modifiers.contains(KeyModifiers::CONTROL) {
                     return Action::Quit;
-                }
-                else if self.show_find {
+                } else if self.show_find {
                     self.process_find_input(input);
                 }
             }
