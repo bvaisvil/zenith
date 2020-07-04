@@ -332,9 +332,15 @@ impl CPUTimeApp {
     async fn update_sensors(&mut self) {
         self.sensors.clear();
         for t in self.system.get_components() {
-            if t.get_label().contains("Package id") {
-                debug!("{:?}", t);
-                self.sensors.push(Sensor::from(t));
+            if cfg!(target_os = "linux") {
+                if t.get_label().contains("Package id") {
+                    debug!("{:?}", t);
+                    self.sensors.push(Sensor::from(t));
+                }
+            } else if cfg!(target_os = "macos") {
+                if t.get_label().contains("CPU") {
+                    self.sensors.push(Sensor::from(t));
+                }
             }
         }
     }

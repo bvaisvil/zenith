@@ -128,7 +128,7 @@ fn cpu_title(app: &CPUTimeApp) -> String {
     };
     let temp = if app.sensors.len() > 0 {
         let t: f32 = app.sensors.iter().map(|s| s.current_temp).sum();
-        format!("TEMP [{: >3}°C]", t)
+        format!("TEMP [{: >3.0}°C]", t)
     } else {
         String::from("")
     };
