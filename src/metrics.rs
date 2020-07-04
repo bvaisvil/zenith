@@ -341,18 +341,6 @@ impl CPUTimeApp {
     //     }
     // }
 
-    // pub fn highlight_up(&mut self) {
-    //     if self.highlighted_row != 0 {
-    //         self.highlighted_row -= 1;
-    //     }
-    // }
-
-    // pub fn highlight_down(&mut self) {
-    //     if self.highlighted_row < self.process_map.len() {
-    //         self.highlighted_row += 1;
-    //     }
-    // }
-
     pub fn select_process(&mut self, highlighted_process: Option<ZProcess>) {
         debug!("Selected Process.");
         self.selected_process = highlighted_process;
