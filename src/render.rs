@@ -1407,7 +1407,6 @@ impl<'a> TerminalRenderer {
             Constraint::Length(self.net_height as u16),
             Constraint::Length(self.disk_height as u16),
             Constraint::Length(self.graphics_height as u16),
-            //Constraint::Length(*sensor_height),
         ];
         if self.process_height > 0 {
             constraints.push(Constraint::Min(self.process_height as u16));
