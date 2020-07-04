@@ -17,7 +17,10 @@ use std::time::{Duration, SystemTime};
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use sysinfo::{Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use sysinfo::{
+    Component, ComponentExt, Disk, DiskExt, NetworkExt, Process, ProcessExt, ProcessorExt, System,
+    SystemExt,
+};
 use users::{Users, UsersCache};
 
 #[cfg(feature = "nvidia")]
@@ -86,6 +89,17 @@ pub struct Sensor {
     pub current_temp: f32,
     pub critical: f32,
     pub high: f32,
+}
+
+impl From<&Component> for Sensor {
+    fn from(c: &Component) -> Sensor {
+        Sensor {
+            name: c.get_label().to_owned(),
+            current_temp: c.get_temperature(),
+            critical: c.get_critical().unwrap_or(0.0),
+            high: c.get_max(),
+        }
+    }
 }
 
 fn get_max_pid() -> u64 {
@@ -325,21 +339,15 @@ impl CPUTimeApp {
     //        }
     //    }
 
-    // async fn update_sensors(&mut self) {
-    //     self.sensors.clear();
-    //     for t in self.system.get_components_list() {
-    //         if t.get_temperature() < 1.0{
-    //             continue;
-    //         }
-    //         self.sensors.push(Sensor {
-    //             name: t.get_label().to_owned(),
-    //             current_temp: t.get_temperature(),
-    //             high: t.get_max(),
-    //             critical: t.get_critical().unwrap_or(0.0),
-    //         });
-    //         self.histogram_map.add_value_to(t.get_label().to_owned().as_str(), t.get_temperature() as u64);
-    //     }
-    // }
+    async fn update_sensors(&mut self) {
+        self.sensors.clear();
+        for t in self.system.get_components() {
+            if t.get_label().contains("Package id") {
+                debug!("{:?}", t);
+                self.sensors.push(Sensor::from(t));
+            }
+        }
+    }
 
     pub fn select_process(&mut self, highlighted_process: Option<ZProcess>) {
         debug!("Selected Process.");
@@ -660,7 +668,7 @@ impl CPUTimeApp {
         debug!("Updating Metrics");
         self.system.refresh_all();
         self.update_cpu().await;
-        //self.update_sensors().await;
+        self.update_sensors().await;
 
         self.mem_utilization = self.system.get_used_memory();
         self.mem_total = self.system.get_total_memory();

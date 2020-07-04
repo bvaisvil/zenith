@@ -126,9 +126,15 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         0 => 0.0,
         _ => h.iter().sum::<u64>() as f64 / h.len() as f64,
     };
+    let temp = if app.sensors.len() > 0 {
+        let t: f32 = app.sensors.iter().map(|s| s.current_temp).sum();
+        format!("TEMP [{: >3}°C]", t)
+    } else {
+        String::from("")
+    };
     format!(
-        "CPU [{: >3}%] MEAN [{: >3.2}%] TOP [{} - {} - {}]",
-        app.cpu_utilization, mean, top_pid, top_process_name, top_process_amt
+        "CPU [{: >3}%] {:} MEAN [{: >3.2}%] TOP [{} - {} - {}]",
+        app.cpu_utilization, temp, mean, top_pid, top_process_name, top_process_amt
     )
 }
 
