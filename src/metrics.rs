@@ -329,16 +329,6 @@ impl CPUTimeApp {
         }
     }
 
-    //    async fn update_sensors(&mut self){
-    //        let mut sensors = sensors::temperatures();
-    //        self.sensors.clear();
-    //        while let Some(s) = sensors.next().await{
-    //            let s = s.unwrap();
-    //            self.sensors.push(Sensor{name: s.label().unwrap_or("").to_owned(),
-    //             current_temp: s.current().value, critical: 0.0, high: 0.0})
-    //        }
-    //    }
-
     async fn update_sensors(&mut self) {
         self.sensors.clear();
         for t in self.system.get_components() {
