@@ -34,6 +34,7 @@ use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Ta
 use tui::Frame;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
+const LEFT_PANE_WIDTH: u16 = 30u16;
 
 type ZBackend = CrosstermBackend<Stdout>;
 
@@ -468,7 +469,7 @@ fn render_net(
     let network_layout = Layout::default()
         .margin(0)
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
         .split(area);
     let net = Layout::default()
         .margin(1)
@@ -755,7 +756,7 @@ fn render_disk(
     let disk_layout = Layout::default()
         .margin(0)
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
         .split(layout);
     let area = Layout::default()
         .margin(1)
@@ -898,7 +899,7 @@ fn render_graphics(
     let gfx_layout = Layout::default()
         .margin(0)
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
         .split(layout);
     let area = Layout::default()
         .margin(1)
@@ -1199,7 +1200,7 @@ fn render_cpu(
     let cpu_layout = Layout::default()
         .margin(0)
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(30), Constraint::Min(10)].as_ref())
+        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
         .split(area);
 
     let cpu_mem = Layout::default()
@@ -1209,7 +1210,7 @@ fn render_cpu(
         .split(cpu_layout[1]);
     render_cpu_histogram(&app, cpu_mem[0], f, zf, update_number, offset);
     render_memory_histogram(&app, cpu_mem[1], f, zf, update_number, offset);
-    render_cpu_bars(&app, cpu_layout[0], 30, f, &style);
+    render_cpu_bars(&app, cpu_layout[0], LEFT_PANE_WIDTH, f, &style);
 }
 
 fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
