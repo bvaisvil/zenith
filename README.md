@@ -109,5 +109,5 @@ In zenith 'h' key will show this help:
 - [heim](https://github.com/heim-rs/heim)
 - [battery](https://github.com/svartalf/rust-battery)
 - [serde](https://github.com/serde-rs/serde)
-- [clap](https://github.com/clap-rs/clap)
+- [gumdrop](https://github.com/murarth/gumdrop)
 - [nvml-wrapper](https://github.com/Cldfire/nvml-wrapper)

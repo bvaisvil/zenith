@@ -23,7 +23,7 @@ num-derive = "0.3.0"
 num-traits = "0.2"
 heim = {version = "0.1.0-beta.1", features = ["full"]}
 futures = "^0.3.5"
-clap = "2.31.*"
+gumdrop = {version = "0.8", features = ["default_expr"]}
 chrono = "0.4.*"
 sysinfo = {git = "https://github.com/bvaisvil/sysinfo.git", branch="zenith_changes"}
 dirs = "2.0.*"

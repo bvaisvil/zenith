@@ -22,7 +22,7 @@ mod util;
 mod zprocess;
 
 use crate::render::TerminalRenderer;
-use clap::{App, Arg};
+use gumdrop::Options;
 
 use crossterm::{
     cursor, execute,
@@ -158,155 +158,127 @@ fn start_zenith(
     Ok(())
 }
 
-fn validate_refresh_rate(arg: String) -> Result<(), String> {
-    let val = arg.parse::<u64>().unwrap_or(0);
+fn validate_refresh_rate(arg: &str) -> Result<u64, String> {
+    let val = arg.parse::<u64>().map_err(|e| e.to_string())?;
     if val >= 1000 {
-        Ok(())
+        Ok(val)
     } else {
         Err(format!(
             "{} Enter a refresh rate that is at least 1000 ms",
-            &*arg
+            arg
         ))
     }
 }
 
-fn validate_height(arg: String) -> Result<(), String> {
-    let val = arg.parse::<i64>().unwrap_or(0);
-    if val >= 0 {
-        Ok(())
-    } else {
-        Err(format!(
-            "{} Enter a height greater than or equal to 0.",
-            &*arg
-        ))
-    }
+fn default_db_path() -> String {
+    dirs::cache_dir()
+        .unwrap_or_else(|| Path::new("./").to_owned())
+        .join("zenith")
+        .to_str()
+        .expect("Couldn't set default db path")
+        .to_string()
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let default_db_path = dirs::cache_dir()
-        .unwrap_or_else(|| Path::new("./").to_owned())
-        .join("zenith");
-    let default_db_path = default_db_path
-        .to_str()
-        .expect("Couldn't set default db path");
-    let mut args = vec![
-        Arg::with_name("refresh-rate")
-            .short("r")
-            .long("refresh-rate")
-            .value_name("INT")
-            .default_value("2000")
-            .validator(validate_refresh_rate)
-            .help("Refresh rate in milliseconds.")
-            .takes_value(true),
-        Arg::with_name("cpu-height")
-            .short("c")
-            .long("cpu-height")
-            .value_name("INT")
-            .default_value("10")
-            .validator(validate_height)
-            .help("Height of CPU/Memory visualization.")
-            .takes_value(true),
-        Arg::with_name("net-height")
-            .short("n")
-            .long("net-height")
-            .value_name("INT")
-            .default_value("10")
-            .validator(validate_height)
-            .help("Height of Network visualization.")
-            .takes_value(true),
-        Arg::with_name("disk-height")
-            .short("d")
-            .long("disk-height")
-            .value_name("INT")
-            .default_value("10")
-            .validator(validate_height)
-            .help("Height of Disk visualization.")
-            .takes_value(true),
-        Arg::with_name("process-height")
-            .short("p")
-            .long("process-height")
-            .value_name("INT")
-            .default_value("8")
-            .validator(validate_height)
-            .help("Min Height of Process Table.")
-            .takes_value(true),
-        Arg::with_name("disable-history")
-            .long("disable-history")
-            .help("Disables history when flag is present")
-            .takes_value(false),
-        Arg::with_name("db")
-            .long("db")
-            .value_name("STRING")
-            .default_value(default_db_path)
-            .help("Database to use, if any.")
-            .takes_value(true),
-    ];
-    if cfg!(feature = "nvidia") {
-        args.push(
-            Arg::with_name("graphics-height")
-                .short("g")
-                .long("graphics-height")
-                .value_name("INT")
-                .default_value("10")
-                .validator(validate_height)
-                .help("Height of Graphics Card visualization.")
-                .takes_value(true),
-        );
-    }
-    let matches = App::new("zenith")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author("Benjamin Vaisvil <ben@neuon.com>")
-        .about(
-            "Zenith, sort of like top but with histograms.
+    let args = std::env::args().collect::<Vec<_>>();
+    let opts =
+        ZOptions::parse_args_default(&args[1..]).map_err(|e| format!("{}: {}", args[0], e))?;
+
+    if opts.help_requested() {
+        println!(
+            "zenith {}
+Benjamin Vaisvil <ben@neuon.com>
+Zenith, sort of like top but with histograms.
 Up/down arrow keys move around the process table. Return (enter) will focus on a process.
 Tab switches the active section. Active sections can be expanded (e) and minimized (m).
-Using this you can create the layout you want.",
-        )
-        .args(args.as_slice())
-        .get_matches();
+Using this you can create the layout you want.
 
-    let graphics_height = if cfg!(feature = "nvidia") {
-        matches
-            .value_of("graphics-height")
-            .unwrap()
-            .parse::<u16>()
-            .unwrap()
-    } else {
-        0
+Usage: {} [OPTIONS]
+
+{}
+",
+            env!("CARGO_PKG_VERSION"),
+            args[0],
+            ZOptions::usage()
+        );
+        return Ok(());
+    } else if opts.version {
+        println!("zenith {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
+    let graphics_height = {
+        // attribute used instead of if cfg! because if cfg! does not handle conditional existence of struct fields
+        #[cfg(feature = "nvidia")]
+        {
+            opts.graphics_height
+        }
+        #[cfg(not(feature = "nvidia"))]
+        {
+            0
+        }
     };
 
     env_logger::init();
     info!("Starting zenith {}", env!("CARGO_PKG_VERSION"));
 
     start_zenith(
-        matches
-            .value_of("refresh-rate")
-            .unwrap()
-            .parse::<u64>()
-            .unwrap(),
-        matches
-            .value_of("cpu-height")
-            .unwrap()
-            .parse::<u16>()
-            .unwrap(),
-        matches
-            .value_of("net-height")
-            .unwrap()
-            .parse::<u16>()
-            .unwrap(),
-        matches
-            .value_of("disk-height")
-            .unwrap()
-            .parse::<u16>()
-            .unwrap(),
-        matches
-            .value_of("process-height")
-            .unwrap()
-            .parse::<u16>()
-            .unwrap(),
+        opts.refresh_rate,
+        opts.cpu_height,
+        opts.net_height,
+        opts.disk_height,
+        opts.process_height,
         0,
         graphics_height,
-        matches.is_present("disable-history"),
-        matches.value_of("db").unwrap(),
+        opts.disable_history,
+        &opts.db,
     )
+}
+
+#[derive(Options)]
+struct ZOptions {
+    /// Disables history when flag is present
+    #[options(no_short, long = "disable-history", default = "false")]
+    disable_history: bool,
+
+    #[options()]
+    help: bool,
+
+    #[options(short = "V")]
+    version: bool,
+
+    /// Height of CPU/Memory visualization.
+    #[options(short = "c", long = "cpu-height", default = "10", meta = "INT")]
+    cpu_height: u16,
+
+    /// Database to use, if any.
+    #[options(no_short, default_expr = "default_db_path()", meta = "STRING")]
+    db: String,
+
+    /// Height of Disk visualization.
+    #[options(short = "d", long = "disk-height", default = "10", meta = "INT")]
+    disk_height: u16,
+
+    /// Height of Network visualization.
+    #[options(short = "n", long = "net-height", default = "10", meta = "INT")]
+    net_height: u16,
+
+    /// Min Height of Process Table.
+    #[options(short = "p", long = "process-height", default = "8", meta = "INT")]
+    process_height: u16,
+
+    /// Refresh rate in milliseconds.
+    #[options(
+        short = "r",
+        long = "refresh-rate",
+        default = "2000",
+        parse(try_from_str = "validate_refresh_rate"),
+        meta = "INT"
+    )]
+    refresh_rate: u64,
+
+    /// Height of Graphics Card visualization.
+    #[cfg(feature = "nvidia")]
+    #[options(short = "g", long = "graphics-height", default = "10", meta = "INT")]
+    graphics_height: u16,
 }
