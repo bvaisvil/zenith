@@ -440,6 +440,15 @@ fn render_cpu_bars(
     let bar_gap: u16 = 1;
     let bars: Vec<(&str, u64)> = cpus.iter().map(|(p, u)| (p.as_str(), *u)).collect();
 
+    fn clamp_up(val: u16, upper: u16) -> u16 {
+        if val > upper {
+            upper
+        } else {
+            val
+        }
+    }
+    let max_bar_width = 3;
+
     if full_width <= width {
         // fits in one row
 
@@ -447,7 +456,7 @@ fn render_cpu_bars(
             .constraints(vec![Constraint::Percentage(100)])
             .split(area);
 
-        let bar_width = (width - (core_count - 1)) / core_count;
+        let bar_width = clamp_up((width - (core_count - 1)) / core_count, max_bar_width);
 
         BarChart::default()
             .data(bars.as_slice())
@@ -466,7 +475,7 @@ fn render_cpu_bars(
             .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(area);
 
-        let bar_width = (width * 2 - (core_count - 1)) / core_count;
+        let bar_width = clamp_up((width * 2 - (core_count - 1)) / core_count, max_bar_width);
 
         BarChart::default()
             .data(&bars[half..])
