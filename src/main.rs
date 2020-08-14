@@ -112,7 +112,7 @@ fn start_zenith(
             let db_path = Path::new(db_path);
             if !db_path.exists() {
                 debug!("Creating DB dir.");
-                fs::create_dir(db_path).expect("Couldn't Create DB dir.");
+                fs::create_dir_all(db_path).expect("Couldn't Create DB dir.");
             }
             debug!("Creating Lock");
 
