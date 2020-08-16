@@ -120,7 +120,8 @@ fn start_zenith(
             let lock = match util::Lockfile::new(main_pid, &lock_path).await {
                 Some(f) => f,
                 None => {
-                    print!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
+                    restore_terminal();
+                    println!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
                     exit(1);
                 }
             };
