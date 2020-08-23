@@ -25,7 +25,7 @@ heim = {version = "0.1.0-beta.1", features = ["full"]}
 futures = "^0.3.5"
 gumdrop = {version = "0.8", features = ["default_expr"]}
 chrono = "0.4.*"
-sysinfo = {git = "https://github.com/bvaisvil/sysinfo.git", branch="zenith_changes"}
+sysinfo = {git = "https://github.com/bvaisvil/sysinfo.git", branch="zenith_changes_15.1"}
 dirs = "2.0.*"
 serde = {version="1.0.104", features=["derive"]}
 serde_derive = "1.0.104"
