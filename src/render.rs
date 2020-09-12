@@ -99,11 +99,18 @@ fn mem_title(app: &CPUTimeApp) -> String {
     let mem_tot_str = float_to_byte_string!(app.mem_total as f64, ByteUnit::KB);
     let mem_util_str = float_to_byte_string!(app.mem_utilization as f64, ByteUnit::KB);
     let mem_pad_len = mem_tot_str.len() - mem_util_str.len();
-    let mem_pad = if mem_pad_len > 0 { " ".repeat(mem_pad_len) } else { "".to_string() };
+    let mem_pad = if mem_pad_len > 0 {
+        " ".repeat(mem_pad_len)
+    } else {
+        "".to_string()
+    };
 
     format!(
         "MEM [{}] Usage [{}{} - {: >3}%] SWP [{}] Usage [{: >3}%] {:}",
-        mem_tot_str, mem_pad, mem_util_str, mem,
+        mem_tot_str,
+        mem_pad,
+        mem_util_str,
+        mem,
         float_to_byte_string!(app.swap_total as f64, ByteUnit::KB),
         swp,
         top_mem_proc
