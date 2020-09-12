@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.10.0"
+version = "0.10.1"
 authors = ["Benjamin Vaisvil"]
 edition = "2018"
 description = "Similar to top or htop but with CPU, Network Usage, and Disk Usage charts."
