@@ -1,7 +1,6 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-use crate::constants::DEFAULT_TICK;
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
@@ -9,7 +8,7 @@ use heim::process::ProcessError;
 use libc::getpriority;
 use libc::{id_t, setpriority};
 use std::cmp::Ordering::{self, Equal};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::ProcessStatus;
 
 macro_rules! convert_result_to_string {
@@ -36,6 +35,7 @@ macro_rules! convert_error_to_string {
 pub struct ZProcess {
     pub pid: i32,
     pub uid: u32,
+    pub tick: Duration,
     pub user_name: String,
     pub memory: u64,
     pub cpu_usage: f32,
@@ -68,14 +68,14 @@ impl ZProcess {
             "Pid {:?} Read {:?} Prev {:?}",
             self.pid, self.read_bytes, self.prev_read_bytes
         );
-        (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
+        (self.read_bytes - self.prev_read_bytes) as f64 / (self.tick.as_millis() as f64 / 1000.0)
     }
     pub fn get_write_bytes_sec(&self) -> f64 {
         debug!(
             "Pid {:?} Write {:?} Prev {:?}",
             self.pid, self.write_bytes, self.prev_write_bytes
         );
-        (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
+        (self.write_bytes - self.prev_write_bytes) as f64 / (self.tick.as_millis() as f64 / 1000.0)
     }
 
     pub async fn suspend(&self) -> String {

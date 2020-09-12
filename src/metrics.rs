@@ -147,6 +147,7 @@ impl ZDisk {
 
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
+    pub tick: Duration,
     pub cpu_utilization: u64,
     pub mem_utilization: u64,
     pub mem_total: u64,
@@ -194,6 +195,7 @@ impl CPUTimeApp {
         let histogram_map = HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db);
         let mut s = CPUTimeApp {
             histogram_map,
+            tick,
             cpus: vec![],
             system: System::new_all(),
             cpu_utilization: 0,
@@ -360,6 +362,7 @@ impl CPUTimeApp {
             uid: process.uid,
             user_name,
             pid: process.pid(),
+            tick: self.tick,
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
             command: process.cmd().to_vec(),
@@ -647,13 +650,19 @@ impl CPUTimeApp {
             .add_value_to("cpu_usage_histogram", self.cpu_utilization);
     }
 
+    fn as_rate(&self, v: u64) -> u64 {
+        (v as f64 * 1000.0 / self.tick.as_millis() as f64) as u64
+    }
+
     pub async fn update_networks(&mut self) {
         let mut net_in = 0;
         let mut net_out = 0;
+
         for (_iface, data) in self.system.get_networks() {
-            net_in += data.get_received();
-            net_out += data.get_transmitted();
+            net_in += self.as_rate(data.get_received());
+            net_out += self.as_rate(data.get_transmitted());
         }
+
         self.net_in = net_in;
         self.net_out = net_out;
         self.histogram_map.add_value_to("net_in", self.net_in);
