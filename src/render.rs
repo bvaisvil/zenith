@@ -1363,14 +1363,6 @@ impl<'a> TerminalRenderer {
         graphics_height: i16,
         db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
-        debug!("Hide Cursor");
-        let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen).expect("Unable to enter alternate screen");
-        let backend = CrosstermBackend::new(stdout);
-        let mut terminal =
-            Terminal::new(backend).expect("Couldn't create new terminal with backend");
-        terminal.hide_cursor().ok();
-
         debug!("Setup Constraints");
         let mut constraints = vec![
             Constraint::Length(1),
@@ -1387,6 +1379,15 @@ impl<'a> TerminalRenderer {
         let app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
         debug!("Create Event Loop");
         let events = Events::new(app.histogram_map.tick);
+
+        debug!("Hide Cursor");
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen).expect("Unable to enter alternate screen");
+        let backend = CrosstermBackend::new(stdout);
+        let mut terminal =
+            Terminal::new(backend).expect("Couldn't create new terminal with backend");
+        terminal.hide_cursor().ok();
+
         TerminalRenderer {
             terminal,
             app,
