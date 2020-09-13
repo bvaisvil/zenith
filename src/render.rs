@@ -215,11 +215,19 @@ fn render_process_table(
                 format!("{:1}", p.status.to_single_char()),
                 format!(
                     "{:>8}",
-                    float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B).replace("B", "")
+                    float_to_byte_string!(
+                        p.get_read_bytes_sec(&app.histogram_map.tick),
+                        ByteUnit::B
+                    )
+                    .replace("B", "")
                 ),
                 format!(
                     "{:>8}",
-                    float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B).replace("B", "")
+                    float_to_byte_string!(
+                        p.get_write_bytes_sec(&app.histogram_map.tick),
+                        ByteUnit::B
+                    )
+                    .replace("B", "")
                 ),
             ];
             if !app.gfx_devices.is_empty() {
@@ -476,7 +484,10 @@ fn render_net(
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(network_layout[1]);
 
-    let net_up = float_to_byte_string!(app.net_out as f64, ByteUnit::B);
+    let net_up = float_to_byte_string!(
+        app.net_out as f64 / app.histogram_map.tick.as_secs_f64(),
+        ByteUnit::B
+    );
     let h_out = match app.histogram_map.get_zoomed(
         "net_out",
         *zf,
@@ -497,14 +508,17 @@ fn render_net(
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("↑ [{:^10}] Max [{:^10}]", net_up, up_max_bytes).as_str()),
+                .title(format!("↑ [{:^10}/s] Max [{:^10}/s]", net_up, up_max_bytes).as_str()),
         )
         .data(&h_out)
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
         .render(f, net[0]);
 
-    let net_down = float_to_byte_string!(app.net_in as f64, ByteUnit::B);
+    let net_down = float_to_byte_string!(
+        app.net_in as f64 / app.histogram_map.tick.as_secs_f64(),
+        ByteUnit::B
+    );
     let h_in = match app.histogram_map.get_zoomed(
         "net_in",
         *zf,
@@ -524,7 +538,7 @@ fn render_net(
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("↓ [{:^10}] Max [{:^10}]", net_down, down_max_bytes).as_str()),
+                .title(format!("↓ [{:^10}/s] Max [{:^10}/s]", net_down, down_max_bytes).as_str()),
         )
         .data(&h_in)
         .style(Style::default().fg(Color::LightMagenta))
@@ -661,7 +675,7 @@ fn render_process(
             format!(
                 "{:>10} {:}/s",
                 float_to_byte_string!(p.read_bytes as f64, ByteUnit::B),
-                float_to_byte_string!(p.get_read_bytes_sec(), ByteUnit::B)
+                float_to_byte_string!(p.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B)
             ),
             rhs_style,
         ),
@@ -671,7 +685,7 @@ fn render_process(
             format!(
                 "{:>10} {:}/s",
                 float_to_byte_string!(p.write_bytes as f64, ByteUnit::B),
-                float_to_byte_string!(p.get_write_bytes_sec(), ByteUnit::B)
+                float_to_byte_string!(p.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B)
             ),
             rhs_style,
         ),
@@ -793,7 +807,7 @@ fn render_disk(
         .block(
             Block::default().title(
                 format!(
-                    "R [{:^10}] Max [{:^10}] {:}",
+                    "R [{:^10}/s] Max [{:^10}/s] {:}",
                     read_up, read_max_bytes, top_reader
                 )
                 .as_str(),
@@ -834,7 +848,7 @@ fn render_disk(
         .block(
             Block::default().title(
                 format!(
-                    "W [{:^10}] Max [{:^10}] {:}",
+                    "W [{:^10}/s] Max [{:^10}/s] {:}",
                     write_down, write_max_bytes, top_writer
                 )
                 .as_str(),
@@ -1372,7 +1386,7 @@ impl<'a> TerminalRenderer {
         debug!("Create Metrics App");
         let app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
         debug!("Create Event Loop");
-        let events = Events::new(tick_rate);
+        let events = Events::new(app.histogram_map.tick);
         TerminalRenderer {
             terminal,
             app,

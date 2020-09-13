@@ -1,7 +1,6 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-use crate::constants::DEFAULT_TICK;
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
@@ -9,7 +8,7 @@ use heim::process::ProcessError;
 use libc::getpriority;
 use libc::{id_t, setpriority};
 use std::cmp::Ordering::{self, Equal};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::ProcessStatus;
 
 macro_rules! convert_result_to_string {
@@ -63,19 +62,19 @@ pub struct ZProcess {
 }
 
 impl ZProcess {
-    pub fn get_read_bytes_sec(&self) -> f64 {
+    pub fn get_read_bytes_sec(&self, tick_rate: &Duration) -> f64 {
         debug!(
             "Pid {:?} Read {:?} Prev {:?}",
             self.pid, self.read_bytes, self.prev_read_bytes
         );
-        (self.read_bytes - self.prev_read_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
+        (self.read_bytes - self.prev_read_bytes) as f64 / tick_rate.as_secs_f64()
     }
-    pub fn get_write_bytes_sec(&self) -> f64 {
+    pub fn get_write_bytes_sec(&self, tick_rate: &Duration) -> f64 {
         debug!(
             "Pid {:?} Write {:?} Prev {:?}",
             self.pid, self.write_bytes, self.prev_write_bytes
         );
-        (self.write_bytes - self.prev_write_bytes) as f64 / (DEFAULT_TICK as f64 / 1000.0)
+        (self.write_bytes - self.prev_write_bytes) as f64 / tick_rate.as_secs_f64()
     }
 
     pub async fn suspend(&self) -> String {
@@ -147,30 +146,34 @@ impl ZProcess {
 
     #[cfg(not(feature = "nvidia"))]
     /// returns a pointer to a comparator function, not a closure
-    pub fn field_comparator(sortfield: ProcessTableSortBy) -> fn(&Self, &Self) -> Ordering {
+    pub fn field_comparator(
+        sortfield: ProcessTableSortBy,
+    ) -> fn(&Self, &Self, &Duration) -> Ordering {
         match sortfield {
             ProcessTableSortBy::CPU => {
-                |pa, pb| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
+                |pa, pb, _tick| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
             }
-            ProcessTableSortBy::Mem => |pa, pb| pa.memory.cmp(&pb.memory),
-            ProcessTableSortBy::MemPerc => |pa, pb| pa.memory.cmp(&pb.memory),
-            ProcessTableSortBy::User => |pa, pb| pa.user_name.cmp(&pb.user_name),
-            ProcessTableSortBy::Pid => |pa, pb| pa.pid.cmp(&pb.pid),
+            ProcessTableSortBy::Mem => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::MemPerc => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::User => |pa, pb, _tick| pa.user_name.cmp(&pb.user_name),
+            ProcessTableSortBy::Pid => |pa, pb, _tick| pa.pid.cmp(&pb.pid),
             ProcessTableSortBy::Status => {
-                |pa, pb| pa.status.to_single_char().cmp(pb.status.to_single_char())
+                |pa, pb, _tick| pa.status.to_single_char().cmp(pb.status.to_single_char())
             }
-            ProcessTableSortBy::Priority => |pa, pb| pa.priority.cmp(&pb.priority),
-            ProcessTableSortBy::Nice => |pa, pb| pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
-            ProcessTableSortBy::Virt => |pa, pb| pa.virtual_memory.cmp(&pb.virtual_memory),
-            ProcessTableSortBy::Cmd => |pa, pb| pa.name.cmp(&pb.name),
-            ProcessTableSortBy::DiskRead => |pa, pb| {
-                pa.get_read_bytes_sec()
-                    .partial_cmp(&pb.get_read_bytes_sec())
+            ProcessTableSortBy::Priority => |pa, pb, _tick| pa.priority.cmp(&pb.priority),
+            ProcessTableSortBy::Nice => {
+                |pa, pb, _tick| pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal)
+            }
+            ProcessTableSortBy::Virt => |pa, pb, _tick| pa.virtual_memory.cmp(&pb.virtual_memory),
+            ProcessTableSortBy::Cmd => |pa, pb, _tick| pa.name.cmp(&pb.name),
+            ProcessTableSortBy::DiskRead => |pa, pb, tick| {
+                pa.get_read_bytes_sec(tick)
+                    .partial_cmp(&pb.get_read_bytes_sec(tick))
                     .unwrap_or(Equal)
             },
-            ProcessTableSortBy::DiskWrite => |pa, pb| {
-                pa.get_write_bytes_sec()
-                    .partial_cmp(&pb.get_write_bytes_sec())
+            ProcessTableSortBy::DiskWrite => |pa, pb, tick| {
+                pa.get_write_bytes_sec(tick)
+                    .partial_cmp(&pb.get_write_bytes_sec(tick))
                     .unwrap_or(Equal)
             },
         }
@@ -178,34 +181,38 @@ impl ZProcess {
 
     #[cfg(feature = "nvidia")]
     /// returns a pointer to a comparator function, not a closure
-    pub fn field_comparator(sortfield: ProcessTableSortBy) -> fn(&Self, &Self) -> Ordering {
+    pub fn field_comparator(
+        sortfield: ProcessTableSortBy,
+    ) -> fn(&Self, &Self, &Duration) -> Ordering {
         match sortfield {
             ProcessTableSortBy::CPU => {
-                |pa, pb| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
+                |pa, pb, _tick| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
             }
-            ProcessTableSortBy::Mem => |pa, pb| pa.memory.cmp(&pb.memory),
-            ProcessTableSortBy::MemPerc => |pa, pb| pa.memory.cmp(&pb.memory),
-            ProcessTableSortBy::User => |pa, pb| pa.user_name.cmp(&pb.user_name),
-            ProcessTableSortBy::Pid => |pa, pb| pa.pid.cmp(&pb.pid),
+            ProcessTableSortBy::Mem => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::MemPerc => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
+            ProcessTableSortBy::User => |pa, pb, _tick| pa.user_name.cmp(&pb.user_name),
+            ProcessTableSortBy::Pid => |pa, pb, _tick| pa.pid.cmp(&pb.pid),
             ProcessTableSortBy::Status => {
-                |pa, pb| pa.status.to_single_char().cmp(pb.status.to_single_char())
+                |pa, pb, _tick| pa.status.to_single_char().cmp(pb.status.to_single_char())
             }
-            ProcessTableSortBy::Priority => |pa, pb| pa.priority.cmp(&pb.priority),
-            ProcessTableSortBy::Nice => |pa, pb| pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal),
-            ProcessTableSortBy::Virt => |pa, pb| pa.virtual_memory.cmp(&pb.virtual_memory),
-            ProcessTableSortBy::Cmd => |pa, pb| pa.name.cmp(&pb.name),
-            ProcessTableSortBy::DiskRead => |pa, pb| {
-                pa.get_read_bytes_sec()
-                    .partial_cmp(&pb.get_read_bytes_sec())
+            ProcessTableSortBy::Priority => |pa, pb, _tick| pa.priority.cmp(&pb.priority),
+            ProcessTableSortBy::Nice => {
+                |pa, pb, _tick| pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal)
+            }
+            ProcessTableSortBy::Virt => |pa, pb, _tick| pa.virtual_memory.cmp(&pb.virtual_memory),
+            ProcessTableSortBy::Cmd => |pa, pb, _tick| pa.name.cmp(&pb.name),
+            ProcessTableSortBy::DiskRead => |pa, pb, tick| {
+                pa.get_read_bytes_sec(tick)
+                    .partial_cmp(&pb.get_read_bytes_sec(tick))
                     .unwrap_or(Equal)
             },
-            ProcessTableSortBy::DiskWrite => |pa, pb| {
-                pa.get_write_bytes_sec()
-                    .partial_cmp(&pb.get_write_bytes_sec())
+            ProcessTableSortBy::DiskWrite => |pa, pb, tick| {
+                pa.get_write_bytes_sec(tick)
+                    .partial_cmp(&pb.get_write_bytes_sec(tick))
                     .unwrap_or(Equal)
             },
-            ProcessTableSortBy::GPU => |pa, pb| pa.gpu_usage.cmp(&pb.gpu_usage),
-            ProcessTableSortBy::FB => |pa, pb| pa.fb_utilization.cmp(&pb.fb_utilization),
+            ProcessTableSortBy::GPU => |pa, pb, _tick| pa.gpu_usage.cmp(&pb.gpu_usage),
+            ProcessTableSortBy::FB => |pa, pb, _tick| pa.fb_utilization.cmp(&pb.fb_utilization),
         }
     }
 }

@@ -430,12 +430,12 @@ impl CPUTimeApp {
                         top_mem = zp.memory;
                         top_mem_pid = zp.pid;
                     }
-                    if zp.get_read_bytes_sec() > top_read {
-                        top_read = zp.get_read_bytes_sec();
+                    if zp.get_read_bytes_sec(&self.histogram_map.tick) > top_read {
+                        top_read = zp.get_read_bytes_sec(&self.histogram_map.tick);
                         top_reader = zp.pid;
                     }
-                    if zp.get_write_bytes_sec() > top_write {
-                        top_write = zp.get_write_bytes_sec();
+                    if zp.get_write_bytes_sec(&self.histogram_map.tick) > top_write {
+                        top_write = zp.get_write_bytes_sec(&self.histogram_map.tick);
                         top_writer = zp.pid;
                     }
                 } else {
@@ -449,12 +449,12 @@ impl CPUTimeApp {
                         top_mem = zprocess.memory;
                         top_mem_pid = zprocess.pid;
                     }
-                    if zprocess.get_read_bytes_sec() > top_read {
-                        top_read = zprocess.get_read_bytes_sec();
+                    if zprocess.get_read_bytes_sec(&self.histogram_map.tick) > top_read {
+                        top_read = zprocess.get_read_bytes_sec(&self.histogram_map.tick);
                         top_reader = zprocess.pid;
                     }
-                    if zprocess.get_read_bytes_sec() > top_write {
-                        top_write = zprocess.get_read_bytes_sec();
+                    if zprocess.get_read_bytes_sec(&self.histogram_map.tick) > top_write {
+                        top_write = zprocess.get_read_bytes_sec(&self.histogram_map.tick);
                         top_writer = zprocess.pid;
                     }
                     self.process_map.insert(zprocess.pid, zprocess);
@@ -470,12 +470,12 @@ impl CPUTimeApp {
                     top_mem = zprocess.memory;
                     top_mem_pid = zprocess.pid;
                 }
-                if zprocess.get_read_bytes_sec() > top_read {
-                    top_read = zprocess.get_read_bytes_sec();
+                if zprocess.get_read_bytes_sec(&self.histogram_map.tick) > top_read {
+                    top_read = zprocess.get_read_bytes_sec(&self.histogram_map.tick);
                     top_reader = zprocess.pid;
                 }
-                if zprocess.get_write_bytes_sec() > top_write {
-                    top_write = zprocess.get_write_bytes_sec();
+                if zprocess.get_write_bytes_sec(&self.histogram_map.tick) > top_write {
+                    top_write = zprocess.get_write_bytes_sec(&self.histogram_map.tick);
                     top_writer = zprocess.pid;
                 }
                 self.process_map.insert(zprocess.pid, zprocess);
@@ -541,11 +541,12 @@ impl CPUTimeApp {
         let pm = &self.process_map;
         let sorter = ZProcess::field_comparator(self.psortby);
         let sortorder = &self.psortorder;
+        let tick = self.histogram_map.tick;
         self.processes.sort_by(|a, b| {
             let pa = pm.get(a).expect("Error in sorting the process table.");
             let pb = pm.get(b).expect("Error in sorting the process table.");
 
-            let ord = sorter(pa, pb);
+            let ord = sorter(pa, pb, &tick);
             match sortorder {
                 ProcessTableSortOrder::Ascending => ord,
                 ProcessTableSortOrder::Descending => ord.reverse(),
@@ -606,12 +607,12 @@ impl CPUTimeApp {
         self.disk_read = self
             .process_map
             .iter()
-            .map(|(_pid, p)| p.get_read_bytes_sec() as u64)
+            .map(|(_pid, p)| p.get_read_bytes_sec(&self.histogram_map.tick) as u64)
             .sum();
         self.disk_write = self
             .process_map
             .iter()
-            .map(|(_pid, p)| p.get_write_bytes_sec() as u64)
+            .map(|(_pid, p)| p.get_write_bytes_sec(&self.histogram_map.tick) as u64)
             .sum();
 
         self.histogram_map.add_value_to("disk_read", self.disk_read);
@@ -651,6 +652,7 @@ impl CPUTimeApp {
         let mut net_in = 0;
         let mut net_out = 0;
         for (_iface, data) in self.system.get_networks() {
+            debug!("iface: {}", _iface);
             net_in += data.get_received();
             net_out += data.get_transmitted();
         }
