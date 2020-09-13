@@ -386,8 +386,8 @@ fn render_cpu_bars(
         .title(
             format!(
                 "CPU{} {}@{} MHz",
-                core_count,
                 if core_count > 1 { "S" } else { "" },
+                core_count,
                 app.frequency
             )
             .as_str(),
