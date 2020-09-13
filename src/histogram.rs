@@ -35,7 +35,7 @@ pub struct HistogramMap {
     previous_stop: Option<SystemTime>,
 }
 
-fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramMap {
+pub fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramMap {
     // need to fill in time between when it was last stored and now, like the sled DB
     let data = std::fs::read(path).expect(DB_ERROR);
     let mut hm: HistogramMap = bincode::deserialize(&data).expect(DSER_ERROR);

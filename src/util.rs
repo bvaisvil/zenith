@@ -43,9 +43,9 @@ impl Default for Config {
 }
 
 impl Events {
-    pub fn new(tick_rate: u64) -> Events {
+    pub fn new(tick_rate: Duration) -> Events {
         Events::with_config(Config {
-            tick_rate: Duration::from_millis(tick_rate),
+            tick_rate,
             exit_key: Key::Char('q'),
         })
     }

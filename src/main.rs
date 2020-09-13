@@ -32,6 +32,7 @@ use crossterm::{
     },
 };
 use futures::executor::block_on;
+use histogram::load_zenith_store;
 use std::error::Error;
 use std::fs;
 use std::io::{stdout, Write};
@@ -39,6 +40,8 @@ use std::panic;
 use std::panic::PanicInfo;
 use std::path::Path;
 use std::process::exit;
+use std::time::Duration;
+use std::time::SystemTime;
 
 fn panic_hook(info: &PanicInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
@@ -74,6 +77,36 @@ fn restore_terminal() {
     disable_raw_mode().expect("Unable to disable raw mode");
 }
 
+fn use_db_history(db_path: &str, tick_rate: u64) -> Option<bool> {
+    let path = format!("{}/store", db_path);
+    let db_path = Path::new(path.as_str());
+    if db_path.exists() {
+        let now = SystemTime::now();
+        let map = load_zenith_store(db_path.to_owned(), &now);
+        let tick = Duration::from_millis(tick_rate);
+        if map.tick != tick {
+            println!(
+                "Database tick: {} does not match supplied tick: {}.",
+                map.tick.as_millis(),
+                tick.as_millis()
+            );
+            println!("Proceed with (D)atabase tick: {}, (S)upplied tick with history disabled: {}, (E)xit?:", map.tick.as_millis(), tick.as_millis());
+            let mut line = String::new();
+            let _num_characters = std::io::stdin().read_line(&mut line).unwrap_or_default();
+            match line.as_bytes()[0].to_ascii_lowercase() {
+                b'd' => Some(true),
+                b's' => Some(false),
+                b'e' => None,
+                _ => None,
+            }
+        } else {
+            Some(true)
+        }
+    } else {
+        Some(true)
+    }
+}
+
 fn start_zenith(
     rate: u64,
     cpu_height: u16,
@@ -95,6 +128,18 @@ fn start_zenith(
           disable_history,
           db_path
     );
+
+    let mut disable_history = disable_history;
+    if !disable_history {
+        match use_db_history(db_path, rate) {
+            Some(r) => {
+                disable_history = !r;
+            }
+            None => {
+                exit(0);
+            }
+        };
+    }
 
     init_terminal();
 
