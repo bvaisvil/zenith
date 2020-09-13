@@ -96,9 +96,11 @@ fn mem_title(app: &CPUTimeApp) -> String {
     };
 
     format!(
-        "MEM [{}] Usage [{: >3}%] SWP [{}] Usage [{: >3}%] {:}",
+        "MEM [{} / {} - {:}%] SWP [{} / {} - {:}%] {:}",
+        float_to_byte_string!(app.mem_utilization as f64, ByteUnit::KB),
         float_to_byte_string!(app.mem_total as f64, ByteUnit::KB),
         mem,
+        float_to_byte_string!(app.swap_utilization as f64, ByteUnit::KB),
         float_to_byte_string!(app.swap_total as f64, ByteUnit::KB),
         swp,
         top_mem_proc
@@ -959,10 +961,11 @@ fn render_graphics(
         .block(
             Block::default().title(
                 format!(
-                    "FB [{:3.0}%] MEM [{:} / {:}] {:} Pwr [{:} W / {:} W] Tmp [{:} C / {:} C]",
+                    "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:} Pwr [{:} W / {:} W] Tmp [{:} C / {:} C]",
                     gd.mem_utilization,
                     float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
                     float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+                    percent_of(gd.used_memory, gd.total_memory) as u64,
                     fan,
                     gd.power_usage / 1000,
                     gd.max_power / 1000,
