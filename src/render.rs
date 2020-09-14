@@ -1418,13 +1418,13 @@ impl<'a> TerminalRenderer {
         debug!("Setup Constraints");
         let mut constraints = vec![
             Constraint::Length(1),
-            Constraint::Length(cpu_height as u16),
-            Constraint::Length(net_height as u16),
-            Constraint::Length(disk_height as u16),
-            Constraint::Length(graphics_height as u16),
+            Constraint::Percentage(cpu_height as u16),
+            Constraint::Percentage(net_height as u16),
+            Constraint::Percentage(disk_height as u16),
+            Constraint::Percentage(graphics_height as u16),
         ];
         if process_height > 0 {
-            constraints.push(Constraint::Min(process_height as u16));
+            constraints.push(Constraint::Percentage(process_height as u16));
         }
 
         debug!("Create Metrics App");
@@ -1470,13 +1470,13 @@ impl<'a> TerminalRenderer {
     async fn set_constraints(&mut self) {
         let mut constraints = vec![
             Constraint::Length(1),
-            Constraint::Length(self.cpu_height as u16),
-            Constraint::Length(self.net_height as u16),
-            Constraint::Length(self.disk_height as u16),
-            Constraint::Length(self.graphics_height as u16),
+            Constraint::Percentage(self.cpu_height as u16),
+            Constraint::Percentage(self.net_height as u16),
+            Constraint::Percentage(self.disk_height as u16),
+            Constraint::Percentage(self.graphics_height as u16),
         ];
         if self.process_height > 0 {
-            constraints.push(Constraint::Min(self.process_height as u16));
+            constraints.push(Constraint::Percentage(self.process_height as u16));
         }
         self.constraints = constraints;
     }

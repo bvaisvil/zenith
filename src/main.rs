@@ -178,14 +178,54 @@ fn start_zenith(
         };
 
         debug!("Create Renderer");
+
+        // sum of minimum percentages should not exceed 100%
+        let mut cpu_height_perc = cpu_height;
+        let mut net_height_perc = net_height;
+        let mut disk_height_perc = disk_height;
+        let mut process_height_perc = process_height;
+        let mut sensor_height_perc = sensor_height;
+        let mut graphics_height_perc = graphics_height;
+        let sum_heights = cpu_height_perc as u32 + net_height_perc as u32 +
+            disk_height_perc as u32 + process_height_perc as u32 +
+            sensor_height_perc as u32 + graphics_height_perc as u32;
+        if sum_heights > 100 {
+            restore_terminal();
+            println!("Sum of minimum percent heights cannot exceed 100 but was {:}.", sum_heights);
+            exit(1);
+        }
+        // distribute the remaining percentage among the non-zero ones
+        if sum_heights < 100 {
+            let num_non_zero = (cpu_height_perc > 0) as u16 + (net_height_perc > 0) as u16 +
+                (disk_height_perc > 0) as u16 + (process_height_perc > 0) as u16 +
+                (sensor_height_perc > 0) as u16 + (graphics_height_perc > 0) as u16;
+            if num_non_zero > 0 {
+                let residual_percent = (100 - sum_heights) as u16 / num_non_zero;
+                if residual_percent > 0 {
+                    cpu_height_perc += residual_percent * (cpu_height_perc > 0) as u16;
+                    net_height_perc += residual_percent * (net_height_perc > 0) as u16;
+                    disk_height_perc += residual_percent * (disk_height_perc > 0) as u16;
+                    process_height_perc += residual_percent * (process_height_perc > 0) as u16;
+                    sensor_height_perc += residual_percent * (sensor_height_perc > 0) as u16;
+                    graphics_height_perc += residual_percent * (graphics_height_perc > 0) as u16;
+                }
+                // assign any remaining to process_height
+                let new_sum_heights = cpu_height_perc + net_height_perc + disk_height_perc +
+                    process_height_perc + sensor_height_perc + graphics_height_perc;
+                assert!(new_sum_heights <= 100);
+                if new_sum_heights < 100 {
+                    process_height_perc += 100 - new_sum_heights;
+                }
+            }
+        }
         let mut r = TerminalRenderer::new(
             rate,
-            cpu_height as i16,
-            net_height as i16,
-            disk_height as i16,
-            process_height as i16,
-            sensor_height as i16,
-            graphics_height as i16,
+            cpu_height_perc as i16,
+            net_height_perc as i16,
+            disk_height_perc as i16,
+            process_height_perc as i16,
+            sensor_height_perc as i16,
+            graphics_height_perc as i16,
             db,
         );
 
@@ -293,24 +333,24 @@ struct ZOptions {
     #[options(short = "V")]
     version: bool,
 
-    /// Height of CPU/Memory visualization.
-    #[options(short = "c", long = "cpu-height", default = "10", meta = "INT")]
+    /// Min Percent Height of CPU/Memory visualization.
+    #[options(short = "c", long = "cpu-height", default = "18", meta = "INT")]
     cpu_height: u16,
 
     /// Database to use, if any.
     #[options(no_short, default_expr = "default_db_path()", meta = "STRING")]
     db: String,
 
-    /// Height of Disk visualization.
-    #[options(short = "d", long = "disk-height", default = "10", meta = "INT")]
+    /// Min Percent Height of Disk visualization.
+    #[options(short = "d", long = "disk-height", default = "18", meta = "INT")]
     disk_height: u16,
 
-    /// Height of Network visualization.
-    #[options(short = "n", long = "net-height", default = "10", meta = "INT")]
+    /// Min Percent Height of Network visualization.
+    #[options(short = "n", long = "net-height", default = "18", meta = "INT")]
     net_height: u16,
 
-    /// Min Height of Process Table.
-    #[options(short = "p", long = "process-height", default = "8", meta = "INT")]
+    /// Min Percent Height of Process Table.
+    #[options(short = "p", long = "process-height", default = "28", meta = "INT")]
     process_height: u16,
 
     /// Refresh rate in milliseconds.
@@ -323,8 +363,8 @@ struct ZOptions {
     )]
     refresh_rate: u64,
 
-    /// Height of Graphics Card visualization.
+    /// Min Percent Height of Graphics Card visualization.
     #[cfg(feature = "nvidia")]
-    #[options(short = "g", long = "graphics-height", default = "10", meta = "INT")]
+    #[options(short = "g", long = "graphics-height", default = "18", meta = "INT")]
     graphics_height: u16,
 }
