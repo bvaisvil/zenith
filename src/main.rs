@@ -347,7 +347,7 @@ struct ZOptions {
     version: bool,
 
     /// Min Percent Height of CPU/Memory visualization.
-    #[options(short = "c", long = "cpu-height", default = "17", meta = "INT")]
+    #[options(short = "c", long = "cpu-height", default = "18", meta = "INT")]
     cpu_height: u16,
 
     /// Database to use, if any.
@@ -355,15 +355,15 @@ struct ZOptions {
     db: String,
 
     /// Min Percent Height of Disk visualization.
-    #[options(short = "d", long = "disk-height", default = "17", meta = "INT")]
+    #[options(short = "d", long = "disk-height", default = "18", meta = "INT")]
     disk_height: u16,
 
     /// Min Percent Height of Network visualization.
-    #[options(short = "n", long = "net-height", default = "17", meta = "INT")]
+    #[options(short = "n", long = "net-height", default = "18", meta = "INT")]
     net_height: u16,
 
     /// Min Percent Height of Process Table.
-    #[options(short = "p", long = "process-height", default = "32", meta = "INT")]
+    #[options(short = "p", long = "process-height", default = "28", meta = "INT")]
     process_height: u16,
 
     /// Refresh rate in milliseconds.
@@ -378,6 +378,6 @@ struct ZOptions {
 
     /// Min Percent Height of Graphics Card visualization.
     #[cfg(feature = "nvidia")]
-    #[options(short = "g", long = "graphics-height", default = "17", meta = "INT")]
+    #[options(short = "g", long = "graphics-height", default = "18", meta = "INT")]
     graphics_height: u16,
 }
