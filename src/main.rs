@@ -186,21 +186,28 @@ fn start_zenith(
         let mut process_height_perc = process_height;
         let mut sensor_height_perc = sensor_height;
         let mut graphics_height_perc = graphics_height;
-        let sum_heights = cpu_height_perc as u32 + net_height_perc as u32
-            + disk_height_perc as u32 + process_height_perc as u32
-            + sensor_height_perc as u32 + graphics_height_perc as u32;
+        let sum_heights = cpu_height_perc as u32
+            + net_height_perc as u32
+            + disk_height_perc as u32
+            + process_height_perc as u32
+            + sensor_height_perc as u32
+            + graphics_height_perc as u32;
         if sum_heights > 100 {
             restore_terminal();
             println!(
                 "Sum of minimum percent heights cannot exceed 100 but was {:}.",
-                sum_heights);
+                sum_heights
+            );
             exit(1);
         }
         // distribute the remaining percentage among the non-zero ones
         if sum_heights < 100 {
-            let num_non_zero = (cpu_height_perc > 0) as u16 + (net_height_perc > 0) as u16
-                + (disk_height_perc > 0) as u16 + (process_height_perc > 0) as u16
-                + (sensor_height_perc > 0) as u16 + (graphics_height_perc > 0) as u16;
+            let num_non_zero = (cpu_height_perc > 0) as u16
+                + (net_height_perc > 0) as u16
+                + (disk_height_perc > 0) as u16
+                + (process_height_perc > 0) as u16
+                + (sensor_height_perc > 0) as u16
+                + (graphics_height_perc > 0) as u16;
             if num_non_zero > 0 {
                 let residual_percent = (100 - sum_heights) as u16 / num_non_zero;
                 if residual_percent > 0 {
@@ -212,9 +219,12 @@ fn start_zenith(
                     graphics_height_perc += residual_percent * (graphics_height_perc > 0) as u16;
                 }
                 // assign any remaining to process_height
-                let new_sum_heights = cpu_height_perc + net_height_perc
-                    + disk_height_perc + process_height_perc
-                    + sensor_height_perc + graphics_height_perc;
+                let new_sum_heights = cpu_height_perc
+                    + net_height_perc
+                    + disk_height_perc
+                    + process_height_perc
+                    + sensor_height_perc
+                    + graphics_height_perc;
                 assert!(new_sum_heights <= 100);
                 if new_sum_heights < 100 {
                     process_height_perc += 100 - new_sum_heights;
