@@ -1,0 +1,5 @@
+zenith (0.10.1~1) unstable; urgency=medium
+
+  * Initial deb package release.
+
+ -- Sumedh Wale <swale@gmail.com>  Tue, 15 Sep 2020 02:10:45 +0530
