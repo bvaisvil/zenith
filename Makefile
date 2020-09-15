@@ -36,4 +36,4 @@ linux-static: clean
 	install -D -m 755 target/release/zenith linux.static/zenith.nvidia
 	install -D -m 755 assets/zenith.sh linux.static/zenith
 	tar -C linux.static -c -z -v -f zenith.x86_64-unknown-linux-musl.tgz .
-	sha256sum Makefile | cut -d' ' -f1 > zenith.x86_64-unknown-linux-musl.tgz.sha256
+	sha256sum zenith.x86_64-unknown-linux-musl.tgz | cut -d' ' -f1 > zenith.x86_64-unknown-linux-musl.tgz.sha256
