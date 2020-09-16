@@ -72,6 +72,17 @@ script to choose the appropriate one at runtime.
 
 ```make && make install```
 
+If for some reason the Makefile incorrectly detects NVIDIA driver installation
+or a broken installation (e.g. libnvidia-ml.so.1 present but no libnvidia-ml.so)
+then explicitly skip using the 'base' target:
+
+```make base && make install```
+
+The default installation path is /usr/local so 'make install' requires root
+privileges above. To install in a custom location use PREFIX like below:
+
+```make && make install PREFIX=$HOME/zenith```
+
 ## Usage
 
 Running with no arguments starts zenith with the default visualizations for CPU, Disk, and Network and a refresh rate of 2000 ms (2 seconds). These can be changed with command line parameters:
