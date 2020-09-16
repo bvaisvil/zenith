@@ -4,10 +4,13 @@ DESTDIR =
 PREFIX = /usr/local
 
 all: base
-	cargo clean
-	RUSTFLAGS="-C link-arg=-s" cargo build --release --features nvidia
-	rm -f build/zenith.nvidia
-	install -D -m 755 target/release/zenith build/zenith.nvidia
+	if test -r /dev/nvidia-uvm && { ldconfig -p | grep -q libnvidia-ml.so.1; }; \
+	then \
+	  cargo clean; \
+	  RUSTFLAGS="-C link-arg=-s" cargo build --release --features nvidia; \
+	  rm -f build/zenith.nvidia; \
+	  install -D -m 755 target/release/zenith build/zenith.nvidia; \
+	fi
 
 base: clean
 	RUSTFLAGS="-C link-arg=-s" cargo build --release
@@ -19,10 +22,15 @@ clean:
 	rm -rf build linux.static
 
 install:
-	install -D -m 755 build/zenith.base $(DESTDIR)$(PREFIX)/lib/zenith/base/zenith
-	install -D -m 755 build/zenith.nvidia $(DESTDIR)$(PREFIX)/lib/zenith/nvidia/zenith
-	install -D -m 755 assets/zenith.sh $(DESTDIR)$(PREFIX)/bin/zenith
-	sed -i 's,PREFIX=/usr/local,PREFIX=$(PREFIX),' $(DESTDIR)$(PREFIX)/bin/zenith
+	if [ -x build/zenith.nvidia ]; \
+	then \
+	  install -D -m 755 build/zenith.base $(DESTDIR)$(PREFIX)/lib/zenith/base/zenith; \
+	  install -D -m 755 build/zenith.nvidia $(DESTDIR)$(PREFIX)/lib/zenith/nvidia/zenith; \
+	  install -D -m 755 assets/zenith.sh $(DESTDIR)$(PREFIX)/bin/zenith; \
+	  sed -i 's,PREFIX=/usr/local,PREFIX=$(PREFIX),' $(DESTDIR)$(PREFIX)/bin/zenith; \
+	else \
+	  install -D -m 755 build/zenith.base $(DESTDIR)$(PREFIX)/bin/zenith; \
+	fi
 	install -D -m 644 assets/zenith.png $(DESTDIR)$(PREFIX)/share/pixmaps/zenith.png
 	install -D -m 644 assets/zenith.desktop $(DESTDIR)$(PREFIX)/share/applications/zenith.desktop
 

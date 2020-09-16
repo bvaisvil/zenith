@@ -66,6 +66,12 @@ For NVIDIA GPU support, build with feature `nvidia`:
 
 ```cargo build --release --features nvidia```
 
+There is also a Makefile that can detect the presence of NVIDIA driver on the
+current system and install both the above flavours on Linux with a wrapper
+script to choose the appropriate one at runtime.
+
+```make && make install```
+
 ## Usage
 
 Running with no arguments starts zenith with the default visualizations for CPU, Disk, and Network and a refresh rate of 2000 ms (2 seconds). These can be changed with command line parameters:
