@@ -73,8 +73,8 @@ script to choose the appropriate one at runtime.
 ```make && make install```
 
 If for some reason the Makefile incorrectly detects NVIDIA driver installation
-or a broken installation (e.g. libnvidia-ml.so.1 present but no libnvidia-ml.so)
-then explicitly skip using the 'base' target:
+or in case of a broken installation (e.g. libnvidia-ml.so.1 present but no
+    libnvidia-ml.so) then explicitly skip it using the 'base' target:
 
 ```make base && make install```
 
