@@ -32,10 +32,10 @@ uninstall: clean
 
 linux-static: clean
 	CC_x86_64_unknown_linux_musl="x86_64-linux-musl-gcc" cargo build --release --target=x86_64-unknown-linux-musl
-	install -D -m 755 target/release/zenith linux.static/zenith.base
+	install -D -m 755 target/release/zenith linux.static/zenith/base/zenith
 	cargo clean
 	CC_x86_64_unknown_linux_musl="x86_64-linux-musl-gcc" cargo build --release --target=x86_64-unknown-linux-musl --features nvidia
-	install -D -m 755 target/release/zenith linux.static/zenith.nvidia
-	install -D -m 755 assets/zenith.sh linux.static/zenith
+	install -D -m 755 target/release/zenith linux.static/zenith/nvidia/zenith
+	install -D -m 755 assets/zenith-static.sh linux.static/zenith
 	tar -C linux.static -c -z -v -f zenith.x86_64-unknown-linux-musl.tgz .
 	sha256sum zenith.x86_64-unknown-linux-musl.tgz | cut -d' ' -f1 > zenith.x86_64-unknown-linux-musl.tgz.sha256
