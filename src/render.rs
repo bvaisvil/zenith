@@ -192,6 +192,8 @@ fn render_process_table(
             let cmd_string = if show_paths {
                 if p.command.len() > 1 {
                     format!(" - {:}", p.command.join(" "))
+                } else if p.command.len() > 0 {
+                    format!(" - {:}", p.command[0])
                 } else {
                     String::from("")
                 }
