@@ -1,8 +1,10 @@
 #!/bin/sh
 
+PREFIX=/usr/local
+
 if test -r /dev/nvidia-uvm && { ldconfig -p | grep -q libnvidia-ml.so.1; }
 then
-  exec zenith.nvidia "$@"
+  exec $PREFIX/lib/zenith/nvidia/zenith "$@"
 else
-  exec zenith.base "$@"
+  exec $PREFIX/lib/zenith/base/zenith "$@"
 fi
