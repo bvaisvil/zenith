@@ -1461,7 +1461,7 @@ impl<'a> TerminalRenderer {
             process_message: None,
             hist_start_offset: 0,
             show_help: false,
-            show_paths: true,
+            show_paths: false,
             show_find: false,
             filter: String::from(""),
             highlighted_row: 0,
