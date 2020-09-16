@@ -74,11 +74,11 @@ script to choose the appropriate one at runtime.
 
 If for some reason the Makefile incorrectly detects NVIDIA driver installation
 or in case of a broken installation (e.g. libnvidia-ml.so.1 present but no
-    libnvidia-ml.so) then explicitly skip it using the 'base' target:
+    libnvidia-ml.so) then explicitly skip it using the `base` target:
 
 ```make base && make install```
 
-The default installation path is /usr/local so 'make install' requires root
+The default installation path is `/usr/local` so `make install` requires root
 privileges above. To install in a custom location use PREFIX like below:
 
 ```make && make install PREFIX=$HOME/zenith```
