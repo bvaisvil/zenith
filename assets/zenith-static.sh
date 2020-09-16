@@ -9,7 +9,7 @@ scriptDir="`dirname "$scriptPath"`"
 
 if test -r /dev/nvidia-uvm && { ldconfig -p | grep -q libnvidia-ml.so.1; }
 then
-  exec "$scriptDir/zenith/nvidia/zenith" "$@"
+  exec "$scriptDir/zenith-exec/nvidia/zenith" "$@"
 else
-  exec "$scriptDir/zenith/base/zenith" "$@"
+  exec "$scriptDir/zenith-exec/base/zenith" "$@"
 fi
