@@ -192,6 +192,8 @@ fn render_process_table(
             let cmd_string = if show_paths {
                 if p.command.len() > 1 {
                     format!(" - {:}", p.command.join(" "))
+                } else if p.command.len() > 0 {
+                    format!(" - {:}", p.command[0])
                 } else {
                     String::from("")
                 }
@@ -1459,7 +1461,7 @@ impl<'a> TerminalRenderer {
             process_message: None,
             hist_start_offset: 0,
             show_help: false,
-            show_paths: true,
+            show_paths: false,
             show_find: false,
             filter: String::from(""),
             highlighted_row: 0,
