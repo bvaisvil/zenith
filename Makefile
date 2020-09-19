@@ -35,7 +35,7 @@ install:
 	install -D -m 644 assets/zenith.desktop $(DESTDIR)$(PREFIX)/share/applications/zenith.desktop
 
 uninstall: clean
-	rm -f $(DESTDIR)$(PREFIX)/bin/zenith.base $(DESTDIR)$(PREFIX)/bin/zenith.nvidia $(DESTDIR)$(PREFIX)/bin/zenith
+	rm -rf $(DESTDIR)$(PREFIX)/lib/zenith $(DESTDIR)$(PREFIX)/bin/zenith
 	rm -f $(DESTDIR)$(PREFIX)/share/pixmaps/zenith.png $(DESTDIR)$(PREFIX)/share/applications/zenith.desktop
 
 linux-static: clean
