@@ -108,7 +108,7 @@ fn mem_title(app: &CPUTimeApp) -> String {
     )
 }
 
-fn cpu_title(app: &CPUTimeApp) -> String {
+fn cpu_title(app: &CPUTimeApp, histogram: &Vec<u64>) -> String {
     let top_process_name = match &app.cum_cpu_process {
         Some(p) => p.name.as_str(),
         None => "",
@@ -121,13 +121,9 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         Some(p) => p.pid,
         None => 0,
     };
-    let h = match app.histogram_map.get("cpu_usage_histogram") {
-        Some(h) => &h.data,
-        None => return String::from(""),
-    };
-    let mean: f64 = match h.len() {
+    let mean: f64 = match histogram.len() {
         0 => 0.0,
-        _ => h.iter().sum::<u64>() as f64 / h.len() as f64,
+        _ => histogram.iter().sum::<u64>() as f64 / histogram.len() as f64,
     };
     let temp = if app.sensors.len() > 0 {
         let t: f32 = app.sensors.iter().map(|s| s.current_temp).sum();
@@ -330,7 +326,6 @@ fn render_cpu_histogram(
     update_number: &u32,
     offset: &usize,
 ) {
-    let title = cpu_title(&app);
     let h = match app.histogram_map.get_zoomed(
         "cpu_usage_histogram",
         *zf,
@@ -341,6 +336,7 @@ fn render_cpu_histogram(
         Some(h) => h.data,
         None => return,
     };
+    let title = cpu_title(&app, &h);
     Sparkline::default()
         .block(Block::default().title(title.as_str()))
         .data(&h)
