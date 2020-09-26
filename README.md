@@ -111,8 +111,10 @@ After that disable the actual use of the driver using "sudo prime-select intel".
 building with Makefile you will need to explicitly add the NVIDIA library path to LD_LIBRARY_PATH.
 For instance on Ubuntu and derivatives, something like:
 
-export LD\_LIBRARY\_PATH=/usr/lib/nvidia-430
-make && sudo make install
+```
+  export LD\_LIBRARY\_PATH=/usr/lib/nvidia-430
+  make && sudo make install
+```
 
 ### Building deb package
 
@@ -120,13 +122,13 @@ Debian package support is present in the source tree. Install devscripts package
 options like "debuild -b -uc -us" to build an unsigned deb package in the directory above.
 In a virtual environment build, LD\_LIBRARY\_PATH can be explicitly set like:
 
-debuild -eLD\_LIBRARY\_PATH=/usr/lib/nvidia-430 -b -uc -us
+```debuild -eLD_LIBRARY_PATH=/usr/lib/nvidia-430 -b -uc -us```
 
 Cargo can be installed from the repositories or the standard rustup way. Latter would be normally
 recommended if one needs to do anything more than just building in a virtual environment. For
 that case $HOME/.cargo/bin should be in PATH and mark PATH so that debuild does not sanitize it:
 
-debuild -ePATH -eLD\_LIBRARY\_PATH=/usr/lib/nvidia-430 -b -uc -us
+```debuild -ePATH -eLD\_LIBRARY\_PATH=/usr/lib/nvidia-430 -b -uc -us```
 
 Clean up using "./debian/rules clean" rather than "make clean" to clear debian build files too.
 
