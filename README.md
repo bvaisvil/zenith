@@ -112,7 +112,7 @@ building with Makefile you will need to explicitly add the NVIDIA library path t
 For instance on Ubuntu and derivatives, something like:
 
 ```
-  export LD\_LIBRARY\_PATH=/usr/lib/nvidia-430
+  export LD_LIBRARY_PATH=/usr/lib/nvidia-430
   make && sudo make install
 ```
 
@@ -120,7 +120,7 @@ For instance on Ubuntu and derivatives, something like:
 
 Debian package support is present in the source tree. Install devscripts package and use standard
 options like "debuild -b -uc -us" to build an unsigned deb package in the directory above.
-In a virtual environment build, LD\_LIBRARY\_PATH can be explicitly set like:
+In a virtual environment build, LD_LIBRARY_PATH can be explicitly set like:
 
 ```debuild -eLD_LIBRARY_PATH=/usr/lib/nvidia-430 -b -uc -us```
 
@@ -128,7 +128,7 @@ Cargo can be installed from the repositories or the standard rustup way. Latter 
 recommended if one needs to do anything more than just building in a virtual environment. For
 that case $HOME/.cargo/bin should be in PATH and mark PATH so that debuild does not sanitize it:
 
-```debuild -ePATH -eLD\_LIBRARY\_PATH=/usr/lib/nvidia-430 -b -uc -us```
+```debuild -ePATH -eLD_LIBRARY_PATH=/usr/lib/nvidia-430 -b -uc -us```
 
 Clean up using "./debian/rules clean" rather than "make clean" to clear debian build files too.
 
