@@ -3,9 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: Benjamin Vaisvil <ben@neuon.com>
 Uploaders: Sumedh Wale <sumwale@gmail.com>
-Build-Depends: debhelper (>= 10),
-  cargo,
-  libnvidia-ml1
+Build-Depends: debhelper (>= 9)
 Standards-Version: 4.2.0
 Homepage: https://github.com/bvaisvil/zenith
 Vcs-Browser: https://github.com/bvaisvil/zenith
@@ -14,7 +12,7 @@ Vcs-Git: https://github.com/bvaisvil/zenith.git
 Package: zenith
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Suggests: libnvidia-ml1
+Suggests: libnvidia-ml1 | nvidia-driver-binary
 Description: process and system monitoring tool
  In terminal graphical metrics for your *nix system written in Rust.
  .

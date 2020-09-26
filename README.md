@@ -66,22 +66,70 @@ For NVIDIA GPU support, build with feature `nvidia`:
 
 ```cargo build --release --features nvidia```
 
-There is also a Makefile that can detect the presence of NVIDIA driver on the
-current system and install both the above flavours on Linux with a wrapper
+The minimum supported NVIDIA driver version is 418.56
+
+There is also a Makefile that detects the presence of NVIDIA driver on the
+current system and installs both the above flavours on Linux with a wrapper
 script to choose the appropriate one at runtime.
 
-```make && make install```
+```make && sudo make install```
 
 If for some reason the Makefile incorrectly detects NVIDIA driver installation
 or in case of a broken installation (e.g. libnvidia-ml.so.1 present but no
     libnvidia-ml.so) then explicitly skip it using the `base` target:
 
-```make base && make install```
+```make base && sudo make install```
 
 The default installation path is `/usr/local` so `make install` requires root
 privileges above. To install in a custom location use PREFIX like below:
 
 ```make && make install PREFIX=$HOME/zenith```
+
+### Static build
+
+The make file provides for building fully static versions on Linux against the musl C library.
+It requires musl-gcc to be installed on the system. Install "musl-tools" package on debian/ubuntu
+derivatives, "musl-gcc" on fedora and equivalent on other distributions from their standard repos.
+
+Use the target "linux-static" to build it. This will create a tarball containing the executable
+(multiple with wrapper script if NVIDIA has been detected) accompanied with file containing
+sha256 sum. The tarball can be extracted anywhere that provies the "zenith" executable.
+
+### Building with NVIDIA support in a virtual environment
+
+If one needs to build with NVIDIA support in a virtual environment, then it requires some more
+setup since typically the VM software is unable to directly expose NVIDIA GPU.
+Unlike the runtime zenith script, the Makefile has been setup to detect only the presence of
+required NVIDIA libraries, so it is possible to build with NVIDIA support even when without
+NVIDIA GPU.
+
+Install the nvidia driver package as per the distribution recommended way. For example
+in Ubuntu < 18.04 add the NVIDIA PPA (https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa)
+and install the nvidia-430 package. For newer versions install nvidia-driver-440/450 package.
+
+After that disable the actual use of the driver using "sudo prime-select intel". Then while
+building with Makefile you will need to explicitly add the NVIDIA library path to LD_LIBRARY_PATH.
+For instance on Ubuntu and derivatives, something like:
+
+export LD\_LIBRARY\_PATH=/usr/lib/nvidia-430
+make && sudo make install
+
+### Building deb package
+
+Debian package support is present in the source tree. Install devscripts package and use standard
+options like "debuild -b -uc -us" to build an unsigned deb package in the directory above.
+In a virtual environment build, LD\_LIBRARY\_PATH can be explicitly set like:
+
+debuild -eLD\_LIBRARY\_PATH=/usr/lib/nvidia-430 -b -uc -us
+
+Cargo can be installed from the repositories or the standard rustup way. Latter would be normally
+recommended if one needs to do anything more than just building in a virtual environment. For
+that case $HOME/.cargo/bin should be in PATH and mark PATH so that debuild does not sanitize it:
+
+debuild -ePATH -eLD\_LIBRARY\_PATH=/usr/lib/nvidia-430 -b -uc -us
+
+Clean up using "./debian/rules clean" rather than "make clean" to clear debian build files too.
+
 
 ## Usage
 
