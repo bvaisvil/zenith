@@ -450,7 +450,6 @@ fn render_cpu_bars(
     }
 
     // displaying as bars
-    let bar_gap: u16 = 1;
     let bars: Vec<(&str, u64)> = cpus.iter().map(|(p, u)| (p.as_str(), *u)).collect();
 
     fn clamp_up(val: u16, upper: u16) -> u16 {
@@ -462,6 +461,19 @@ fn render_cpu_bars(
     }
     let max_bar_width = 3;
 
+    fn styled_bar_chart() -> BarChart<'static> {
+        BarChart::default()
+            .bar_gap(1)
+            .max(100)
+            .bar_style(Style::default().fg(Color::Green))
+            .value_style(
+                Style::default()
+                    .fg(Color::White)
+                    .bg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
+    }
+
     if full_width <= width {
         // fits in one row
 
@@ -471,17 +483,9 @@ fn render_cpu_bars(
 
         let bar_width = clamp_up((width - (core_count - 1)) / core_count, max_bar_width);
 
-        BarChart::default()
+        styled_bar_chart()
             .data(bars.as_slice())
             .bar_width(bar_width)
-            .bar_gap(bar_gap)
-            .max(100)
-            .style(Style::default().fg(Color::Green))
-            .value_style(
-                Style::default()
-                    .bg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
             .render(f, cpu_bar_layout[0]);
     } else {
         // fits on two rows
@@ -494,29 +498,14 @@ fn render_cpu_bars(
 
         let bar_width = clamp_up((width * 2 - (core_count - 1)) / core_count, max_bar_width);
 
-        BarChart::default()
+        styled_bar_chart()
             .data(&bars[half..])
             .bar_width(bar_width)
-            .bar_gap(bar_gap)
-            .max(100)
-            .style(Style::default().fg(Color::Green))
-            .value_style(
-                Style::default()
-                    .bg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
             .render(f, cpu_bar_layout[1]);
-        BarChart::default()
+
+        styled_bar_chart()
             .data(&bars[0..half])
             .bar_width(bar_width)
-            .bar_gap(bar_gap)
-            .max(100)
-            .style(Style::default().fg(Color::Green))
-            .value_style(
-                Style::default()
-                    .bg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
             .render(f, cpu_bar_layout[0]);
     }
 }
