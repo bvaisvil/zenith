@@ -1490,6 +1490,16 @@ impl<'a> TerminalRenderer {
         self.set_constraints().await;
     }
 
+    fn current_section_height(&mut self) -> i16 {
+        match self.selected_section {
+            Section::CPU => self.cpu_height,
+            Section::Disk => self.disk_height,
+            Section::Network => self.net_height,
+            Section::Graphics => self.graphics_height,
+            Section::Process => self.process_height,
+        }
+    }
+
     pub async fn start(&mut self) {
         debug!("Starting Main Loop.");
         loop {
@@ -1762,6 +1772,24 @@ impl<'a> TerminalRenderer {
         }
     }
 
+    fn advance_to_next_section(&mut self) {
+        if self.cpu_height > 0
+            || self.net_height > 0
+            || self.disk_height > 0
+            || self.graphics_height > 0
+            || self.process_height > 0
+        {
+            let mut i = self.selected_section as u32 + 1;
+            if i > 4 {
+                i = 0;
+            }
+            self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+            if self.current_section_height() == 0 {
+                self.advance_to_next_section();
+            }
+        }
+    }
+
     async fn process_toplevel_input(&mut self, input: KeyEvent) -> Action {
         match input.code {
             Key::Char('q') => {
@@ -1849,11 +1877,7 @@ impl<'a> TerminalRenderer {
                 };
             }
             Key::Tab => {
-                let mut i = self.selected_section as u32 + 1;
-                if i > 4 {
-                    i = 0;
-                }
-                self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+                self.advance_to_next_section();
             }
             Key::Char('m') => {
                 self.set_section_height(-2).await;
