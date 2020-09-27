@@ -92,13 +92,14 @@ It requires musl-gcc to be installed on the system. Install "musl-tools" package
 derivatives, "musl-gcc" on fedora and equivalent on other distributions from their standard repos.
 
 Use the target "linux-static" to build it. This will create a tarball containing the executable
-(with NVIDIA build and wrapper script if NVIDIA has been detected) accompanied with file containing
-sha256 sum.
+accompanied with file containing sha256 sum.
 
-Newer versions of musl-gcc may fail link against libnvidia-ml (looking for static library?)
-so one has to explicitly disable it using the BUILD_NVIDIA flag:
+NVIDIA drivers normally do not ship with static versions of the libraries, so the static
+build skips that configuration. However, if you somehow get hold of static NVIDIA
+libraries or are okay for dynamic linking for that executable, then you can explicitly
+set the BUILD_NVIDIA flag to true:
 
-```make linux-static BUILD_NVIDIA=false```
+```make linux-static BUILD_NVIDIA=true```
 
 ### Building with NVIDIA support in a virtual environment
 

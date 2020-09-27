@@ -62,6 +62,8 @@ linux-static: CARGO_TARGET = --target=$(STATIC_TARGET)
 linux-static: TARGET_TYPE = static
 linux-static: CCFLAGS = CC_$(CC_STATIC_TARGET)=musl-gcc
 linux-static: TARGET_BUILDDIR = $(STATIC_TARGET)/release
+# NVIDIA driver does not ship with static libraries
+linux-static: BUILD_NVIDIA = false
 linux-static: linux-static-init all
 	mkdir -p $(STATIC_DIR)
 	@if [ -x build/$(TARGET_TYPE)/zenith.nvidia ]; then \
