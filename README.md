@@ -92,8 +92,13 @@ It requires musl-gcc to be installed on the system. Install "musl-tools" package
 derivatives, "musl-gcc" on fedora and equivalent on other distributions from their standard repos.
 
 Use the target "linux-static" to build it. This will create a tarball containing the executable
-(multiple with wrapper script if NVIDIA has been detected) accompanied with file containing
-sha256 sum. The tarball can be extracted anywhere that provies the "zenith" executable.
+(with NVIDIA build and wrapper script if NVIDIA has been detected) accompanied with file containing
+sha256 sum.
+
+Newer versions of musl-gcc may fail link against libnvidia-ml (looking for static library?)
+so one has to explicitly disable it using the BUILD_NVIDIA flag:
+
+```make linux-static BUILD_NVIDIA=false```
 
 ### Building with NVIDIA support in a virtual environment
 
