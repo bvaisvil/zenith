@@ -315,8 +315,7 @@ fn render_process_table(
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(style)
-                .title(title.as_str())
-                .title_style(style),
+                .title(Span::styled(title, style)),
         )
         .widths(widths.as_slice())
         .column_spacing(0)
@@ -396,18 +395,17 @@ fn render_cpu_bars(
     let full_width = widest_label * core_count + (core_count - 1);
 
     Block::default()
-        .title(
+        .title(Span::styled(
             format!(
                 "CPU{} {}@{} MHz",
                 if core_count > 1 { "S" } else { "" },
                 core_count,
                 app.frequency
-            )
-            .as_str(),
-        )
+            ),
+            *style,
+        ))
         .borders(Borders::ALL)
         .border_style(*style)
-        .title_style(*style)
         .render(f, area);
 
     assert_eq!(area.width, width);
@@ -627,10 +625,9 @@ fn render_net(
     List::new(ips)
         .block(
             Block::default()
-                .title("Network")
+                .title(Span::styled("Network", style))
                 .borders(Borders::ALL)
-                .border_style(style)
-                .title_style(style),
+                .border_style(style),
         )
         .render(f, network_layout[0]);
 }
@@ -651,10 +648,9 @@ fn render_process(
         None => return,
     };
     Block::default()
-        .title(format!("Process: {0}", p.name).as_str())
+        .title(Span::styled(format!("Process: {0}", p.name), style))
         .borders(Borders::ALL)
         .border_style(style)
-        .title_style(style)
         .render(f, layout);
     let v_sections = Layout::default()
         .direction(Direction::Vertical)
@@ -662,10 +658,15 @@ fn render_process(
         .constraints([Constraint::Length(2), Constraint::Min(1)].as_ref())
         .split(layout);
 
+    let title = format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
+                        process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize);
+
     Block::default()
-                .title(format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
-                                        process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize).as_str())
-                .title_style(Style::default().bg(Color::DarkGray).fg(Color::White)).render(f, v_sections[0]);
+        .title(Span::styled(
+            title,
+            Style::default().bg(Color::DarkGray).fg(Color::White),
+        ))
+        .render(f, v_sections[0]);
 
     //Block::default().borders(Borders::LEFT).render(f, h_sections[1]);
 
@@ -956,10 +957,9 @@ fn render_disk(
     List::new(disks)
         .block(
             Block::default()
-                .title("Disks / File Systems")
+                .title(Span::styled("Disks / File Systems", style))
                 .borders(Borders::ALL)
-                .border_style(style)
-                .title_style(style),
+                .border_style(style),
         )
         .render(f, disk_layout[0]);
 }
@@ -1089,10 +1089,9 @@ fn render_graphics(
     List::new(devices)
         .block(
             Block::default()
-                .title("Graphics Devices")
+                .title(Span::styled("Graphics Devices", style))
                 .borders(Borders::ALL)
-                .border_style(style)
-                .title_style(style),
+                .border_style(style),
         )
         .render(f, gfx_layout[0]);
 }
