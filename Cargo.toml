@@ -15,7 +15,7 @@ default = []
 nvidia = ["nvml-wrapper"]
 
 [dependencies]
-tui = {version = "0.9.*", features = ["crossterm"], default-features = false}
+tui = {version = "0.11.*", features = ["crossterm"], default-features = false}
 crossterm = "0.17.5"
 byte-unit = "3.0.3"
 users = "0.9.1"
