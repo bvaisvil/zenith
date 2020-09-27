@@ -111,7 +111,7 @@ fn mem_title(app: &CPUTimeApp) -> String {
     )
 }
 
-fn cpu_title(app: &CPUTimeApp, histogram: &Vec<u64>) -> String {
+fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
     let top_process_name = match &app.cum_cpu_process {
         Some(p) => p.name.as_str(),
         None => "",
@@ -128,7 +128,7 @@ fn cpu_title(app: &CPUTimeApp, histogram: &Vec<u64>) -> String {
         0 => 0.0,
         _ => histogram.iter().sum::<u64>() as f64 / histogram.len() as f64,
     };
-    let temp = if app.sensors.len() > 0 {
+    let temp = if !app.sensors.is_empty() {
         let t: f32 = app.sensors.iter().map(|s| s.current_temp).sum();
         format!("TEMP [{: >3.0}°C]", t)
     } else {
@@ -191,7 +191,7 @@ fn render_process_table(
             let cmd_string = if show_paths {
                 if p.command.len() > 1 {
                     format!(" - {:}", p.command.join(" "))
-                } else if p.command.len() > 0 {
+                } else if !p.command.is_empty() {
                     format!(" - {:}", p.command[0])
                 } else {
                     String::from("")
