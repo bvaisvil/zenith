@@ -30,7 +30,10 @@ use std::ops::Mul;
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{BarChart, Block, Borders, List, Paragraph, Row, Sparkline, Table, Text};
+use tui::text::{Span, Spans};
+use tui::widgets::{
+    BarChart, Block, Borders, List, ListItem, Paragraph, Row, Sparkline, Table, Wrap,
+};
 use tui::Frame;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
@@ -238,7 +241,11 @@ fn render_process_table(
             row.push(format!("{:}{:}", p.name, cmd_string));
 
             let style = if i == highlighted_row {
-                Some(Style::default().fg(Color::Magenta).modifier(Modifier::BOLD))
+                Some(
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD),
+                )
             } else {
                 None
             };
@@ -425,20 +432,20 @@ fn render_cpu_bars(
                 .step_by(nrows)
                 .take(cols.into())
                 .for_each(|(label, load)| {
-                    items.push(Text::raw(format!("{:>2} ", label)));
+                    items.push(Span::raw(format!("{:>2} ", label)));
                     let color = if *load < 90 { Color::Green } else { Color::Red };
-                    items.push(Text::styled(
+                    items.push(Span::styled(
                         format!("{:3}", load),
                         Style::default().fg(color),
                     ));
-                    items.push(Text::raw("% "));
+                    items.push(Span::raw("% "));
                 });
 
-            items.push(Text::raw("\n"));
+            items.push(Span::raw("\n"));
         }
 
-        Paragraph::new(items.iter())
-            .wrap(false)
+        Paragraph::new(Spans::from(items))
+            .wrap(Wrap { trim: false })
             .render(f, layout[0]);
 
         return;
@@ -472,7 +479,11 @@ fn render_cpu_bars(
             .bar_gap(bar_gap)
             .max(100)
             .style(Style::default().fg(Color::Green))
-            .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+            .value_style(
+                Style::default()
+                    .bg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
             .render(f, cpu_bar_layout[0]);
     } else {
         // fits on two rows
@@ -491,7 +502,11 @@ fn render_cpu_bars(
             .bar_gap(bar_gap)
             .max(100)
             .style(Style::default().fg(Color::Green))
-            .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+            .value_style(
+                Style::default()
+                    .bg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
             .render(f, cpu_bar_layout[1]);
         BarChart::default()
             .data(&bars[0..half])
@@ -499,7 +514,11 @@ fn render_cpu_bars(
             .bar_gap(bar_gap)
             .max(100)
             .style(Style::default().fg(Color::Green))
-            .value_style(Style::default().bg(Color::Green).modifier(Modifier::BOLD))
+            .value_style(
+                Style::default()
+                    .bg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
             .render(f, cpu_bar_layout[0]);
     }
 }
@@ -594,12 +613,17 @@ fn render_net(
         .max(down_max)
         .render(f, net[1]);
 
-    let ips = app.network_interfaces.iter().map(|n| {
-        Text::Styled(
-            Cow::Owned(format!("{:<8.8} : {}", n.name, n.ip)),
-            Style::default().fg(Color::Green),
-        )
-    });
+    let ips: Vec<_> = app
+        .network_interfaces
+        .iter()
+        .map(|n| {
+            Span::styled(
+                Cow::Owned(format!("{:<8.8} : {}", n.name, n.ip)),
+                Style::default().fg(Color::Green),
+            )
+        })
+        .map(ListItem::new)
+        .collect();
     List::new(ips)
         .block(
             Block::default()
@@ -668,103 +692,117 @@ fn render_process(
 
     let rhs_style = Style::default().fg(Color::Green);
     let mut text = vec![
-        Text::raw("Name:                  "),
-        Text::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
-        Text::raw("\n"),
-        Text::raw("PID:                   "),
-        Text::styled(
-            format!("{:>width$}", &p.pid, width = app.max_pid_len),
-            rhs_style,
-        ),
-        Text::raw("\n"),
-        Text::raw("Command:               "),
-        Text::styled(p.command.join(" "), rhs_style),
-        Text::raw("\n"),
-        Text::raw("User:                  "),
-        Text::styled(&p.user_name, rhs_style),
-        Text::raw("\n"),
-        Text::raw("Start Time:            "),
-        Text::styled(format!("{:}", start_time), rhs_style),
-        Text::raw("\n"),
-        Text::raw("Total Run Time:        "),
-        Text::styled(d, rhs_style),
-        Text::raw("\n"),
-        Text::raw("CPU Usage:             "),
-        Text::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
-        Text::raw("\n"),
-        Text::raw("Threads:               "),
-        Text::styled(format!("{:>7}", &p.threads_total), rhs_style),
-        Text::raw("\n"),
-        Text::raw("Status:                "),
-        Text::styled(format!("{:}", p.status), rhs_style),
-        Text::raw("\n"),
-        Text::raw("Priority:              "),
-        Text::styled(format!("{:>7}", p.priority), rhs_style),
-        Text::raw("\n"),
-        Text::raw("Nice:                  "),
-        Text::styled(format!("{:>7}", p.nice), rhs_style),
-        Text::raw("\n"),
-        Text::raw("MEM Usage:             "),
-        Text::styled(
-            format!("{:>7.2} %", percent_of(p.memory, app.mem_total)),
-            rhs_style,
-        ),
-        Text::raw("\n"),
-        Text::raw("Total Memory:          "),
-        Text::styled(
-            format!(
-                "{:>10}",
-                float_to_byte_string!(p.memory as f64, ByteUnit::KB)
+        Spans::from(vec![
+            Span::raw("Name:                  "),
+            Span::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("PID:                   "),
+            Span::styled(
+                format!("{:>width$}", &p.pid, width = app.max_pid_len),
+                rhs_style,
             ),
-            rhs_style,
-        ),
-        Text::raw("\n"),
-        Text::raw("Disk Read:             "),
-        Text::styled(
-            format!(
-                "{:>10} {:}/s",
-                float_to_byte_string!(p.read_bytes as f64, ByteUnit::B),
-                float_to_byte_string!(p.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B)
+        ]),
+        Spans::from(vec![
+            Span::raw("Command:               "),
+            Span::styled(p.command.join(" "), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("User:                  "),
+            Span::styled(&p.user_name, rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("Start Time:            "),
+            Span::styled(format!("{:}", start_time), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("Total Run Time:        "),
+            Span::styled(d, rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("CPU Usage:             "),
+            Span::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("Threads:               "),
+            Span::styled(format!("{:>7}", &p.threads_total), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("Status:                "),
+            Span::styled(format!("{:}", p.status), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("Priority:              "),
+            Span::styled(format!("{:>7}", p.priority), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("Nice:                  "),
+            Span::styled(format!("{:>7}", p.nice), rhs_style),
+        ]),
+        Spans::from(vec![
+            Span::raw("MEM Usage:             "),
+            Span::styled(
+                format!("{:>7.2} %", percent_of(p.memory, app.mem_total)),
+                rhs_style,
             ),
-            rhs_style,
-        ),
-        Text::raw("\n"),
-        Text::raw("Disk Write:            "),
-        Text::styled(
-            format!(
-                "{:>10} {:}/s",
-                float_to_byte_string!(p.write_bytes as f64, ByteUnit::B),
-                float_to_byte_string!(p.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B)
+        ]),
+        Spans::from(vec![
+            Span::raw("Total Memory:          "),
+            Span::styled(
+                format!(
+                    "{:>10}",
+                    float_to_byte_string!(p.memory as f64, ByteUnit::KB)
+                ),
+                rhs_style,
             ),
-            rhs_style,
-        ),
-        Text::raw("\n"),
+        ]),
+        Spans::from(vec![
+            Span::raw("Disk Read:             "),
+            Span::styled(
+                format!(
+                    "{:>10} {:}/s",
+                    float_to_byte_string!(p.read_bytes as f64, ByteUnit::B),
+                    float_to_byte_string!(
+                        p.get_read_bytes_sec(&app.histogram_map.tick),
+                        ByteUnit::B
+                    )
+                ),
+                rhs_style,
+            ),
+        ]),
+        Spans::from(vec![
+            Span::raw("Disk Write:            "),
+            Span::styled(
+                format!(
+                    "{:>10} {:}/s",
+                    float_to_byte_string!(p.write_bytes as f64, ByteUnit::B),
+                    float_to_byte_string!(
+                        p.get_write_bytes_sec(&app.histogram_map.tick),
+                        ByteUnit::B
+                    )
+                ),
+                rhs_style,
+            ),
+        ]),
     ];
+
     if !app.gfx_devices.is_empty() {
-        text.push(Text::raw("SM Util:            "));
-        text.push(Text::styled(
-            format!("{:7.2} %", p.sm_utilization as f64),
-            rhs_style,
-        ));
-        text.push(Text::raw("\n"));
-        text.push(Text::raw("Frame Buffer:       "));
-        text.push(Text::styled(
-            format!("{:7.2} %", p.fb_utilization as f64),
-            rhs_style,
-        ));
-        text.push(Text::raw("\n"));
-        text.push(Text::raw("Encoder Util:       "));
-        text.push(Text::styled(
-            format!("{:7.2} %", p.enc_utilization as f64),
-            rhs_style,
-        ));
-        text.push(Text::raw("\n"));
-        text.push(Text::raw("Decoder Util:       "));
-        text.push(Text::styled(
-            format!("{:7.2} %", p.dec_utilization as f64),
-            rhs_style,
-        ));
-        text.push(Text::raw("\n"));
+        text.push(Spans::from(vec![
+            Span::raw("SM Util:            "),
+            Span::styled(format!("{:7.2} %", p.sm_utilization as f64), rhs_style),
+        ]));
+        text.push(Spans::from(vec![
+            Span::raw("Frame Buffer:       "),
+            Span::styled(format!("{:7.2} %", p.fb_utilization as f64), rhs_style),
+        ]));
+        text.push(Spans::from(vec![
+            Span::raw("Encoder Util:       "),
+            Span::styled(format!("{:7.2} %", p.enc_utilization as f64), rhs_style),
+        ]));
+        text.push(Spans::from(vec![
+            Span::raw("Decoder Util:       "),
+            Span::styled(format!("{:7.2} %", p.dec_utilization as f64), rhs_style),
+        ]));
     }
 
     if text.len() > v_sections[1].height as usize * 3 {
@@ -780,19 +818,21 @@ fn render_process(
                 .as_ref(),
             )
             .split(v_sections[1]);
-        Paragraph::new(text[0..h_sections[0].height as usize * 3].iter())
+
+        let second_part = text.split_off(h_sections[0].height as usize * 3);
+        Paragraph::new(text)
             .block(Block::default())
-            .wrap(false)
+            .wrap(Wrap { trim: false })
             .render(f, h_sections[0]);
 
-        Paragraph::new(text[h_sections[0].height as usize * 3..].iter())
+        Paragraph::new(second_part)
             .block(Block::default())
-            .wrap(false)
+            .wrap(Wrap { trim: false })
             .render(f, h_sections[2]);
     } else {
-        Paragraph::new(text.iter())
+        Paragraph::new(text)
             .block(Block::default())
-            .wrap(true)
+            .wrap(Wrap { trim: true })
             .render(f, v_sections[1]);
     }
 }
@@ -907,27 +947,26 @@ fn render_disk(
         .style(Style::default().fg(Color::LightMagenta))
         .max(write_max)
         .render(f, area[1]);
-    let disks = app.disks.iter().map(|d| {
-        if d.get_perc_free_space() < 10.0 {
-            Text::Styled(
+    let disks: Vec<_> = app
+        .disks
+        .iter()
+        .map(|d| {
+            let style = if d.get_perc_free_space() < 10.0 {
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Green)
+            };
+            Span::styled(
                 Cow::Owned(format!(
                     "{:3.0}%: {}",
                     d.get_perc_free_space(),
                     d.mount_point.display()
                 )),
-                Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+                style,
             )
-        } else {
-            Text::Styled(
-                Cow::Owned(format!(
-                    "{:3.0}%: {}",
-                    d.get_perc_free_space(),
-                    d.mount_point.display()
-                )),
-                Style::default().fg(Color::Green),
-            )
-        }
-    });
+        })
+        .map(ListItem::new)
+        .collect();
     List::new(disks)
         .block(
             Block::default()
@@ -1040,26 +1079,27 @@ fn render_graphics(
         .style(Style::default().fg(Color::LightMagenta))
         .max(100)
         .render(f, area[1]);
-    let devices = app.gfx_devices.iter().enumerate().map(|(i, d)| {
-        let indicator = if i == *gfx_device_index { ">" } else { " " };
-        if d.gpu_utilization > 90 {
-            Text::Styled(
+    let devices: Vec<_> = app
+        .gfx_devices
+        .iter()
+        .enumerate()
+        .map(|(i, d)| {
+            let indicator = if i == *gfx_device_index { ">" } else { " " };
+            let style = if d.gpu_utilization > 90 {
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Green)
+            };
+            Span::styled(
                 Cow::Owned(format!(
                     "{}{:3.0}%: {}",
                     indicator, d.gpu_utilization, d.name
                 )),
-                Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+                style,
             )
-        } else {
-            Text::Styled(
-                Cow::Owned(format!(
-                    "{}{:3.0}%: {}",
-                    indicator, d.gpu_utilization, d.name
-                )),
-                Style::default().fg(Color::Green),
-            )
-        }
-    });
+        })
+        .map(ListItem::new)
+        .collect();
     List::new(devices)
         .block(
             Block::default()
@@ -1098,7 +1138,7 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
 
 fn render_battery_widget(
     batteries: &[battery::Battery],
-) -> (Text<'_>, Text<'_>, Text<'_>, Text<'_>) {
+) -> (Span<'_>, Span<'_>, Span<'_>, Span<'_>) {
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
     if !batteries.is_empty() {
         let b: &battery::Battery = batteries.get(0).expect("no battery");
@@ -1145,23 +1185,23 @@ fn render_battery_widget(
             Color::Red
         };
         (
-            Text::styled(charge_state, default_style.fg(charge_state_color)),
-            Text::styled(
+            Span::styled(charge_state, default_style.fg(charge_state_color)),
+            Span::styled(
                 format!(" {:03.2}%", charged),
                 default_style.fg(charged_color),
             ),
-            Text::styled(format!(" {:}", t), default_style),
-            Text::styled(
+            Span::styled(format!(" {:}", t), default_style),
+            Span::styled(
                 format!(" {:03.2}w", b.energy_rate().get::<watt>()),
                 default_style,
             ),
         )
     } else {
         (
-            Text::styled("", default_style),
-            Text::styled("", default_style),
-            Text::styled("", default_style),
-            Text::styled("", default_style),
+            Span::styled("", default_style),
+            Span::styled("", default_style),
+            Span::styled("", default_style),
+            Span::styled("", default_style),
         )
     }
 }
@@ -1209,37 +1249,37 @@ fn render_top_title_bar(
     let battery_start = if !app.batteries.is_empty() { " [" } else { "" };
     let battery_end = if !app.batteries.is_empty() { "]" } else { "" };
     let line = vec![
-        Text::styled(
+        Span::styled(
             format!(" {:}", app.hostname),
-            default_style.modifier(Modifier::BOLD),
+            default_style.add_modifier(Modifier::BOLD),
         ),
-        Text::styled(
+        Span::styled(
             format!(" [{:} {:}]", app.osname, app.release),
             default_style,
         ),
-        Text::styled(uptime, default_style),
-        Text::styled(battery_start, default_style),
+        Span::styled(uptime, default_style),
+        Span::styled(battery_start, default_style),
         battery_widets.0,
         battery_widets.1,
         battery_widets.2,
         battery_widets.3,
-        Text::styled(battery_end, default_style),
-        Text::styled(" [Showing: ", default_style),
-        Text::styled(
+        Span::styled(battery_end, default_style),
+        Span::styled(" [Showing: ", default_style),
+        Span::styled(
             format!("{:} mins", hist_duration.num_minutes()),
             default_style.fg(Color::Green),
         ),
-        Text::styled(display_time(start, end), default_style),
-        Text::styled(back_in_time, default_style.modifier(Modifier::BOLD)),
-        Text::styled("]", default_style),
-        Text::styled(" (h)elp", default_style),
-        Text::styled(" (q)uit", default_style),
-        Text::styled(
+        Span::styled(display_time(start, end), default_style),
+        Span::styled(back_in_time, default_style.add_modifier(Modifier::BOLD)),
+        Span::styled("]", default_style),
+        Span::styled(" (h)elp", default_style),
+        Span::styled(" (q)uit", default_style),
+        Span::styled(
             format!("{: >width$}", "", width = area.width as usize),
             default_style,
         ),
     ];
-    Paragraph::new(line.iter()).render(f, area);
+    Paragraph::new(Spans::from(line)).render(f, area);
 }
 
 fn render_cpu(
@@ -1311,66 +1351,109 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
         )
         .split(area);
     let header_style = Style::default().fg(Color::Green);
-    let t = vec![Text::styled(
+    let t = vec![Span::styled(
         format!("zenith v{:}", env!("CARGO_PKG_VERSION")),
         header_style,
     )];
-    Paragraph::new(t.iter())
-        .wrap(true)
+    Paragraph::new(Spans::from(t))
+        .wrap(Wrap { trim: true })
         .alignment(Alignment::Center)
         .render(f, help_layout[0]);
     let main_style = Style::default();
     let key_style = main_style.fg(Color::Cyan);
+
     let t = vec![
-        Text::styled("Primary Interface\n", header_style),
-        Text::styled("h    ", key_style),
-        Text::styled("    Toggle this help screen\n", main_style),
-        Text::styled("q    ", key_style),
-        Text::styled("    Quit and exit zenith\n", main_style),
-        Text::styled("<TAB>", key_style),
-        Text::styled("    Changes highlighted section\n", main_style),
-        Text::styled("e    ", key_style),
-        Text::styled("    Expands highlighted section\n", main_style),
-        Text::styled("m    ", key_style),
-        Text::styled("    Shrinks highlighted section\n", main_style),
-        Text::styled("-    ", key_style),
-        Text::styled("    Zoom chart out\n", main_style),
-        Text::styled("+    ", key_style),
-        Text::styled("    Zoom chart in\n", main_style),
-        Text::styled("←    ", key_style),
-        Text::styled("    Move back in time\n", main_style),
-        Text::styled("→    ", key_style),
-        Text::styled("    Move forward In time\n", main_style),
-        Text::styled("`    ", key_style),
-        Text::styled("    Reset charts to current\n", main_style),
-        Text::styled("\n", header_style),
-        Text::styled("Process Table\n", header_style),
-        Text::styled("<RET> ", key_style),
-        Text::styled("    Focus current process\n", main_style),
-        Text::styled("↓     ", key_style),
-        Text::styled("    Move one line down\n", main_style),
-        Text::styled("↑     ", key_style),
-        Text::styled("    Move one line up\n", main_style),
-        Text::styled("PgDown", key_style),
-        Text::styled("    Move view one screen down\n", main_style),
-        Text::styled("PgUp  ", key_style),
-        Text::styled("    Move view one screen up\n", main_style),
-        Text::styled("/     ", key_style),
-        Text::styled("    Change sort between ascending/descending\n", main_style),
-        Text::styled(",     ", key_style),
-        Text::styled("    Cycle columns left\n", main_style),
-        Text::styled(".     ", key_style),
-        Text::styled("    Cycle columns right\n", main_style),
-        Text::styled("p     ", key_style),
-        Text::styled("    Toggle paths on/off\n", main_style),
-        Text::styled("f     ", key_style),
-        Text::styled("    Toggle filter mode\n", main_style),
-        Text::styled("<ESC> ", key_style),
-        Text::styled("    Leave filter mode\n", main_style),
+        Spans::from(vec![Span::styled("Primary Interface", header_style)]),
+        Spans::from(vec![
+            Span::styled("h    ", key_style),
+            Span::styled("    Toggle this help screen\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("q    ", key_style),
+            Span::styled("    Quit and exit zenith\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("<TAB>", key_style),
+            Span::styled("    Changes highlighted section\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("e    ", key_style),
+            Span::styled("    Expands highlighted section\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("m    ", key_style),
+            Span::styled("    Shrinks highlighted section\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("-    ", key_style),
+            Span::styled("    Zoom chart out\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("+    ", key_style),
+            Span::styled("    Zoom chart in\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("←    ", key_style),
+            Span::styled("    Move back in time\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("→    ", key_style),
+            Span::styled("    Move forward In time\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("`    ", key_style),
+            Span::styled("    Reset charts to current\n", main_style),
+        ]),
+        Spans::from(vec![Span::styled("", header_style)]),
+        Spans::from(vec![Span::styled("Process Table\n", header_style)]),
+        Spans::from(vec![
+            Span::styled("<RET> ", key_style),
+            Span::styled("    Focus current process\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("↓     ", key_style),
+            Span::styled("    Move one line down\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("↑     ", key_style),
+            Span::styled("    Move one line up\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("PgDown", key_style),
+            Span::styled("    Move view one screen down\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("PgUp  ", key_style),
+            Span::styled("    Move view one screen up\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("/     ", key_style),
+            Span::styled("    Change sort between ascending/descending\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled(",     ", key_style),
+            Span::styled("    Cycle columns left\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled(".     ", key_style),
+            Span::styled("    Cycle columns right\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("p     ", key_style),
+            Span::styled("    Toggle paths on/off\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("f     ", key_style),
+            Span::styled("    Toggle filter mode\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("<ESC> ", key_style),
+            Span::styled("    Leave filter mode\n", main_style),
+        ]),
     ];
     let b = Block::default().borders(Borders::ALL);
-    Paragraph::new(t.iter())
-        .wrap(true)
+    Paragraph::new(t)
+        .wrap(Wrap { trim: true })
         .alignment(Alignment::Left)
         .block(b)
         .render(f, help_layout[1]);
