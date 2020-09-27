@@ -6,6 +6,7 @@ CARGO_TARGET =
 TARGET_TYPE = dynamic
 CCFLAGS =
 TARGET_BUILDDIR = release
+BUILD_NVIDIA = true
 
 STATIC_TARGET = x86_64-unknown-linux-musl
 CC_STATIC_TARGET = x86_64_unknown_linux_musl
@@ -13,7 +14,7 @@ STATIC_DIR = build/static-bundle
 STATIC_EXEC_DIR = $(STATIC_DIR)/zenith-exec
 
 all: base
-	@if sh assets/zenith-libnvidia-detect.sh; then \
+	@if [ $(BUILD_NVIDIA) = true ] && sh assets/zenith-libnvidia-detect.sh; then \
 	  cargo clean; \
 	  for path in `echo $$LD_LIBRARY_PATH | sed 's/:/ /g'`; do \
 	    libpaths="$$libpaths -L$$path"; \
@@ -24,7 +25,7 @@ all: base
 	  install -m 755 target/$(TARGET_BUILDDIR)/zenith build/$(TARGET_TYPE)/zenith.nvidia; \
 	fi
 
-base: clean
+base:
 	$(CCFLAGS) RUSTFLAGS="-C link-arg=-s" cargo build --release $(CARGO_TARGET)
 	mkdir -p build/$(TARGET_TYPE)
 	rm -f build/$(TARGET_TYPE)/zenith.base
@@ -33,6 +34,7 @@ base: clean
 clean:
 	cargo clean
 	rm -rf build
+	rm -f zenith.$(STATIC_TARGET).tgz*
 
 install:
 	mkdir -p "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(PREFIX)/share/applications" "$(DESTDIR)$(PREFIX)/share/pixmaps"
@@ -61,7 +63,7 @@ linux-static: TARGET_TYPE = static
 linux-static: CCFLAGS = CC_$(CC_STATIC_TARGET)=musl-gcc
 linux-static: TARGET_BUILDDIR = $(STATIC_TARGET)/release
 linux-static: linux-static-init all
-	mkdir -p $(STATIC_EXEC_DIR)
+	mkdir -p $(STATIC_DIR)
 	@if [ -x build/$(TARGET_TYPE)/zenith.nvidia ]; then \
 	  mkdir -p $(STATIC_EXEC_DIR)/base $(STATIC_EXEC_DIR)/nvidia; \
 	  install -m 755 build/$(TARGET_TYPE)/zenith.base $(STATIC_EXEC_DIR)/base/zenith; \
