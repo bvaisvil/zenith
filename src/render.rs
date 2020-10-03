@@ -108,7 +108,7 @@ fn mem_title(app: &CPUTimeApp) -> String {
     )
 }
 
-fn cpu_title(app: &CPUTimeApp) -> String {
+fn cpu_title(app: &CPUTimeApp, histogram: &Vec<u64>) -> String {
     let top_process_name = match &app.cum_cpu_process {
         Some(p) => p.name.as_str(),
         None => "",
@@ -121,13 +121,9 @@ fn cpu_title(app: &CPUTimeApp) -> String {
         Some(p) => p.pid,
         None => 0,
     };
-    let h = match app.histogram_map.get("cpu_usage_histogram") {
-        Some(h) => &h.data,
-        None => return String::from(""),
-    };
-    let mean: f64 = match h.len() {
+    let mean: f64 = match histogram.len() {
         0 => 0.0,
-        _ => h.iter().sum::<u64>() as f64 / h.len() as f64,
+        _ => histogram.iter().sum::<u64>() as f64 / histogram.len() as f64,
     };
     let temp = if app.sensors.len() > 0 {
         let t: f32 = app.sensors.iter().map(|s| s.current_temp).sum();
@@ -192,6 +188,8 @@ fn render_process_table(
             let cmd_string = if show_paths {
                 if p.command.len() > 1 {
                     format!(" - {:}", p.command.join(" "))
+                } else if p.command.len() > 0 {
+                    format!(" - {:}", p.command[0])
                 } else {
                     String::from("")
                 }
@@ -328,7 +326,6 @@ fn render_cpu_histogram(
     update_number: &u32,
     offset: &usize,
 ) {
-    let title = cpu_title(&app);
     let h = match app.histogram_map.get_zoomed(
         "cpu_usage_histogram",
         *zf,
@@ -339,6 +336,7 @@ fn render_cpu_histogram(
         Some(h) => h.data,
         None => return,
     };
+    let title = cpu_title(&app, &h);
     Sparkline::default()
         .block(Block::default().title(title.as_str()))
         .data(&h)
@@ -1459,7 +1457,7 @@ impl<'a> TerminalRenderer {
             process_message: None,
             hist_start_offset: 0,
             show_help: false,
-            show_paths: true,
+            show_paths: false,
             show_find: false,
             filter: String::from(""),
             highlighted_row: 0,
@@ -1490,6 +1488,16 @@ impl<'a> TerminalRenderer {
             Section::Process => set_section_height!(self.process_height, val),
         }
         self.set_constraints().await;
+    }
+
+    fn current_section_height(&mut self) -> i16 {
+        match self.selected_section {
+            Section::CPU => self.cpu_height,
+            Section::Disk => self.disk_height,
+            Section::Network => self.net_height,
+            Section::Graphics => self.graphics_height,
+            Section::Process => self.process_height,
+        }
     }
 
     pub async fn start(&mut self) {
@@ -1764,6 +1772,24 @@ impl<'a> TerminalRenderer {
         }
     }
 
+    fn advance_to_next_section(&mut self) {
+        if self.cpu_height > 0
+            || self.net_height > 0
+            || self.disk_height > 0
+            || self.graphics_height > 0
+            || self.process_height > 0
+        {
+            let mut i = self.selected_section as u32 + 1;
+            if i > 4 {
+                i = 0;
+            }
+            self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+            if self.current_section_height() == 0 {
+                self.advance_to_next_section();
+            }
+        }
+    }
+
     async fn process_toplevel_input(&mut self, input: KeyEvent) -> Action {
         match input.code {
             Key::Char('q') => {
@@ -1851,11 +1877,7 @@ impl<'a> TerminalRenderer {
                 };
             }
             Key::Tab => {
-                let mut i = self.selected_section as u32 + 1;
-                if i > 4 {
-                    i = 0;
-                }
-                self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
+                self.advance_to_next_section();
             }
             Key::Char('m') => {
                 self.set_section_height(-2).await;
