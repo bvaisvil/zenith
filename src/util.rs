@@ -14,6 +14,7 @@ use std::time::Duration;
 
 pub enum Event<I> {
     Input(I),
+    Resize(u16, u16),
     Tick,
     Save,
     Terminate,
@@ -55,8 +56,12 @@ impl Events {
         let input_handle = {
             let tx = tx.clone();
             thread::spawn(move || loop {
-                if let CEvent::Key(key) = event::read().expect("Couldn't read event") {
-                    tx.send(Event::Input(key)).expect("Couldn't send event.");
+                match event::read().expect("Couldn't read event") {
+                    CEvent::Key(key) =>
+                        tx.send(Event::Input(key)).expect("Couldn't send event."),
+                    CEvent::Resize(cols, rows) =>
+                        tx.send(Event::Resize(cols, rows)).expect("Couldn't send event."),
+                    _ => () // ignore
                 }
             })
         };

@@ -67,10 +67,13 @@ macro_rules! float_to_byte_string {
     };
 }
 
-macro_rules! set_section_height {
+macro_rules! update_section_height {
     ($x:expr, $val:expr) => {
-        if $x + $val > 0 {
+        if $x + $val > 0.0 && $x + $val < 100.0 {
             $x += $val;
+            true
+        } else {
+            false
         }
     };
 }
@@ -1376,22 +1379,95 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
         .render(f, help_layout[1]);
 }
 
+fn terminal_size() -> (u16, u16) {
+    crossterm::terminal::size().expect("Failed to get terminal size")
+}
+
+macro_rules! round_even {
+    ($x:expr) => {
+      ($x + 1) / 2 * 2
+    };
+}
+
+/// Convert percentage heights to length constraints. This is done since sections other
+/// than process have two sub-parts and should be of even height.
+fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<Constraint> {
+    debug!("Get Constraints");
+    let mut constraints = vec![Constraint::Length(1)];
+    let avail_height = height - 1;
+    let mut process_index = -1;
+    let mut process_height = 0;
+    let mut max_others = 0;
+    let mut max_others_index = -1;
+    let mut sum_others = 0;
+    // each section should have a height of at least 2
+    let num_sections = section_geometry.len();
+    let mut max_section_height = avail_height - num_sections as u16 * 2;
+    // process section is at least 4 rows high
+    if section_geometry.iter().any(|s| s.0 == Section::Process) {
+        max_section_height -= 2;
+    }
+    // convert percentage heights to length constraints and apply additional
+    // criteria that height should be even number for non-process sections
+    for section_index in 0..num_sections {
+        let section = section_geometry[section_index];
+        let required_height = section.1 * avail_height as f64 / 100.0;
+        max_section_height = max_section_height.max(2);
+        if section.0 == Section::Process {
+            process_index = section_index as i32;
+            // floor to nearest integer and set constraint as Min
+            process_height = max_section_height.min(
+                required_height.floor().max(4.0) as u16);
+            max_section_height -= process_height - 4;
+            constraints.push(Constraint::Min(process_height));
+        } else {
+            // round to nearest even size for the two sub-parts in each section display
+            let section_height = max_section_height.min(
+                round_even!(required_height.round().max(1.0) as u16));
+            sum_others += section_height;
+            // adjust max_section_height for subsequent sections
+            max_section_height -= section_height - 2;
+            if section_height >= max_others {
+                max_others = section_height;
+                max_others_index = section_index as i32;
+            }
+            constraints.push(Constraint::Length(section_height));
+        }
+    }
+    // due to rounding off to even size, process table may not have much left
+    // so forcefully borrow rows from the largest non-process section
+    if process_index != -1 && max_others_index != -1 &&
+        max_others > 4 && (avail_height - sum_others) < 6 {
+        let borrow = round_even!(6 - (avail_height - sum_others)).min(max_others - 4);
+        constraints[max_others_index as usize + 1] = Constraint::Length(max_others - borrow);
+        constraints[process_index as usize + 1] = Constraint::Min(process_height + borrow);
+    }
+
+    constraints
+}
+
 pub struct TerminalRenderer {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     app: CPUTimeApp,
     events: Events,
     process_table_row_start: usize,
     gfx_device_index: usize,
-    cpu_height: i16,
-    net_height: i16,
-    disk_height: i16,
-    process_height: i16,
-    graphics_height: i16,
-    _sensor_height: i16,
+    /// Index in the vector below is "order" on the screen starting from the top
+    /// (usually CPU) while value is the section it belongs to and its current height (as %).
+    /// Currently all sections are stacked on top of one another horizontally and
+    /// occupy entire width of the screen but this may change going forward. For the case
+    /// where there are multiple sections stacked vertically, the "order" can have the
+    /// convention of top-bottom and left-right in each horizontal layer and the width of
+    /// each section be tracked below. For more generic positioning (e.g. sections cutting
+    /// across others vertically), this mapping needs to also include the position of
+    /// top-left corner of the section. In that case the only significance that the
+    /// "order" will have is the sequence in which the TAB key will shift focus
+    /// among the sections.
+    section_geometry: Vec<(Section, f64)>,
     zoom_factor: u32,
     update_number: u32,
     hist_start_offset: usize,
-    selected_section: Section,
+    selected_section_index: usize,
     constraints: Vec<Constraint>,
     process_message: Option<String>,
     show_help: bool,
@@ -1413,18 +1489,6 @@ impl<'a> TerminalRenderer {
         graphics_height: i16,
         db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
-        debug!("Setup Constraints");
-        let mut constraints = vec![
-            Constraint::Length(1),
-            Constraint::Percentage(cpu_height as u16),
-            Constraint::Percentage(net_height as u16),
-            Constraint::Percentage(disk_height as u16),
-            Constraint::Percentage(graphics_height as u16),
-        ];
-        if process_height > 0 {
-            constraints.push(Constraint::Percentage(process_height as u16));
-        }
-
         debug!("Create Metrics App");
         let app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
         debug!("Create Event Loop");
@@ -1438,21 +1502,40 @@ impl<'a> TerminalRenderer {
             Terminal::new(backend).expect("Couldn't create new terminal with backend");
         terminal.hide_cursor().ok();
 
+        let mut geometry: Vec<(Section, f64)> = Vec::new();
+        if cpu_height > 0 {
+            geometry.push((Section::CPU, cpu_height as f64));
+        }
+        if net_height > 0 {
+            geometry.push((Section::Network, net_height as f64));
+        }
+        if disk_height > 0 {
+            geometry.push((Section::Disk, disk_height as f64));
+        }
+        if graphics_height > 0 {
+            geometry.push((Section::Graphics, graphics_height as f64));
+        }
+        if process_height > 0 {
+            geometry.push((Section::Process, process_height as f64));
+        }
+        assert_eq!(sensor_height, 0); // not implemented
+
+        let constraints = get_constraints(&geometry, terminal_size().1);
+        let num_sections = geometry.len();
+        if num_sections == 0 {
+            panic!("All sections have size specified as zero!");
+        }
         TerminalRenderer {
             terminal,
             app,
             events,
             process_table_row_start: 0,
             gfx_device_index: 0,
-            cpu_height,
-            net_height,
-            disk_height,
-            process_height,
-            graphics_height,
-            _sensor_height: sensor_height, // unused at the moment
+            section_geometry: geometry,
             zoom_factor: 1,
             update_number: 0,
-            selected_section: Section::Process,
+            // select the last section by default (normally should be Process)
+            selected_section_index: num_sections - 1,
             constraints,
             process_message: None,
             hist_start_offset: 0,
@@ -1465,39 +1548,34 @@ impl<'a> TerminalRenderer {
         }
     }
 
-    async fn set_constraints(&mut self) {
-        let mut constraints = vec![
-            Constraint::Length(1),
-            Constraint::Percentage(self.cpu_height as u16),
-            Constraint::Percentage(self.net_height as u16),
-            Constraint::Percentage(self.disk_height as u16),
-            Constraint::Percentage(self.graphics_height as u16),
-        ];
-        if self.process_height > 0 {
-            constraints.push(Constraint::Percentage(self.process_height as u16));
+    async fn update_section_height(&mut self, size: i16) {
+        // convert val to percentage
+        let (_, height) = terminal_size();
+        let mut val = size as f64 * 100.0 / (height - 1) as f64;
+        let selected_index = self.selected_section_index;
+        let mut new_geometry = self.section_geometry.to_vec();
+        if update_section_height!(new_geometry[selected_index].1, val) {
+            // reduce proportionately from other sections if the value was updated
+            let rest = 100.0 - new_geometry[selected_index].1 + val;
+            for section_index in 0..new_geometry.len() {
+                if section_index != selected_index {
+                    let change = new_geometry[section_index].1 * val / rest;
+                    // abort if limits are exceeded
+                    if !update_section_height!(new_geometry[section_index].1, -change) {
+                        val = 0.0; // indicates failure
+                        break;
+                    }
+                }
+            }
+            if val != 0.0 {
+                self.section_geometry.copy_from_slice(&new_geometry);
+                self.constraints = get_constraints(&self.section_geometry, height);
+            }
         }
-        self.constraints = constraints;
     }
 
-    async fn set_section_height(&mut self, val: i16) {
-        match self.selected_section {
-            Section::CPU => set_section_height!(self.cpu_height, val),
-            Section::Disk => set_section_height!(self.disk_height, val),
-            Section::Network => set_section_height!(self.net_height, val),
-            Section::Graphics => set_section_height!(self.graphics_height, val),
-            Section::Process => set_section_height!(self.process_height, val),
-        }
-        self.set_constraints().await;
-    }
-
-    fn current_section_height(&mut self) -> i16 {
-        match self.selected_section {
-            Section::CPU => self.cpu_height,
-            Section::Disk => self.disk_height,
-            Section::Network => self.net_height,
-            Section::Graphics => self.graphics_height,
-            Section::Process => self.process_height,
-        }
+    fn selected_section(&self) -> Section {
+        self.section_geometry[self.selected_section_index].0
     }
 
     pub async fn start(&mut self) {
@@ -1505,12 +1583,12 @@ impl<'a> TerminalRenderer {
         loop {
             let app = &self.app;
             let pst = &self.process_table_row_start;
-            let process_height = &self.process_height;
             let mut width: u16 = 0;
             let mut process_table_height: u16 = 0;
             let zf = &self.zoom_factor;
             let constraints = &self.constraints;
-            let selected = &self.selected_section;
+            let geometry = &self.section_geometry;
+            let selected = self.selected_section();
             let process_message = &self.process_message;
             let offset = &self.hist_start_offset;
             let un = &self.update_number;
@@ -1549,48 +1627,45 @@ impl<'a> TerminalRenderer {
                             .split(f.size());
 
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
-                        render_cpu(app, v_sections[1], &mut f, zf, un, offset, selected);
-                        render_net(&app, v_sections[2], &mut f, zf, un, offset, selected);
-                        render_disk(&app, v_sections[3], &mut f, zf, un, offset, selected);
-                        render_graphics(
-                            &app,
-                            v_sections[4],
-                            &mut f,
-                            zf,
-                            un,
-                            gfx_device_index,
-                            offset,
-                            selected,
-                        );
-
-                        if *process_height > 0 {
-                            if let Some(area) = v_sections.last() {
-                                if app.selected_process.is_none() {
-                                    highlighted_process = render_process_table(
-                                        &app,
-                                        &process_table,
-                                        width,
-                                        *area,
-                                        *pst,
-                                        &mut f,
-                                        selected,
-                                        show_paths,
-                                        show_find,
-                                        filter,
-                                        highlighted_row,
-                                    );
-                                    if area.height > 4 {
-                                        // account for table border & margins.
-                                        process_table_height = area.height - 5;
+                        for section in geometry {
+                            match section.0 {
+                                Section::CPU => render_cpu(app, v_sections[1], &mut f,
+                                                           zf,un, offset, &selected),
+                                Section::Network => render_net(&app, v_sections[2], &mut f,
+                                                               zf, un, offset, &selected),
+                                Section::Disk => render_disk(&app, v_sections[3], &mut f,
+                                                             zf, un, offset, &selected),
+                                Section::Graphics => render_graphics(&app, v_sections[4], &mut f,
+                                                                     zf, un, gfx_device_index,
+                                                                     offset, &selected),
+                                Section::Process =>
+                                    if let Some(area) = v_sections.last() {
+                                        if app.selected_process.is_none() {
+                                            highlighted_process = render_process_table(
+                                                &app,
+                                                &process_table,
+                                                width,
+                                                *area,
+                                                *pst,
+                                                &mut f,
+                                                &selected,
+                                                show_paths,
+                                                show_find,
+                                                filter,
+                                                highlighted_row,
+                                            );
+                                            if area.height > 4 {
+                                                // account for table border & margins.
+                                                process_table_height = area.height - 5;
+                                            }
+                                        } else if app.selected_process.is_some() {
+                                            render_process(&app, *area, &mut f,
+                                                           &selected, process_message);
+                                        }
                                     }
-                                } else if app.selected_process.is_some() {
-                                    render_process(&app, *area, &mut f, selected, process_message);
-                                }
                             }
                         }
                     }
-
-                    //render_sensors(&app, sensor_layout, &mut f, zf);
                 })
                 .expect("Could not draw frame.");
 
@@ -1618,6 +1693,10 @@ impl<'a> TerminalRenderer {
     ) -> Action {
         let input = match self.events.next().expect("No new event.") {
             Event::Input(input) => input,
+            Event::Resize(_, height) => {
+                self.constraints = get_constraints(&self.section_geometry, height);
+                return Action::Continue;
+            }
             Event::Tick => {
                 debug!("Event Tick");
 
@@ -1687,11 +1766,12 @@ impl<'a> TerminalRenderer {
     }
 
     fn view_up(&mut self, process_table: &[i32], delta: usize) {
-        if self.selected_section == Section::Graphics {
+        let selected = self.selected_section();
+        if selected == Section::Graphics {
             if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
             }
-        } else if self.selected_section == Section::Process {
+        } else if selected == Section::Process {
             if self.app.selected_process.is_some() || process_table.is_empty() {
                 return;
             }
@@ -1710,11 +1790,12 @@ impl<'a> TerminalRenderer {
 
     fn view_down(&mut self, process_table: &[i32], process_table_height: usize, delta: usize) {
         use std::cmp::min;
-        if self.selected_section == Section::Graphics {
+        let selected = self.selected_section();
+        if selected == Section::Graphics {
             if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;
             }
-        } else if self.selected_section == Section::Process {
+        } else if selected == Section::Process {
             if self.app.selected_process.is_some() || process_table.is_empty() {
                 return;
             }
@@ -1769,24 +1850,6 @@ impl<'a> TerminalRenderer {
                 None => self.show_find = false,
             },
             _ => {}
-        }
-    }
-
-    fn advance_to_next_section(&mut self) {
-        if self.cpu_height > 0
-            || self.net_height > 0
-            || self.disk_height > 0
-            || self.graphics_height > 0
-            || self.process_height > 0
-        {
-            let mut i = self.selected_section as u32 + 1;
-            if i > 4 {
-                i = 0;
-            }
-            self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
-            if self.current_section_height() == 0 {
-                self.advance_to_next_section();
-            }
         }
     }
 
@@ -1877,13 +1940,14 @@ impl<'a> TerminalRenderer {
                 };
             }
             Key::Tab => {
-                self.advance_to_next_section();
+                self.selected_section_index =
+                    (self.selected_section_index + 1) % self.section_geometry.len();
             }
             Key::Char('m') => {
-                self.set_section_height(-2).await;
+                self.update_section_height(-2).await;
             }
             Key::Char('e') => {
-                self.set_section_height(2).await;
+                self.update_section_height(2).await;
             }
             Key::Char('`') => {
                 self.zoom_factor = 1;
