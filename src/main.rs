@@ -193,12 +193,10 @@ fn start_zenith(
             + sensor_height_perc as u32
             + graphics_height_perc as u32;
         if sum_heights > 100 {
-            restore_terminal();
-            println!(
+            panic!(
                 "Sum of minimum percent heights cannot exceed 100 but was {:}.",
                 sum_heights
             );
-            exit(1);
         }
         // distribute the remaining percentage among the non-zero ones
         if sum_heights < 100 {
