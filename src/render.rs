@@ -1385,7 +1385,7 @@ fn terminal_size() -> (u16, u16) {
 
 macro_rules! round_even {
     ($x:expr) => {
-      ($x + 1) / 2 * 2
+        ($x + 1) / 2 * 2
     };
 }
 
@@ -1416,14 +1416,13 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
         if section.0 == Section::Process {
             process_index = section_index as i32;
             // floor to nearest integer and set constraint as Min
-            process_height = max_section_height.min(
-                required_height.floor().max(4.0) as u16);
+            process_height = max_section_height.min(required_height.floor().max(4.0) as u16);
             max_section_height -= process_height - 4;
             constraints.push(Constraint::Min(process_height));
         } else {
             // round to nearest even size for the two sub-parts in each section display
-            let section_height = max_section_height.min(
-                round_even!(required_height.round().max(1.0) as u16));
+            let section_height =
+                max_section_height.min(round_even!(required_height.round().max(1.0) as u16));
             sum_others += section_height;
             // adjust max_section_height for subsequent sections
             max_section_height -= section_height - 2;
@@ -1436,8 +1435,11 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
     }
     // due to rounding off to even size, process table may not have much left
     // so forcefully borrow rows from the largest non-process section
-    if process_index != -1 && max_others_index != -1 &&
-        max_others > 4 && (avail_height - sum_others) < 6 {
+    if process_index != -1
+        && max_others_index != -1
+        && max_others > 4
+        && (avail_height - sum_others) < 6
+    {
         let borrow = round_even!(6 - (avail_height - sum_others)).min(max_others - 4);
         constraints[max_others_index as usize + 1] = Constraint::Length(max_others - borrow);
         constraints[process_index as usize + 1] = Constraint::Min(process_height + borrow);
@@ -1629,16 +1631,44 @@ impl<'a> TerminalRenderer {
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
                         for section in geometry {
                             match section.0 {
-                                Section::CPU => render_cpu(app, v_sections[1], &mut f,
-                                                           zf,un, offset, &selected),
-                                Section::Network => render_net(&app, v_sections[2], &mut f,
-                                                               zf, un, offset, &selected),
-                                Section::Disk => render_disk(&app, v_sections[3], &mut f,
-                                                             zf, un, offset, &selected),
-                                Section::Graphics => render_graphics(&app, v_sections[4], &mut f,
-                                                                     zf, un, gfx_device_index,
-                                                                     offset, &selected),
-                                Section::Process =>
+                                Section::CPU => render_cpu(
+                                    app,
+                                    v_sections[1],
+                                    &mut f,
+                                    zf,
+                                    un,
+                                    offset,
+                                    &selected,
+                                ),
+                                Section::Network => render_net(
+                                    &app,
+                                    v_sections[2],
+                                    &mut f,
+                                    zf,
+                                    un,
+                                    offset,
+                                    &selected,
+                                ),
+                                Section::Disk => render_disk(
+                                    &app,
+                                    v_sections[3],
+                                    &mut f,
+                                    zf,
+                                    un,
+                                    offset,
+                                    &selected,
+                                ),
+                                Section::Graphics => render_graphics(
+                                    &app,
+                                    v_sections[4],
+                                    &mut f,
+                                    zf,
+                                    un,
+                                    gfx_device_index,
+                                    offset,
+                                    &selected,
+                                ),
+                                Section::Process => {
                                     if let Some(area) = v_sections.last() {
                                         if app.selected_process.is_none() {
                                             highlighted_process = render_process_table(
@@ -1659,10 +1689,16 @@ impl<'a> TerminalRenderer {
                                                 process_table_height = area.height - 5;
                                             }
                                         } else if app.selected_process.is_some() {
-                                            render_process(&app, *area, &mut f,
-                                                           &selected, process_message);
+                                            render_process(
+                                                &app,
+                                                *area,
+                                                &mut f,
+                                                &selected,
+                                                process_message,
+                                            );
                                         }
                                     }
+                                }
                             }
                         }
                     }

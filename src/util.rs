@@ -57,11 +57,11 @@ impl Events {
             let tx = tx.clone();
             thread::spawn(move || loop {
                 match event::read().expect("Couldn't read event") {
-                    CEvent::Key(key) =>
-                        tx.send(Event::Input(key)).expect("Couldn't send event."),
-                    CEvent::Resize(cols, rows) =>
-                        tx.send(Event::Resize(cols, rows)).expect("Couldn't send event."),
-                    _ => () // ignore
+                    CEvent::Key(key) => tx.send(Event::Input(key)).expect("Couldn't send event."),
+                    CEvent::Resize(cols, rows) => tx
+                        .send(Event::Resize(cols, rows))
+                        .expect("Couldn't send event."),
+                    _ => (), // ignore
                 }
             })
         };
