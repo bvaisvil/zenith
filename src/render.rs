@@ -1383,7 +1383,7 @@ fn terminal_size() -> (u16, u16) {
     crossterm::terminal::size().expect("Failed to get terminal size")
 }
 
-macro_rules! round_even {
+macro_rules! ceil_even {
     ($x:expr) => {
         ($x + 1) / 2 * 2
     };
@@ -1422,7 +1422,7 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
         } else {
             // round to nearest even size for the two sub-parts in each section display
             let section_height =
-                max_section_height.min(round_even!(required_height.round().max(1.0) as u16));
+                max_section_height.min(ceil_even!(required_height.round().max(1.0) as u16));
             sum_others += section_height;
             // adjust max_section_height for subsequent sections
             max_section_height -= section_height - 2;
@@ -1440,7 +1440,7 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
         && max_others > 4
         && (avail_height - sum_others) < 6
     {
-        let borrow = round_even!(6 - (avail_height - sum_others)).min(max_others - 4);
+        let borrow = ceil_even!(6 - (avail_height - sum_others)).min(max_others - 4);
         constraints[max_others_index as usize + 1] = Constraint::Length(max_others - borrow);
         constraints[process_index as usize + 1] = Constraint::Min(process_height + borrow);
     }
