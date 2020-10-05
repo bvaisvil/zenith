@@ -1442,6 +1442,7 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
         && (avail_height - sum_others) < 6
     {
         let borrow = ceil_even!(6 - (avail_height - sum_others)).min(max_others - 4);
+        // (max_others - borrow) will be >= 4 due to the min() above so cast to u16 is safe
         constraints[max_others_index as usize + 1] =
             Constraint::Length((max_others - borrow) as u16);
         constraints[process_index as usize + 1] = Constraint::Min((process_height + borrow) as u16);
