@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Zenith
+Comment=Zenith system monitor
+Exec=zenith
+Icon=zenith
+Terminal=true
+Type=Application
+Categories=System;Monitor;
+StartupNotify=true
