@@ -219,14 +219,12 @@ fn start_zenith(
             );
         }
         // distribute the remaining percentage among the non-zero ones
-        if sum_heights < 100.0 {
-            let residual_percent = (100.0 - sum_heights) / geometry.len() as f64;
-            if residual_percent > 0.0 {
-                geometry.iter_mut().for_each(|s| s.1 += residual_percent);
-            }
-            let new_sum_heights = sum_section_heights(&geometry);
-            assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+        let residual_percent = (100.0 - sum_heights) / geometry.len() as f64;
+        if residual_percent > 0.0 {
+            geometry.iter_mut().for_each(|s| s.1 += residual_percent);
         }
+        let new_sum_heights = sum_section_heights(&geometry);
+        assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
         let mut r = TerminalRenderer::new(rate, &geometry, db);
 
         r.start().await;
