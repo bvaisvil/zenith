@@ -21,6 +21,7 @@ mod render;
 mod util;
 mod zprocess;
 
+use crate::render::Section;
 use crate::render::TerminalRenderer;
 use gumdrop::Options;
 
@@ -107,6 +108,14 @@ fn use_db_history(db_path: &str, tick_rate: u64) -> Option<bool> {
     }
 }
 
+fn sum_section_heights(geometry: &Vec<(Section, f64)>) -> f64 {
+    let mut sum = 0.0;
+    for section in geometry {
+        sum += section.1;
+    }
+    sum
+}
+
 fn start_zenith(
     rate: u64,
     cpu_height: u16,
@@ -179,64 +188,48 @@ fn start_zenith(
 
         debug!("Create Renderer");
 
+        let mut geometry: Vec<(Section, f64)> = Vec::new();
+        if cpu_height > 0 {
+            geometry.push((Section::CPU, cpu_height as f64));
+        }
+        if net_height > 0 {
+            geometry.push((Section::Network, net_height as f64));
+        }
+        if disk_height > 0 {
+            geometry.push((Section::Disk, disk_height as f64));
+        }
+        if graphics_height > 0 {
+            geometry.push((Section::Graphics, graphics_height as f64));
+        }
+        if process_height > 0 {
+            geometry.push((Section::Process, process_height as f64));
+        }
+        assert_eq!(sensor_height, 0); // not implemented
+
+        let num_sections = geometry.len();
+        if num_sections == 0 {
+            panic!("All sections have size specified as zero!");
+        }
         // sum of minimum percentages should not exceed 100%
-        let mut cpu_height_perc = cpu_height;
-        let mut net_height_perc = net_height;
-        let mut disk_height_perc = disk_height;
-        let mut process_height_perc = process_height;
-        let mut sensor_height_perc = sensor_height;
-        let mut graphics_height_perc = graphics_height;
-        let sum_heights = cpu_height_perc as u32
-            + net_height_perc as u32
-            + disk_height_perc as u32
-            + process_height_perc as u32
-            + sensor_height_perc as u32
-            + graphics_height_perc as u32;
-        if sum_heights > 100 {
+        let sum_heights = sum_section_heights(&geometry);
+        if sum_heights > 100.1 {
             panic!(
                 "Sum of minimum percent heights cannot exceed 100 but was {:}.",
                 sum_heights
             );
         }
         // distribute the remaining percentage among the non-zero ones
-        if sum_heights < 100 {
-            let num_non_zero = (cpu_height_perc > 0) as u16
-                + (net_height_perc > 0) as u16
-                + (disk_height_perc > 0) as u16
-                + (process_height_perc > 0) as u16
-                + (sensor_height_perc > 0) as u16
-                + (graphics_height_perc > 0) as u16;
-            if num_non_zero > 0 {
-                let residual_percent = (100 - sum_heights) as u16 / num_non_zero;
-                if residual_percent > 0 {
-                    cpu_height_perc += residual_percent * (cpu_height_perc > 0) as u16;
-                    net_height_perc += residual_percent * (net_height_perc > 0) as u16;
-                    disk_height_perc += residual_percent * (disk_height_perc > 0) as u16;
-                    process_height_perc += residual_percent * (process_height_perc > 0) as u16;
-                    sensor_height_perc += residual_percent * (sensor_height_perc > 0) as u16;
-                    graphics_height_perc += residual_percent * (graphics_height_perc > 0) as u16;
-                }
-                // assign any remaining to process_height
-                let new_sum_heights = cpu_height_perc
-                    + net_height_perc
-                    + disk_height_perc
-                    + process_height_perc
-                    + sensor_height_perc
-                    + graphics_height_perc;
-                assert!(new_sum_heights <= 100);
-                if new_sum_heights < 100 {
-                    process_height_perc += 100 - new_sum_heights;
-                }
+        if sum_heights < 100.0 {
+            let residual_percent = (100.0 - sum_heights) / geometry.len() as f64;
+            if residual_percent > 0.0 {
+                geometry.iter_mut().for_each(|s| s.1 += residual_percent);
             }
+            let new_sum_heights = sum_section_heights(&geometry);
+            assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
         }
         let mut r = TerminalRenderer::new(
             rate,
-            cpu_height_perc as i16,
-            net_height_perc as i16,
-            disk_height_perc as i16,
-            process_height_perc as i16,
-            sensor_height_perc as i16,
-            graphics_height_perc as i16,
+            &geometry,
             db,
         );
 
