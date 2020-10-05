@@ -6,7 +6,13 @@ CARGO_TARGET =
 TARGET_TYPE = dynamic
 CCFLAGS =
 TARGET_BUILDDIR = release
-BUILD_NVIDIA = true
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Linux)
+  BUILD_NVIDIA = true
+else
+  BUILD_NVIDIA = false
+endif
 
 STATIC_TARGET = x86_64-unknown-linux-musl
 CC_STATIC_TARGET = x86_64_unknown_linux_musl
@@ -37,7 +43,7 @@ clean:
 	rm -f zenith.$(STATIC_TARGET).tgz*
 
 install:
-	mkdir -p "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(PREFIX)/share/applications" "$(DESTDIR)$(PREFIX)/share/pixmaps"
+	mkdir -p "$(DESTDIR)$(PREFIX)/bin"
 	@if [ -x build/$(TARGET_TYPE)/zenith.nvidia ]; then \
 	  mkdir -p "$(DESTDIR)$(PREFIX)/lib/zenith/base" "$(DESTDIR)$(PREFIX)/lib/zenith/nvidia"; \
 	  install -m 755 build/$(TARGET_TYPE)/zenith.base "$(DESTDIR)$(PREFIX)/lib/zenith/base/zenith"; \
@@ -48,8 +54,11 @@ install:
 	else \
 	  install -m 755 build/$(TARGET_TYPE)/zenith.base "$(DESTDIR)$(PREFIX)/bin/zenith"; \
 	fi
-	install -m 644 assets/zenith.png "$(DESTDIR)$(PREFIX)/share/pixmaps/zenith.png"
-	install -m 644 assets/zenith.desktop "$(DESTDIR)$(PREFIX)/share/applications/zenith.desktop"
+	@if [ $(UNAME) = "Linux" ]; then \
+	  mkdir -p "$(DESTDIR)$(PREFIX)/share/applications" "$(DESTDIR)$(PREFIX)/share/pixmaps"; \
+	  install -m 644 assets/zenith.png "$(DESTDIR)$(PREFIX)/share/pixmaps/zenith.png"; \
+	  install -m 644 assets/zenith.desktop "$(DESTDIR)$(PREFIX)/share/applications/zenith.desktop"; \
+	fi
 
 uninstall:
 	rm -rf "$(DESTDIR)$(PREFIX)/lib/zenith" "$(DESTDIR)$(PREFIX)/bin/zenith"
