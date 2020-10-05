@@ -227,11 +227,7 @@ fn start_zenith(
             let new_sum_heights = sum_section_heights(&geometry);
             assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
         }
-        let mut r = TerminalRenderer::new(
-            rate,
-            &geometry,
-            db,
-        );
+        let mut r = TerminalRenderer::new(rate, &geometry, db);
 
         r.start().await;
 

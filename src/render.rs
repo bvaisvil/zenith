@@ -1605,33 +1605,15 @@ impl<'a> TerminalRenderer {
                         for section_index in 0..geometry.len() {
                             let v_section = v_sections[section_index + 1];
                             match geometry[section_index].0 {
-                                Section::CPU => render_cpu(
-                                    app,
-                                    v_section,
-                                    &mut f,
-                                    zf,
-                                    un,
-                                    offset,
-                                    &selected,
-                                ),
-                                Section::Network => render_net(
-                                    &app,
-                                    v_section,
-                                    &mut f,
-                                    zf,
-                                    un,
-                                    offset,
-                                    &selected,
-                                ),
-                                Section::Disk => render_disk(
-                                    &app,
-                                    v_section,
-                                    &mut f,
-                                    zf,
-                                    un,
-                                    offset,
-                                    &selected,
-                                ),
+                                Section::CPU => {
+                                    render_cpu(app, v_section, &mut f, zf, un, offset, &selected)
+                                }
+                                Section::Network => {
+                                    render_net(&app, v_section, &mut f, zf, un, offset, &selected)
+                                }
+                                Section::Disk => {
+                                    render_disk(&app, v_section, &mut f, zf, un, offset, &selected)
+                                }
                                 Section::Graphics => render_graphics(
                                     &app,
                                     v_section,
