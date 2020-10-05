@@ -43,7 +43,7 @@ clean:
 	rm -f zenith.$(STATIC_TARGET).tgz*
 
 install:
-	mkdir -p "$(DESTDIR)$(PREFIX)/bin"
+	@mkdir -p "$(DESTDIR)$(PREFIX)/bin"
 	@if [ -x build/$(TARGET_TYPE)/zenith.nvidia ]; then \
 	  mkdir -p "$(DESTDIR)$(PREFIX)/lib/zenith/base" "$(DESTDIR)$(PREFIX)/lib/zenith/nvidia"; \
 	  install -m 755 build/$(TARGET_TYPE)/zenith.base "$(DESTDIR)$(PREFIX)/lib/zenith/base/zenith"; \
