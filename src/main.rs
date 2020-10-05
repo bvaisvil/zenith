@@ -21,6 +21,7 @@ mod render;
 mod util;
 mod zprocess;
 
+use crate::render::sum_section_heights;
 use crate::render::Section;
 use crate::render::TerminalRenderer;
 use gumdrop::Options;
@@ -106,14 +107,6 @@ fn use_db_history(db_path: &str, tick_rate: u64) -> Option<bool> {
     } else {
         Some(true)
     }
-}
-
-fn sum_section_heights(geometry: &Vec<(Section, f64)>) -> f64 {
-    let mut sum = 0.0;
-    for section in geometry {
-        sum += section.1;
-    }
-    sum
 }
 
 fn start_zenith(

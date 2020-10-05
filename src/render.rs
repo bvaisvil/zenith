@@ -87,6 +87,14 @@ pub enum Section {
     Process = 4,
 }
 
+pub fn sum_section_heights(geometry: &Vec<(Section, f64)>) -> f64 {
+    let mut sum = 0.0;
+    for section in geometry {
+        sum += section.1;
+    }
+    sum
+}
+
 fn mem_title(app: &CPUTimeApp) -> String {
     let mem = percent_of(app.mem_utilization, app.mem_total) as u64;
     let swp = percent_of(app.swap_utilization, app.swap_total) as u64;
@@ -1379,10 +1387,12 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
         .render(f, help_layout[1]);
 }
 
+/// current size of the terminal returned as (columns, rows)
 fn terminal_size() -> (u16, u16) {
     crossterm::terminal::size().expect("Failed to get terminal size")
 }
 
+/// ceil to nearest upper even number
 macro_rules! ceil_even {
     ($x:expr) => {
         ($x + 1) / 2 * 2
@@ -1526,6 +1536,12 @@ impl<'a> TerminalRenderer {
         }
     }
 
+    /// Update section height by given delta value in number of rows.
+    /// This transforms the value in terms of percentage and reduces the
+    /// other section percentages proportionally. By this it means that
+    /// larger sections will be reduced more while smaller ones will be
+    /// reduced less. Overall the total percentage heights in section_geometry
+    /// should always be close to 100%.
     async fn update_section_height(&mut self, size: i16) {
         // convert val to percentage
         let (_, height) = terminal_size();
@@ -1546,6 +1562,8 @@ impl<'a> TerminalRenderer {
                 }
             }
             if val != 0.0 {
+                let new_sum_heights = sum_section_heights(&new_geometry);
+                assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
                 self.section_geometry = new_geometry;
                 self.constraints = get_constraints(&self.section_geometry, height);
             }
