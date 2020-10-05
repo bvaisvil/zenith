@@ -1542,10 +1542,10 @@ impl<'a> TerminalRenderer {
     /// larger sections will be reduced more while smaller ones will be
     /// reduced less. Overall the total percentage heights in section_geometry
     /// should always be close to 100%.
-    async fn update_section_height(&mut self, size: i16) {
+    async fn update_section_height(&mut self, delta: i16) {
         // convert val to percentage
         let (_, height) = terminal_size();
-        let mut val = size as f64 * 100.0 / (height - 1) as f64;
+        let mut val = delta as f64 * 100.0 / (height - 1) as f64;
         let selected_index = self.selected_section_index;
         let mut new_geometry = self.section_geometry.to_vec();
         if update_section_height!(new_geometry[selected_index].1, val) {
