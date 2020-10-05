@@ -1394,7 +1394,7 @@ macro_rules! ceil_even {
 fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<Constraint> {
     debug!("Get Constraints");
     let mut constraints = vec![Constraint::Length(1)];
-    let avail_height = height - 1;
+    let avail_height = height as i32 - 1;
     let mut process_index = -1;
     let mut process_height = 0;
     let mut max_others = 0;
@@ -1402,7 +1402,7 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
     let mut sum_others = 0;
     // each section should have a height of at least 2
     let num_sections = section_geometry.len();
-    let mut max_section_height = avail_height - num_sections as u16 * 2;
+    let mut max_section_height = avail_height - num_sections as i32 * 2;
     // process section is at least 4 rows high
     if section_geometry.iter().any(|s| s.0 == Section::Process) {
         max_section_height -= 2;
@@ -1412,17 +1412,18 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
     for section_index in 0..num_sections {
         let section = section_geometry[section_index];
         let required_height = section.1 * avail_height as f64 / 100.0;
+        // ensure max_section_height is at least 2 after every recalculation
         max_section_height = max_section_height.max(2);
         if section.0 == Section::Process {
             process_index = section_index as i32;
             // floor to nearest integer and set constraint as Min
-            process_height = max_section_height.min(required_height.floor().max(4.0) as u16);
+            process_height = max_section_height.min(required_height.floor().max(4.0) as i32);
             max_section_height -= process_height - 4;
-            constraints.push(Constraint::Min(process_height));
+            constraints.push(Constraint::Min(process_height as u16));
         } else {
             // round to nearest even size for the two sub-parts in each section display
             let section_height =
-                max_section_height.min(ceil_even!(required_height.round().max(1.0) as u16));
+                max_section_height.min(ceil_even!(required_height.round().max(1.0) as i32));
             sum_others += section_height;
             // adjust max_section_height for subsequent sections
             max_section_height -= section_height - 2;
@@ -1430,10 +1431,10 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
                 max_others = section_height;
                 max_others_index = section_index as i32;
             }
-            constraints.push(Constraint::Length(section_height));
+            constraints.push(Constraint::Length(section_height as u16));
         }
     }
-    // due to rounding off to even size, process table may not have much left
+    // due to rounding off to even heights, process table may not have much left
     // so forcefully borrow rows from the largest non-process section
     if process_index != -1
         && max_others_index != -1
@@ -1441,8 +1442,9 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
         && (avail_height - sum_others) < 6
     {
         let borrow = ceil_even!(6 - (avail_height - sum_others)).min(max_others - 4);
-        constraints[max_others_index as usize + 1] = Constraint::Length(max_others - borrow);
-        constraints[process_index as usize + 1] = Constraint::Min(process_height + borrow);
+        constraints[max_others_index as usize + 1] =
+            Constraint::Length((max_others - borrow) as u16);
+        constraints[process_index as usize + 1] = Constraint::Min((process_height + borrow) as u16);
     }
 
     constraints
@@ -1543,7 +1545,7 @@ impl<'a> TerminalRenderer {
                 }
             }
             if val != 0.0 {
-                self.section_geometry.copy_from_slice(&new_geometry);
+                self.section_geometry = new_geometry;
                 self.constraints = get_constraints(&self.section_geometry, height);
             }
         }
