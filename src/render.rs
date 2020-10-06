@@ -430,7 +430,7 @@ fn render_cpu_bars(
                 .step_by(nrows)
                 .take(cols.into())
                 .for_each(|(label, load)| {
-                    items.push(Span::raw(format!("{:>2} ", label)));
+                    items.push(Span::raw(format!("{:<2} ", label)));
                     let color = if *load < 90 { Color::Green } else { Color::Red };
                     items.push(Span::styled(
                         format!("{:3}", load),
@@ -438,8 +438,6 @@ fn render_cpu_bars(
                     ));
                     items.push(Span::raw("% "));
                 });
-
-            items.push(Span::raw("\n"));
         }
 
         Paragraph::new(Spans::from(items))
