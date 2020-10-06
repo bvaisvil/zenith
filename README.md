@@ -152,14 +152,16 @@ FLAGS:
     -V, --version            Prints version information
 
 OPTIONS:
-    -c, --cpu-height <INT>        Height of CPU/Memory visualization. [default: 10]
+    -c, --cpu-height <INT>        Min Percent Height of CPU/Memory visualization. [default: 17]
         --db <STRING>             Database to use, if any. [default: ~/.zenith]
-    -d, --disk-height <INT>       Height of Disk visualization. [default: 10]
-    -n, --net-height <INT>        Height of Network visualization. [default: 10]
-    -p, --process-height <INT>    Min Height of Process Table. [default: 8]
+    -d, --disk-height <INT>       Min Percent Height of Disk visualization. [default: 17]
+    -n, --net-height <INT>        Min Percent Height of Network visualization. [default: 17]
+    -p, --process-height <INT>    Min Percent Height of Process Table. [default: 32]
     -r, --refresh-rate <INT>      Refresh rate in milliseconds. [default: 2000]
+    -g, --graphics-height <INT>   Min Percent Height of Graphics Card visualization. [default: 17]
 ```
 
+The graphics-height option only applies when NVIDIA GPU support has been enabled.
 
 Don't want a section? Remove it by setting the height to 0. 
 

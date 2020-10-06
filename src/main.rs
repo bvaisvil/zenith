@@ -21,6 +21,8 @@ mod render;
 mod util;
 mod zprocess;
 
+use crate::render::sum_section_heights;
+use crate::render::Section;
 use crate::render::TerminalRenderer;
 use gumdrop::Options;
 
@@ -178,16 +180,45 @@ fn start_zenith(
         };
 
         debug!("Create Renderer");
-        let mut r = TerminalRenderer::new(
-            rate,
-            cpu_height as i16,
-            net_height as i16,
-            disk_height as i16,
-            process_height as i16,
-            sensor_height as i16,
-            graphics_height as i16,
-            db,
-        );
+
+        let mut geometry: Vec<(Section, f64)> = Vec::new();
+        if cpu_height > 0 {
+            geometry.push((Section::CPU, cpu_height as f64));
+        }
+        if net_height > 0 {
+            geometry.push((Section::Network, net_height as f64));
+        }
+        if disk_height > 0 {
+            geometry.push((Section::Disk, disk_height as f64));
+        }
+        if graphics_height > 0 {
+            geometry.push((Section::Graphics, graphics_height as f64));
+        }
+        if process_height > 0 {
+            geometry.push((Section::Process, process_height as f64));
+        }
+        assert_eq!(sensor_height, 0); // not implemented
+
+        let num_sections = geometry.len();
+        if num_sections == 0 {
+            panic!("All sections have size specified as zero!");
+        }
+        // sum of minimum percentages should not exceed 100%
+        let sum_heights = sum_section_heights(&geometry);
+        if sum_heights > 100.1 {
+            panic!(
+                "Sum of minimum percent heights cannot exceed 100 but was {:}.",
+                sum_heights
+            );
+        }
+        // distribute the remaining percentage proportionately among the non-zero ones
+        let factor = 100.0 / sum_heights;
+        if factor > 1.0 {
+            geometry.iter_mut().for_each(|s| s.1 *= factor);
+        }
+        let new_sum_heights = sum_section_heights(&geometry);
+        assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+        let mut r = TerminalRenderer::new(rate, &geometry, db);
 
         r.start().await;
 
@@ -293,24 +324,24 @@ struct ZOptions {
     #[options(short = "V")]
     version: bool,
 
-    /// Height of CPU/Memory visualization.
-    #[options(short = "c", long = "cpu-height", default = "10", meta = "INT")]
+    /// Min Percent Height of CPU/Memory visualization.
+    #[options(short = "c", long = "cpu-height", default = "17", meta = "INT")]
     cpu_height: u16,
 
     /// Database to use, if any.
     #[options(no_short, default_expr = "default_db_path()", meta = "STRING")]
     db: String,
 
-    /// Height of Disk visualization.
-    #[options(short = "d", long = "disk-height", default = "10", meta = "INT")]
+    /// Min Percent Height of Disk visualization.
+    #[options(short = "d", long = "disk-height", default = "17", meta = "INT")]
     disk_height: u16,
 
-    /// Height of Network visualization.
-    #[options(short = "n", long = "net-height", default = "10", meta = "INT")]
+    /// Min Percent Height of Network visualization.
+    #[options(short = "n", long = "net-height", default = "17", meta = "INT")]
     net_height: u16,
 
-    /// Min Height of Process Table.
-    #[options(short = "p", long = "process-height", default = "8", meta = "INT")]
+    /// Min Percent Height of Process Table.
+    #[options(short = "p", long = "process-height", default = "32", meta = "INT")]
     process_height: u16,
 
     /// Refresh rate in milliseconds.
@@ -323,8 +354,8 @@ struct ZOptions {
     )]
     refresh_rate: u64,
 
-    /// Height of Graphics Card visualization.
+    /// Min Percent Height of Graphics Card visualization.
     #[cfg(feature = "nvidia")]
-    #[options(short = "g", long = "graphics-height", default = "10", meta = "INT")]
+    #[options(short = "g", long = "graphics-height", default = "17", meta = "INT")]
     graphics_height: u16,
 }
