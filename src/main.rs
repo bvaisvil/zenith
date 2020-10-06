@@ -211,10 +211,10 @@ fn start_zenith(
                 sum_heights
             );
         }
-        // distribute the remaining percentage among the non-zero ones
-        let residual_percent = (100.0 - sum_heights) / geometry.len() as f64;
-        if residual_percent > 0.0 {
-            geometry.iter_mut().for_each(|s| s.1 += residual_percent);
+        // distribute the remaining percentage proportionately among the non-zero ones
+        let factor = 100.0 / sum_heights;
+        if factor > 1.0 {
+            geometry.iter_mut().for_each(|s| s.1 *= factor);
         }
         let new_sum_heights = sum_section_heights(&geometry);
         assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
