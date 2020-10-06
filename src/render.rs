@@ -1401,17 +1401,20 @@ macro_rules! ceil_even {
 
 /// Convert percentage heights to length constraints. This is done since sections other
 /// than process have two sub-parts and should be of even height.
-fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<Constraint> {
+fn eval_constraints(
+    section_geometry: &Vec<(Section, f64)>,
+    height: u16,
+    borrowed: &mut bool,
+) -> Vec<Constraint> {
     debug!("Get Constraints");
     let mut constraints = vec![Constraint::Length(1)];
     let avail_height = height as i32 - 1;
     let mut process_index = -1;
-    let mut process_height = 0;
     let mut max_others = 0;
     let mut max_others_index = -1;
     let mut sum_others = 0;
-    // each section should have a height of at least 2
     let num_sections = section_geometry.len();
+    // each section should have a height of at least 2 rows
     let mut max_section_height = avail_height - num_sections as i32 * 2;
     // process section is at least 4 rows high
     if section_geometry.iter().any(|s| s.0 == Section::Process) {
@@ -1426,14 +1429,11 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
         max_section_height = max_section_height.max(2);
         if section.0 == Section::Process {
             process_index = section_index as i32;
-            // floor to nearest integer and set constraint as Min
-            process_height = max_section_height.min(required_height.floor().max(4.0) as i32);
-            max_section_height -= process_height - 4;
-            constraints.push(Constraint::Min(process_height as u16));
+            constraints.push(Constraint::Min(4));
         } else {
             // round to nearest even size for the two sub-parts in each section display
             let section_height =
-                max_section_height.min(ceil_even!(required_height.round().max(1.0) as i32));
+                max_section_height.min(ceil_even!(required_height.floor().max(1.0) as i32));
             sum_others += section_height;
             // adjust max_section_height for subsequent sections
             max_section_height -= section_height - 2;
@@ -1444,21 +1444,29 @@ fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<C
             constraints.push(Constraint::Length(section_height as u16));
         }
     }
-    // due to rounding off to even heights, process table may not have much left
-    // so forcefully borrow rows from the largest non-process section
-    if process_index != -1
-        && max_others_index != -1
-        && max_others > 4
-        && (avail_height - sum_others) < 6
-    {
-        let borrow = ceil_even!(6 - (avail_height - sum_others)).min(max_others - 4);
-        // (max_others - borrow) will be >= 4 due to the min() above so cast to u16 is safe
-        constraints[max_others_index as usize + 1] =
-            Constraint::Length((max_others - borrow) as u16);
-        constraints[process_index as usize + 1] = Constraint::Min((process_height + borrow) as u16);
+    // remaining is what will be actually used for process section but if its too small (due to
+    // rounding to even heights for other sections), then borrow rows from the largest section
+    if process_index != -1 {
+        let process_height = avail_height - sum_others;
+        if process_height < 4 && max_others > 4 {
+            let borrow = ceil_even!(4 - process_height).min(max_others - 4);
+            // (max_others - borrow) will be >= 4 due to the min() above so cast to u16 is safe
+            constraints[max_others_index as usize + 1] =
+                Constraint::Length((max_others - borrow) as u16);
+            constraints[process_index as usize + 1] =
+                Constraint::Min((process_height + borrow) as u16);
+            *borrowed = true;
+        } else {
+            constraints[process_index as usize + 1] = Constraint::Min(process_height as u16);
+        }
     }
 
     constraints
+}
+
+fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<Constraint> {
+    let mut borrowed = false;
+    eval_constraints(section_geometry, height, &mut borrowed)
 }
 
 pub struct TerminalRenderer {
@@ -1545,7 +1553,8 @@ impl<'a> TerminalRenderer {
     async fn update_section_height(&mut self, delta: i16) {
         // convert val to percentage
         let (_, height) = terminal_size();
-        let mut val = delta as f64 * 100.0 / (height - 1) as f64;
+        let avail_height = (height - 1) as f64;
+        let mut val = delta as f64 * 100.0 / avail_height;
         let selected_index = self.selected_section_index;
         let mut new_geometry = self.section_geometry.to_vec();
         if update_section_height!(new_geometry[selected_index].1, val) {
@@ -1556,16 +1565,21 @@ impl<'a> TerminalRenderer {
                     let change = new_geometry[section_index].1 * val / rest;
                     // abort if limits are exceeded
                     if !update_section_height!(new_geometry[section_index].1, -change) {
-                        val = 0.0; // indicates failure
+                        val = 0.0; // abort changes
                         break;
                     }
                 }
             }
             if val != 0.0 {
-                let new_sum_heights = sum_section_heights(&new_geometry);
-                assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
-                self.section_geometry = new_geometry;
-                self.constraints = get_constraints(&self.section_geometry, height);
+                let mut borrowed = false;
+                let new_constraints = eval_constraints(&new_geometry, height, &mut borrowed);
+                // abort if process section became too small and borrowed from others
+                if !borrowed {
+                    let new_sum_heights = sum_section_heights(&new_geometry);
+                    assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+                    self.section_geometry = new_geometry;
+                    self.constraints = new_constraints;
+                }
             }
         }
     }
