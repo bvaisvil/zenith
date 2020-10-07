@@ -47,6 +47,27 @@
 
 Download one of the compiled [releases](https://github.com/bvaisvil/zenith/releases).
 
+### Debian/Ubuntu based Linux distributions
+
+The latest package files are hosted on bintray and require distributions based on Debian >= 9 or Ubuntu >= 16.04
+
+- Import the bintray public key:
+```
+sudo wget 'https://bintray.com/user/downloadSubjectPublicKey?username=bintray' -O- | sudo apt-key add -
+```
+
+- Add the following line to /etc/apt/sources.list.d/zenith.list:
+```
+deb [arch=amd64] https://dl.bintray.com/sumwale/debian stable main
+```
+
+Then you can install/update the 'zenith' package:
+
+```bash
+apt-get update
+apt-get install zenith
+```
+
 ### Homebrew
 
 ```bash
