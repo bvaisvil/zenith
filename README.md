@@ -49,7 +49,7 @@ Download one of the compiled [releases](https://github.com/bvaisvil/zenith/relea
 
 ### Debian/Ubuntu based Linux distributions
 
-The latest package files are hosted on bintray and require distributions based on Debian >= 9 or Ubuntu >= 16.04
+The latest deb packages are hosted on [bintray](https://bintray.com/sumwale/debian/zenith) and require distributions based on Debian >= 9 or Ubuntu >= 16.04
 
 - Import the bintray public key:
 ```
