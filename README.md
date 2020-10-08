@@ -47,6 +47,20 @@
 
 Download one of the compiled [releases](https://github.com/bvaisvil/zenith/releases).
 
+### Arch Linux
+
+Three packages for zenith are available in AUR: zenith, zenith-git and zenith-bin
+
+The last one uses the statically linked binary and is not recommended unless you want to completely avoid building the package. The first two depend on rust/cargo and its recommended to install the rustup package from AUR instead of the rust package from official repositories. This allows for easy installation of rust components as per what rust officially documents. You will need to install a toolchain separately with rustup so use something like:
+
+```bash
+yay -S rustup
+rustup toolchain install stable
+rustup default stable
+```
+
+Change the 'stable' toolchain above to beta/nightly/... if you have some specific preference. After this install the zenith or zenith-git package (latter will always track the latest git revision): ```yay -S zenith```
+
 ### Debian/Ubuntu based Linux distributions
 
 The latest deb packages are hosted on [bintray](https://bintray.com/sumwale/debian/zenith) and require distributions based on Debian >= 9 or Ubuntu >= 16.04
