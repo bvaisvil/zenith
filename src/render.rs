@@ -1323,6 +1323,42 @@ fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
     results
 }
 
+fn render_section_mgr(constraints: &Vec<Constraint>, area: Rect, f: &mut Frame<'_, ZBackend>) {
+    let layout = Layout::default().margin(5).direction(Direction::Vertical).constraints([
+        Constraint::Length(1),
+        Constraint::Percentage(80),
+        Constraint::Length(5)
+    ].as_ref()
+    ).split(area);
+    let header_style = Style::default().fg(Color::Green);
+    let t = vec![Text::styled(
+        format!("Options"),
+        header_style,
+    )];
+    Paragraph::new(t.iter())
+        .wrap(true)
+        .alignment(Alignment::Center)
+        .render(f, layout[0]);
+    let items = constraints.iter().skip(1).enumerate().map(|(i, section_constraint)| {
+        let s = FromPrimitive::from_u32(i as u32).expect("Expected a valid section index.");
+        let name = match s{
+            Section::CPU => "CPU",
+            Section::Disk => "Disk",
+            Section::Graphics => "Graphics",
+            Section::Network => "Network",
+            Section::Process => "Process",
+        };
+        Text::raw(name)
+    });
+    List::new(items)
+        .block(
+            Block::default()
+                .title("Sections")
+                .borders(Borders::ALL)
+        )
+        .render(f, layout[1]);
+}
+
 fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
     let help_layout = Layout::default()
         .margin(5)
@@ -1466,6 +1502,7 @@ pub struct TerminalRenderer {
     show_help: bool,
     show_paths: bool,
     show_find: bool,
+    show_section_mgr: bool,
     filter: String,
     highlighted_row: usize,
     selection_grace_start: Option<Instant>,
@@ -1528,6 +1565,7 @@ impl<'a> TerminalRenderer {
             show_help: false,
             show_paths: false,
             show_find: false,
+            show_section_mgr: false,
             filter: String::from(""),
             highlighted_row: 0,
             selection_grace_start: None,
@@ -1584,6 +1622,7 @@ impl<'a> TerminalRenderer {
             let offset = &self.hist_start_offset;
             let un = &self.update_number;
             let show_help = self.show_help;
+            let show_section_mgr = self.show_section_mgr;
             let show_paths = self.show_paths;
             let filter = &self.filter;
             let show_find = self.show_find;
@@ -1608,6 +1647,15 @@ impl<'a> TerminalRenderer {
 
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
                         render_help(v_sections[1], &mut f);
+                    }
+                    else if show_section_mgr {
+                        let v_sections = Layout::default()
+                            .direction(Direction::Vertical)
+                            .margin(0)
+                            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
+                            .split(f.size());
+                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        render_section_mgr(constraints,v_sections[1], &mut f);
                     } else {
                         // create layouts
                         // primary vertical
@@ -1859,6 +1907,10 @@ impl<'a> TerminalRenderer {
         }
     }
 
+    fn toggle_section_mgr(&mut self){
+        self.show_section_mgr = !self.show_section_mgr;
+    }
+
     async fn process_toplevel_input(&mut self, input: KeyEvent) -> Action {
         match input.code {
             Key::Char('q') => {
@@ -1947,6 +1999,9 @@ impl<'a> TerminalRenderer {
             }
             Key::Tab => {
                 self.advance_to_next_section();
+            }
+            Key::F(1) => {
+                self.toggle_section_mgr();
             }
             Key::Char('m') => {
                 self.set_section_height(-2).await;
