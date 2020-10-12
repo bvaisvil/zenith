@@ -61,13 +61,13 @@ rustup default stable
 
 Change the 'stable' toolchain above to beta/nightly/... if you have some specific preference. After this install the zenith or zenith-git package (latter will always track the latest git revision): ```yay -S zenith```
 
-### Debian/Ubuntu based Linux distributions
+### Debian/Ubuntu based Linux distributions (64-bit)
 
-The latest deb packages are hosted on [bintray](https://bintray.com/sumwale/debian/zenith) and require distributions based on Debian >= 9 or Ubuntu >= 16.04
+The latest 64-bit deb packages are hosted on [bintray](https://bintray.com/sumwale/debian/zenith) and require distributions based on Debian >= 9 or Ubuntu >= 16.04
 
 - Import the bintray public key:
 ```
-sudo wget 'https://bintray.com/user/downloadSubjectPublicKey?username=bintray' -O- | sudo apt-key add -
+wget 'https://bintray.com/user/downloadSubjectPublicKey?username=bintray' -q -O- | sudo apt-key add -
 ```
 
 - Add the following line to /etc/apt/sources.list.d/zenith.list:
