@@ -36,7 +36,7 @@ impl TryFrom<&Device<'_>> for GraphicsDevice {
             }
             Err(e) => error!("Failed Getting Memory Info {:?}", e),
         }
-        gd.name = d.name().unwrap_or(String::from(""));
+        gd.name = d.name().unwrap_or_default();
         gd.clock = d.clock_info(Clock::Graphics).unwrap_or(0);
         gd.max_clock = d.max_clock_info(Clock::Graphics).unwrap_or(0);
         gd.power_usage = d.power_usage().unwrap_or(0);
@@ -70,7 +70,7 @@ impl TryFrom<&Device<'_>> for GraphicsDevice {
             Err(e) => error!("Couldn't get utilization rates: {:?}", e),
         }
         match d.process_utilization_stats(None) {
-            Ok(ps) => gd.processes = ps.iter().map(|p| GraphicsDeviceProcess::from(p)).collect(),
+            Ok(ps) => gd.processes = ps.iter().map(GraphicsDeviceProcess::from).collect(),
             Err(_) => debug!(
                 "Couldn't retrieve process utilization stats for {:}",
                 gd.name

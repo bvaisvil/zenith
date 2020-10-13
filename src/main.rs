@@ -109,6 +109,66 @@ fn use_db_history(db_path: &str, tick_rate: u64) -> Option<bool> {
     }
 }
 
+macro_rules! exit_with_message {
+    ($msg:expr, $code:expr) => {
+        restore_terminal();
+        println!("{}", $msg);
+        exit($code);
+    };
+}
+
+fn create_geometry(
+    cpu_height: u16,
+    net_height: u16,
+    disk_height: u16,
+    process_height: u16,
+    sensor_height: u16,
+    graphics_height: u16,
+) -> Vec<(Section, f64)> {
+    let mut geometry: Vec<(Section, f64)> = Vec::new();
+    if cpu_height > 0 {
+        geometry.push((Section::CPU, cpu_height as f64));
+    }
+    if net_height > 0 {
+        geometry.push((Section::Network, net_height as f64));
+    }
+    if disk_height > 0 {
+        geometry.push((Section::Disk, disk_height as f64));
+    }
+    if graphics_height > 0 {
+        geometry.push((Section::Graphics, graphics_height as f64));
+    }
+    if process_height > 0 {
+        geometry.push((Section::Process, process_height as f64));
+    }
+    assert_eq!(sensor_height, 0); // not implemented
+
+    let num_sections = geometry.len();
+    if num_sections == 0 {
+        exit_with_message!("All sections have size specified as zero!", 1);
+    }
+    // sum of minimum percentages should not exceed 100%
+    let sum_heights = sum_section_heights(&geometry);
+    // 100.1 to account for possible float precision error
+    if sum_heights > 100.1 {
+        let msg = format!(
+            "Sum of minimum percent heights cannot exceed 100 but was {:}.",
+            sum_heights
+        );
+        exit_with_message!(msg, 1);
+    }
+    // distribute the remaining percentage proportionately among the non-zero ones
+    let factor = 100.0 / sum_heights;
+    if factor > 1.0 {
+        geometry.iter_mut().for_each(|s| s.1 *= factor);
+    }
+    // after redistribution, the new sum should be 100% with some tolerance for precision error
+    let new_sum_heights = sum_section_heights(&geometry);
+    assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+
+    geometry
+}
+
 fn start_zenith(
     rate: u64,
     cpu_height: u16,
@@ -167,9 +227,12 @@ fn start_zenith(
             let lock = match util::Lockfile::new(main_pid, &lock_path).await {
                 Some(f) => f,
                 None => {
-                    restore_terminal();
-                    println!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
-                    exit(1);
+                    let msg = format!(
+                        "{:} exists and history recording is on. Is another copy of zenith \
+                            open? If not remove the path and open zenith again.",
+                        lock_path.display()
+                    );
+                    exit_with_message!(msg, 1);
                 }
             };
 
@@ -181,43 +244,14 @@ fn start_zenith(
 
         debug!("Create Renderer");
 
-        let mut geometry: Vec<(Section, f64)> = Vec::new();
-        if cpu_height > 0 {
-            geometry.push((Section::CPU, cpu_height as f64));
-        }
-        if net_height > 0 {
-            geometry.push((Section::Network, net_height as f64));
-        }
-        if disk_height > 0 {
-            geometry.push((Section::Disk, disk_height as f64));
-        }
-        if graphics_height > 0 {
-            geometry.push((Section::Graphics, graphics_height as f64));
-        }
-        if process_height > 0 {
-            geometry.push((Section::Process, process_height as f64));
-        }
-        assert_eq!(sensor_height, 0); // not implemented
-
-        let num_sections = geometry.len();
-        if num_sections == 0 {
-            panic!("All sections have size specified as zero!");
-        }
-        // sum of minimum percentages should not exceed 100%
-        let sum_heights = sum_section_heights(&geometry);
-        if sum_heights > 100.1 {
-            panic!(
-                "Sum of minimum percent heights cannot exceed 100 but was {:}.",
-                sum_heights
-            );
-        }
-        // distribute the remaining percentage proportionately among the non-zero ones
-        let factor = 100.0 / sum_heights;
-        if factor > 1.0 {
-            geometry.iter_mut().for_each(|s| s.1 *= factor);
-        }
-        let new_sum_heights = sum_section_heights(&geometry);
-        assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+        let geometry: Vec<(Section, f64)> = create_geometry(
+            cpu_height,
+            net_height,
+            disk_height,
+            process_height,
+            sensor_height,
+            graphics_height,
+        );
         let mut r = TerminalRenderer::new(rate, &geometry, db);
 
         r.start().await;

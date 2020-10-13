@@ -90,7 +90,7 @@ pub enum Section {
     Process = 4,
 }
 
-pub fn sum_section_heights(geometry: &Vec<(Section, f64)>) -> f64 {
+pub fn sum_section_heights(geometry: &[(Section, f64)]) -> f64 {
     let mut sum = 0.0;
     for section in geometry {
         sum += section.1;
@@ -1471,7 +1471,7 @@ macro_rules! ceil_even {
 /// Convert percentage heights to length constraints. This is done since sections other
 /// than process have two sub-parts and should be of even height.
 fn eval_constraints(
-    section_geometry: &Vec<(Section, f64)>,
+    section_geometry: &[(Section, f64)],
     height: u16,
     borrowed: &mut bool,
 ) -> Vec<Constraint> {
@@ -1482,17 +1482,15 @@ fn eval_constraints(
     let mut max_others = 0;
     let mut max_others_index = -1;
     let mut sum_others = 0;
-    let num_sections = section_geometry.len();
     // each section should have a height of at least 2 rows
-    let mut max_section_height = avail_height - num_sections as i32 * 2;
+    let mut max_section_height = avail_height - section_geometry.len() as i32 * 2;
     // process section is at least 4 rows high
     if section_geometry.iter().any(|s| s.0 == Section::Process) {
         max_section_height -= 2;
     }
     // convert percentage heights to length constraints and apply additional
     // criteria that height should be even number for non-process sections
-    for section_index in 0..num_sections {
-        let section = section_geometry[section_index];
+    for (section_index, section) in section_geometry.iter().enumerate() {
         let required_height = section.1 * avail_height as f64 / 100.0;
         // ensure max_section_height is at least 2 after every recalculation
         max_section_height = max_section_height.max(2);
@@ -1533,7 +1531,7 @@ fn eval_constraints(
     constraints
 }
 
-fn get_constraints(section_geometry: &Vec<(Section, f64)>, height: u16) -> Vec<Constraint> {
+fn get_constraints(section_geometry: &[(Section, f64)], height: u16) -> Vec<Constraint> {
     let mut borrowed = false;
     eval_constraints(section_geometry, height, &mut borrowed)
 }
@@ -1573,7 +1571,7 @@ pub struct TerminalRenderer {
 impl<'a> TerminalRenderer {
     pub fn new(
         tick_rate: u64,
-        section_geometry: &Vec<(Section, f64)>,
+        section_geometry: &[(Section, f64)],
         db_path: Option<PathBuf>,
     ) -> TerminalRenderer {
         debug!("Create Metrics App");
@@ -1629,11 +1627,11 @@ impl<'a> TerminalRenderer {
         if update_section_height!(new_geometry[selected_index].1, val) {
             // reduce proportionately from other sections if the value was updated
             let rest = 100.0 - new_geometry[selected_index].1 + val;
-            for section_index in 0..new_geometry.len() {
+            for (section_index, section) in new_geometry.iter_mut().enumerate() {
                 if section_index != selected_index {
-                    let change = new_geometry[section_index].1 * val / rest;
+                    let change = section.1 * val / rest;
                     // abort if limits are exceeded
-                    if !update_section_height!(new_geometry[section_index].1, -change) {
+                    if !update_section_height!(section.1, -change) {
                         val = 0.0; // abort changes
                         break;
                     }
