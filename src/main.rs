@@ -114,7 +114,7 @@ macro_rules! push_geometry {
         if $height > 0 {
             $geom.push(($section, $height as f64));
         }
-    }
+    };
 }
 
 macro_rules! exit_with_message {
