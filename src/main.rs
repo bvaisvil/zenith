@@ -109,6 +109,14 @@ fn use_db_history(db_path: &str, tick_rate: u64) -> Option<bool> {
     }
 }
 
+macro_rules! push_geometry {
+    ($geom:expr, $section:expr, $height:expr) => {
+        if $height > 0 {
+            $geom.push(($section, $height as f64));
+        }
+    }
+}
+
 macro_rules! exit_with_message {
     ($msg:expr, $code:expr) => {
         restore_terminal();
@@ -126,21 +134,11 @@ fn create_geometry(
     graphics_height: u16,
 ) -> Vec<(Section, f64)> {
     let mut geometry: Vec<(Section, f64)> = Vec::new();
-    if cpu_height > 0 {
-        geometry.push((Section::CPU, cpu_height as f64));
-    }
-    if net_height > 0 {
-        geometry.push((Section::Network, net_height as f64));
-    }
-    if disk_height > 0 {
-        geometry.push((Section::Disk, disk_height as f64));
-    }
-    if graphics_height > 0 {
-        geometry.push((Section::Graphics, graphics_height as f64));
-    }
-    if process_height > 0 {
-        geometry.push((Section::Process, process_height as f64));
-    }
+    push_geometry!(geometry, Section::CPU, cpu_height);
+    push_geometry!(geometry, Section::Network, net_height);
+    push_geometry!(geometry, Section::Disk, disk_height);
+    push_geometry!(geometry, Section::Graphics, graphics_height);
+    push_geometry!(geometry, Section::Process, process_height);
     assert_eq!(sensor_height, 0); // not implemented
 
     if geometry.is_empty() {
