@@ -143,8 +143,7 @@ fn create_geometry(
     }
     assert_eq!(sensor_height, 0); // not implemented
 
-    let num_sections = geometry.len();
-    if num_sections == 0 {
+    if geometry.is_empty() {
         exit_with_message!("All sections have size specified as zero!", 1);
     }
     // sum of minimum percentages should not exceed 100%
