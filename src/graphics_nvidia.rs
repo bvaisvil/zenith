@@ -24,7 +24,7 @@ impl From<&ProcessUtilizationSample> for GraphicsDeviceProcess {
 }
 
 impl TryFrom<&Device<'_>> for GraphicsDevice {
-    type Error = nvml::error::Error;
+    type Error = nvml::error::NvmlError;
 
     fn try_from(d: &Device<'_>) -> Result<Self, Self::Error> {
         let uuid = d.uuid()?;
