@@ -279,7 +279,7 @@ fn validate_refresh_rate(arg: &str) -> Result<u64, String> {
 }
 
 fn default_db_path() -> String {
-    dirs::cache_dir()
+    dirs_next::cache_dir()
         .unwrap_or_else(|| Path::new("./").to_owned())
         .join("zenith")
         .to_str()
