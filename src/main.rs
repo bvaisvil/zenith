@@ -21,6 +21,8 @@ mod render;
 mod util;
 mod zprocess;
 
+use crate::render::sum_section_heights;
+use crate::render::Section;
 use crate::render::TerminalRenderer;
 use gumdrop::Options;
 
@@ -107,6 +109,63 @@ fn use_db_history(db_path: &str, tick_rate: u64) -> Option<bool> {
     }
 }
 
+macro_rules! push_geometry {
+    ($geom:expr, $section:expr, $height:expr) => {
+        if $height > 0 {
+            $geom.push(($section, $height as f64));
+        }
+    };
+}
+
+macro_rules! exit_with_message {
+    ($msg:expr, $code:expr) => {
+        restore_terminal();
+        println!("{}", $msg);
+        exit($code);
+    };
+}
+
+fn create_geometry(
+    cpu_height: u16,
+    net_height: u16,
+    disk_height: u16,
+    process_height: u16,
+    sensor_height: u16,
+    graphics_height: u16,
+) -> Vec<(Section, f64)> {
+    let mut geometry: Vec<(Section, f64)> = Vec::new();
+    push_geometry!(geometry, Section::CPU, cpu_height);
+    push_geometry!(geometry, Section::Network, net_height);
+    push_geometry!(geometry, Section::Disk, disk_height);
+    push_geometry!(geometry, Section::Graphics, graphics_height);
+    push_geometry!(geometry, Section::Process, process_height);
+    assert_eq!(sensor_height, 0); // not implemented
+
+    if geometry.is_empty() {
+        exit_with_message!("All sections have size specified as zero!", 1);
+    }
+    // sum of minimum percentages should not exceed 100%
+    let sum_heights = sum_section_heights(&geometry);
+    // 100.1 to account for possible float precision error
+    if sum_heights > 100.1 {
+        let msg = format!(
+            "Sum of minimum percent heights cannot exceed 100 but was {:}.",
+            sum_heights
+        );
+        exit_with_message!(msg, 1);
+    }
+    // distribute the remaining percentage proportionately among the non-zero ones
+    let factor = 100.0 / sum_heights;
+    if factor > 1.0 {
+        geometry.iter_mut().for_each(|s| s.1 *= factor);
+    }
+    // after redistribution, the new sum should be 100% with some tolerance for precision error
+    let new_sum_heights = sum_section_heights(&geometry);
+    assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+
+    geometry
+}
+
 fn start_zenith(
     rate: u64,
     cpu_height: u16,
@@ -165,9 +224,12 @@ fn start_zenith(
             let lock = match util::Lockfile::new(main_pid, &lock_path).await {
                 Some(f) => f,
                 None => {
-                    restore_terminal();
-                    println!("{:} exists and history recording is on. Is another copy of zenith open? If not remove the path and open zenith again.", lock_path.display());
-                    exit(1);
+                    let msg = format!(
+                        "{:} exists and history recording is on. Is another copy of zenith \
+                            open? If not remove the path and open zenith again.",
+                        lock_path.display()
+                    );
+                    exit_with_message!(msg, 1);
                 }
             };
 
@@ -178,16 +240,16 @@ fn start_zenith(
         };
 
         debug!("Create Renderer");
-        let mut r = TerminalRenderer::new(
-            rate,
-            cpu_height as i16,
-            net_height as i16,
-            disk_height as i16,
-            process_height as i16,
-            sensor_height as i16,
-            graphics_height as i16,
-            db,
+
+        let geometry: Vec<(Section, f64)> = create_geometry(
+            cpu_height,
+            net_height,
+            disk_height,
+            process_height,
+            sensor_height,
+            graphics_height,
         );
+        let mut r = TerminalRenderer::new(rate, &geometry, db);
 
         r.start().await;
 
@@ -217,7 +279,7 @@ fn validate_refresh_rate(arg: &str) -> Result<u64, String> {
 }
 
 fn default_db_path() -> String {
-    dirs::cache_dir()
+    dirs_next::cache_dir()
         .unwrap_or_else(|| Path::new("./").to_owned())
         .join("zenith")
         .to_str()
@@ -293,24 +355,24 @@ struct ZOptions {
     #[options(short = "V")]
     version: bool,
 
-    /// Height of CPU/Memory visualization.
-    #[options(short = "c", long = "cpu-height", default = "10", meta = "INT")]
+    /// Min Percent Height of CPU/Memory visualization.
+    #[options(short = "c", long = "cpu-height", default = "17", meta = "INT")]
     cpu_height: u16,
 
     /// Database to use, if any.
     #[options(no_short, default_expr = "default_db_path()", meta = "STRING")]
     db: String,
 
-    /// Height of Disk visualization.
-    #[options(short = "d", long = "disk-height", default = "10", meta = "INT")]
+    /// Min Percent Height of Disk visualization.
+    #[options(short = "d", long = "disk-height", default = "17", meta = "INT")]
     disk_height: u16,
 
-    /// Height of Network visualization.
-    #[options(short = "n", long = "net-height", default = "10", meta = "INT")]
+    /// Min Percent Height of Network visualization.
+    #[options(short = "n", long = "net-height", default = "17", meta = "INT")]
     net_height: u16,
 
-    /// Min Height of Process Table.
-    #[options(short = "p", long = "process-height", default = "8", meta = "INT")]
+    /// Min Percent Height of Process Table.
+    #[options(short = "p", long = "process-height", default = "32", meta = "INT")]
     process_height: u16,
 
     /// Refresh rate in milliseconds.
@@ -323,8 +385,8 @@ struct ZOptions {
     )]
     refresh_rate: u64,
 
-    /// Height of Graphics Card visualization.
+    /// Min Percent Height of Graphics Card visualization.
     #[cfg(feature = "nvidia")]
-    #[options(short = "g", long = "graphics-height", default = "10", meta = "INT")]
+    #[options(short = "g", long = "graphics-height", default = "17", meta = "INT")]
     graphics_height: u16,
 }

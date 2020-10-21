@@ -337,10 +337,8 @@ impl CPUTimeApp {
                     debug!("{:?}", t);
                     self.sensors.push(Sensor::from(t));
                 }
-            } else if cfg!(target_os = "macos") {
-                if t.get_label().contains("CPU") {
-                    self.sensors.push(Sensor::from(t));
-                }
+            } else if cfg!(target_os = "macos") && t.get_label().contains("CPU") {
+                self.sensors.push(Sensor::from(t));
             }
         }
     }
