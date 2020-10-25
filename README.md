@@ -47,6 +47,27 @@
 
 Download one of the compiled [releases](https://github.com/bvaisvil/zenith/releases).
 
+### Debian/Ubuntu based Linux distributions (64-bit)
+
+The latest 64-bit deb packages are hosted on [bintray](https://bintray.com/bvaisvil/debian/zenith) and require distributions based on Debian >= 9 or Ubuntu >= 16.04
+
+- Import the bintray public key:
+```
+wget 'https://bintray.com/user/downloadSubjectPublicKey?username=bintray' -q -O- | sudo apt-key add -
+```
+
+- Add the following line to /etc/apt/sources.list.d/zenith.list:
+```
+deb [arch=amd64] https://dl.bintray.com/bvaisvil/debian stable main
+```
+
+Then you can install/update the 'zenith' package:
+
+```bash
+apt-get update
+apt-get install zenith
+```
+
 ### Arch Linux
 
 Three packages for zenith are available in AUR: zenith, zenith-git and zenith-bin
