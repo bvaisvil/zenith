@@ -3,5 +3,8 @@
 %:
 	dh $@
 
+override_dh_auto_build:
+	dh_auto_build -- all
+
 override_dh_auto_install:
 	dh_auto_install -- PREFIX=/usr
