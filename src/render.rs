@@ -1424,6 +1424,14 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
             Span::styled("    Move view one screen up\n", main_style),
         ]),
         Spans::from(vec![
+            Span::styled("Home  ", key_style),
+            Span::styled("    Move to top\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("End   ", key_style),
+            Span::styled("    Move to bottom\n", main_style),
+        ]),
+        Spans::from(vec![
             Span::styled("/     ", key_style),
             Span::styled("    Change sort between ascending/descending\n", main_style),
         ]),
@@ -1830,6 +1838,12 @@ impl<'a> TerminalRenderer {
                 process_table,
                 process_table_height.into(),
                 process_table_height.into(),
+            ),
+            Key::Home => self.view_up(process_table, process_table.len()),
+            Key::End => self.view_down(
+                process_table,
+                process_table_height.into(),
+                process_table.len(),
             ),
             Key::Left => self.histogram_left(),
             Key::Right => self.histogram_right(),
