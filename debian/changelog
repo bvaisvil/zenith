@@ -1,4 +1,10 @@
-zenith (0.10.1~1) unstable; urgency=medium
+zenith (0.11.0-1) unstable; urgency=medium
+
+  * Updated to new upstream release.
+
+ -- Sumedh Wale <swale@gmail.com>  Wed, 21 Oct 2020 11:17:25 +0530
+
+zenith (0.10.1-1) unstable; urgency=medium
 
   * Initial deb package release.
 

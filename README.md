@@ -47,6 +47,41 @@
 
 Download one of the compiled [releases](https://github.com/bvaisvil/zenith/releases).
 
+### Debian/Ubuntu based Linux distributions (64-bit)
+
+The latest 64-bit deb packages are hosted on [bintray](https://bintray.com/bvaisvil/debian/zenith) and require distributions based on Debian >= 9 or Ubuntu >= 16.04
+
+- Import the bintray public key:
+```
+wget 'https://bintray.com/user/downloadSubjectPublicKey?username=bintray' -q -O- | sudo apt-key add -
+```
+
+- Add the following line to /etc/apt/sources.list.d/zenith.list:
+```
+deb [arch=amd64] https://dl.bintray.com/bvaisvil/debian stable main
+```
+
+Then you can install/update the 'zenith' package:
+
+```bash
+sudo apt-get update
+sudo apt-get install zenith
+```
+
+### Arch Linux
+
+Three packages for zenith are available in AUR: zenith, zenith-git and zenith-bin
+
+The zenith-bin package uses the deb package mentioned in previous section and can be used to avoid building the package from source. The first two depend on rust/cargo and it is recommended to install the rustup package from AUR instead of the rust package from official repositories. This allows for easy installation of rust components as per what rust officially documents. You will need to install a toolchain separately with rustup so use something like:
+
+```bash
+yay -S rustup
+rustup toolchain install stable
+rustup default stable
+```
+
+Change the 'stable' toolchain above to beta/nightly/... if you have some specific preference. After this install the zenith or zenith-git package (latter will track the latest git revision): ```yay -S zenith```
+
 ### Homebrew
 
 ```bash
@@ -69,14 +104,13 @@ For NVIDIA GPU support, build with feature `nvidia`:
 The minimum supported NVIDIA driver version is 418.56
 
 There is also a Makefile that detects the presence of NVIDIA driver on the
-current system and installs both the above flavours on Linux with a wrapper
-script to choose the appropriate one at runtime.
+current system and builds the appropriate flavor on Linux.
 
 ```make && sudo make install```
 
 If for some reason the Makefile incorrectly detects NVIDIA driver installation
 or in case of a broken installation (e.g. libnvidia-ml.so.1 present but no
-    libnvidia-ml.so) then explicitly skip it using the `base` target:
+libnvidia-ml.so) then explicitly skip it using the `base` target:
 
 ```make base && sudo make install```
 
@@ -84,6 +118,10 @@ The default installation path is `/usr/local` so `make install` requires root
 privileges above. To install in a custom location use PREFIX like below:
 
 ```make && make install PREFIX=$HOME/zenith```
+
+There is also an 'all' target in the Makefile that will build both the flavors on Linux,
+if NVIDIA driver is detected, and 'make install' will then copy a wrapper 'zenith' script
+that chooses the appropriate binary at runtime.
 
 ### Static build
 
@@ -152,14 +190,16 @@ FLAGS:
     -V, --version            Prints version information
 
 OPTIONS:
-    -c, --cpu-height <INT>        Height of CPU/Memory visualization. [default: 10]
+    -c, --cpu-height <INT>        Min Percent Height of CPU/Memory visualization. [default: 17]
         --db <STRING>             Database to use, if any. [default: ~/.zenith]
-    -d, --disk-height <INT>       Height of Disk visualization. [default: 10]
-    -n, --net-height <INT>        Height of Network visualization. [default: 10]
-    -p, --process-height <INT>    Min Height of Process Table. [default: 8]
+    -d, --disk-height <INT>       Min Percent Height of Disk visualization. [default: 17]
+    -n, --net-height <INT>        Min Percent Height of Network visualization. [default: 17]
+    -p, --process-height <INT>    Min Percent Height of Process Table. [default: 32]
     -r, --refresh-rate <INT>      Refresh rate in milliseconds. [default: 2000]
+    -g, --graphics-height <INT>   Min Percent Height of Graphics Card visualization. [default: 17]
 ```
 
+The graphics-height option only applies when NVIDIA GPU support has been enabled.
 
 Don't want a section? Remove it by setting the height to 0. 
 
