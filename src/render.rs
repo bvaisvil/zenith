@@ -20,8 +20,11 @@ use crossterm::{
 use num_traits::FromPrimitive;
 use std::borrow::Cow;
 use std::io;
+use std::collections::HashSet;
 use std::io::Stdout;
 use std::io::Write;
+use std::fmt;
+use std::cmp::Eq;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tui::{backend::CrosstermBackend, Terminal};
@@ -32,7 +35,7 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{
-    BarChart, Block, Borders, List, ListItem, Paragraph, Row, Sparkline, Table, Wrap
+    BarChart, Block, Borders, List, ListItem, Paragraph, Row, Sparkline, Table, Wrap, ListState
 };
 use tui::Frame;
 
@@ -81,13 +84,26 @@ macro_rules! update_section_height {
     };
 }
 
-#[derive(FromPrimitive, PartialEq, Copy, Clone)]
+#[derive(FromPrimitive, PartialEq, Copy, Clone, Debug)]
 pub enum Section {
     CPU = 0,
     Network = 1,
     Disk = 2,
     Graphics = 3,
     Process = 4,
+}
+
+impl fmt::Display for Section{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let name = match self{
+            Section::CPU => " CPU",
+            Section::Disk => " Disk",
+            Section::Graphics => " Graphics",
+            Section::Network => " Network",
+            Section::Process => " Process",
+        };
+        write!(f, "{}", name)
+    }
 }
 
 pub fn sum_section_heights(geometry: &[(Section, f64)]) -> f64 {
@@ -1334,7 +1350,51 @@ fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
     results
 }
 
-fn render_section_mgr(constraints: &Vec<Constraint>, area: Rect, f: &mut Frame<'_, ZBackend>) {
+struct SectionMGRList<'a> {
+    items: Vec<ListItem<'a>>,
+    state: ListState
+}
+
+impl<'a> SectionMGRList<'a> {
+    pub fn new() -> SectionMGRList<'a> {
+        SectionMGRList{
+            items: Vec::new(),
+            state: ListState::default()
+        }
+    }
+    pub fn with_geometry(geometry: Vec<(Section, f64)>) -> SectionMGRList<'a> {
+        info!("Geometry: {:?}", geometry);
+        info!("Geometry Len: {:?}", geometry.len());
+        let mut section_set = HashSet::new();
+
+        for (s, p) in geometry{
+            section_set.insert(format!("{}", s));
+        }
+
+        debug!("Section Set: {:?}", section_set.len());
+        debug!("Section Set: {:?}", section_set);
+        let mut state = ListState::default();
+        let items: Vec<ListItem> = [0, 1, 2, 3, 4].iter().map(|i| {
+            let s: Section = FromPrimitive::from_u32(*i as u32).expect("Index not in range for Section enum");
+            let s: String = format!("{}", s);
+            if section_set.contains(s.as_str()){
+                Span::styled(format!("*{}", s), Style::default().add_modifier(Modifier::BOLD))
+            }
+            else{
+                Span::styled(format!(" {}", s), Style::default())
+            }
+        }).map(ListItem::new).collect();
+        state.select(Some(0));
+        SectionMGRList {
+            state,
+            items
+        }
+    }
+}
+
+fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'_, ZBackend>) {
+    debug!("Rendering Section Manager");
+
     let layout = Layout::default().margin(5).direction(Direction::Vertical).constraints([
         Constraint::Length(1),
         Constraint::Percentage(80),
@@ -1350,24 +1410,16 @@ fn render_section_mgr(constraints: &Vec<Constraint>, area: Rect, f: &mut Frame<'
         .wrap(Wrap { trim: false})
         .alignment(Alignment::Center)
         .render(f, layout[0]);
-    let items: Vec<_> = constraints.iter().skip(1).enumerate().map(|(i, section_constraint)| {
-        let s = FromPrimitive::from_u32(i as u32).expect("Expected a valid section index.");
-        let name = match s{
-            Section::CPU => "CPU",
-            Section::Disk => "Disk",
-            Section::Graphics => "Graphics",
-            Section::Network => "Network",
-            Section::Process => "Process",
-        };
-        Span::styled(name, Style::default().fg(Color::Blue))
-    }).map(ListItem::new).collect();
-    List::new(items)
+
+    let list_widget = List::new(list.items.clone())
         .block(
             Block::default()
                 .title("Sections")
                 .borders(Borders::ALL)
         )
-        .render(f, layout[1]);
+        .highlight_style(Style::default().bg(Color::Green))
+        .highlight_symbol("➡ ");
+    f.render_stateful_widget(list_widget, layout[1], &mut list.state);
 }
 
 fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
@@ -1580,7 +1632,7 @@ fn get_constraints(section_geometry: &[(Section, f64)], height: u16) -> Vec<Cons
     eval_constraints(section_geometry, height, &mut borrowed)
 }
 
-pub struct TerminalRenderer {
+pub struct TerminalRenderer<'a> {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     app: CPUTimeApp,
     events: Events,
@@ -1611,9 +1663,10 @@ pub struct TerminalRenderer {
     filter: String,
     highlighted_row: usize,
     selection_grace_start: Option<Instant>,
+    section_manager_options: SectionMGRList<'a>
 }
 
-impl<'a> TerminalRenderer {
+impl<'a> TerminalRenderer<'_> {
     pub fn new(
         tick_rate: u64,
         section_geometry: &[(Section, f64)],
@@ -1633,13 +1686,14 @@ impl<'a> TerminalRenderer {
         terminal.hide_cursor().ok();
 
         let constraints = get_constraints(&section_geometry, terminal_size().1);
+        let section_geometry= section_geometry.to_vec();
         TerminalRenderer {
             terminal,
             app,
             events,
             process_table_row_start: 0,
             gfx_device_index: 0,
-            section_geometry: section_geometry.to_vec(),
+            section_geometry: section_geometry.clone(),
             zoom_factor: 1,
             update_number: 0,
             // select the last section by default (normally should be Process)
@@ -1654,6 +1708,7 @@ impl<'a> TerminalRenderer {
             filter: String::from(""),
             highlighted_row: 0,
             selection_grace_start: None,
+            section_manager_options: SectionMGRList::with_geometry(section_geometry),
         }
     }
 
@@ -1710,8 +1765,9 @@ impl<'a> TerminalRenderer {
             let mut process_table_height: u16 = 0;
             let zf = &self.zoom_factor;
             let constraints = &self.constraints;
-            let geometry = &self.section_geometry;
-            let selected = self.selected_section();
+            let geometry = &self.section_geometry.to_vec();
+            let section_manager_options = &mut self.section_manager_options;
+            let selected = self.section_geometry[self.selected_section_index].0;
             let process_message = &self.process_message;
             let offset = &self.hist_start_offset;
             let un = &self.update_number;
@@ -1749,7 +1805,7 @@ impl<'a> TerminalRenderer {
                             .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
                             .split(f.size());
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
-                        render_section_mgr(constraints,v_sections[1], &mut f);
+                        render_section_mgr(section_manager_options, v_sections[1], &mut f);
                     } else {
                         // create layouts
                         // primary vertical
@@ -1921,7 +1977,19 @@ impl<'a> TerminalRenderer {
 
     fn view_up(&mut self, process_table: &[i32], delta: usize) {
         let selected = self.selected_section();
-        if selected == Section::Graphics {
+        if self.show_section_mgr{
+            match self.section_manager_options.state.selected(){
+                Some(i) => {
+                    let mut idx = 0;
+                    if (i as i32 - delta as i32) > 0 {
+                        idx = i - delta;
+                    }
+                    self.section_manager_options.state.select(Some(idx));
+                },
+                None => self.section_manager_options.state.select(Some(0))
+            }
+        }
+        else if selected == Section::Graphics {
             if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
             }
@@ -1945,7 +2013,19 @@ impl<'a> TerminalRenderer {
     fn view_down(&mut self, process_table: &[i32], process_table_height: usize, delta: usize) {
         use std::cmp::min;
         let selected = self.selected_section();
-        if selected == Section::Graphics {
+        if self.show_section_mgr{
+            match self.section_manager_options.state.selected(){
+                Some(i) => {
+                    let mut idx = self.section_manager_options.items.len() - 1;
+                    if i + delta < idx {
+                        idx = i + delta;
+                    }
+                    self.section_manager_options.state.select(Some(idx));
+                },
+                None => self.section_manager_options.state.select(Some(0))
+            }
+        }
+        else if selected == Section::Graphics {
             if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;
             }
