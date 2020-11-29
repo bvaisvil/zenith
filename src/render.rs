@@ -1351,7 +1351,7 @@ fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
 }
 
 struct SectionMGRList<'a> {
-    items: Vec<ListItem<'a>>,
+    items: Vec<(Section, ListItem<'a>)>,
     state: ListState
 }
 
@@ -1374,22 +1374,30 @@ impl<'a> SectionMGRList<'a> {
         debug!("Section Set: {:?}", section_set.len());
         debug!("Section Set: {:?}", section_set);
         let mut state = ListState::default();
-        let items: Vec<ListItem> = [0, 1, 2, 3, 4].iter().map(|i| {
-            let s: Section = FromPrimitive::from_u32(*i as u32).expect("Index not in range for Section enum");
-            let s: String = format!("{}", s);
+        let items: Vec<(Section, ListItem)> = [0, 1, 2, 3, 4].iter().map(|i| {
+            let section: Section = FromPrimitive::from_u32(*i as u32).expect("Index not in range for Section enum");
+            let s: String = format!("{}", section);
             if section_set.contains(s.as_str()){
-                Span::styled(format!("*{}", s), Style::default().add_modifier(Modifier::BOLD))
+                (section, Span::styled(format!("*{}", s), Style::default().add_modifier(Modifier::BOLD)))
             }
             else{
-                Span::styled(format!(" {}", s), Style::default())
+                (section, Span::styled(format!(" {}", s), Style::default()))
             }
-        }).map(ListItem::new).collect();
+        }).map(|(s, span)| (s, ListItem::new(span))).collect();
         state.select(Some(0));
         SectionMGRList {
             state,
             items
         }
     }
+
+    pub fn selected(&self) -> Option<Section>{
+        match self.state.selected(){
+            Some(s) => Some(self.items[s].0),
+            None => None
+        }
+    }
+
 }
 
 fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'_, ZBackend>) {
@@ -1410,8 +1418,8 @@ fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'
         .wrap(Wrap { trim: false})
         .alignment(Alignment::Center)
         .render(f, layout[0]);
-
-    let list_widget = List::new(list.items.clone())
+    let list_items: Vec<ListItem> = list.items.iter().map(|i| i.1.clone()).collect();
+    let list_widget = List::new(list_items)
         .block(
             Block::default()
                 .title("Sections")
@@ -2199,6 +2207,34 @@ impl<'a> TerminalRenderer<'_> {
             Key::Tab => {
                 self.selected_section_index =
                     (self.selected_section_index + 1) % self.section_geometry.len();
+            }
+            Key::Char(' ') => {
+                if self.show_section_mgr{
+                    match self.section_manager_options.selected(){
+                        Some(s) => {
+                            if self.section_geometry.len() > 1{
+                                let num_shown = self.section_geometry.len();
+                                self.section_geometry.retain(|(section, size)| *section != s);
+                                if num_shown > self.section_geometry.len(){
+                                    let new_geometry = self.section_geometry.clone();
+                                    let selected = self.section_manager_options.state.selected();
+                                    self.section_manager_options = SectionMGRList::with_geometry(new_geometry);
+                                    self.section_manager_options.state.select(selected);
+                                    self.selected_section_index = 0;
+                                    for idx in 0..self.section_geometry.len(){
+                                        self.section_geometry[idx].1 = 100.0 / self.section_geometry.len() as f64;
+                                    }
+                                    self.constraints = get_constraints(self.section_geometry.as_slice(), terminal_size().1);
+                                }
+                            }
+
+
+
+                        },
+                        None => {}
+                    }
+
+                }
             }
             Key::F(1) => {
                 self.toggle_section_mgr();
