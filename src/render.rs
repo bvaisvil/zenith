@@ -19,12 +19,12 @@ use crossterm::{
 };
 use num_traits::FromPrimitive;
 use std::borrow::Cow;
-use std::io;
+use std::cmp::Eq;
 use std::collections::HashSet;
+use std::fmt;
+use std::io;
 use std::io::Stdout;
 use std::io::Write;
-use std::fmt;
-use std::cmp::Eq;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tui::{backend::CrosstermBackend, Terminal};
@@ -35,7 +35,7 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{
-    BarChart, Block, Borders, List, ListItem, Paragraph, Row, Sparkline, Table, Wrap, ListState
+    BarChart, Block, Borders, List, ListItem, ListState, Paragraph, Row, Sparkline, Table, Wrap,
 };
 use tui::Frame;
 
@@ -84,7 +84,7 @@ macro_rules! update_section_height {
     };
 }
 
-#[derive(FromPrimitive, PartialEq, Copy, Clone, Debug)]
+#[derive(FromPrimitive, PartialEq, Copy, Clone, Debug, Ord, PartialOrd, Eq)]
 pub enum Section {
     CPU = 0,
     Network = 1,
@@ -93,9 +93,9 @@ pub enum Section {
     Process = 4,
 }
 
-impl fmt::Display for Section{
+impl fmt::Display for Section {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let name = match self{
+        let name = match self {
             Section::CPU => " CPU",
             Section::Disk => " Disk",
             Section::Graphics => " Graphics",
@@ -1352,14 +1352,14 @@ fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
 
 struct SectionMGRList<'a> {
     items: Vec<(Section, ListItem<'a>)>,
-    state: ListState
+    state: ListState,
 }
 
 impl<'a> SectionMGRList<'a> {
     pub fn new() -> SectionMGRList<'a> {
-        SectionMGRList{
+        SectionMGRList {
             items: Vec::new(),
-            state: ListState::default()
+            state: ListState::default(),
         }
     }
     pub fn with_geometry(geometry: Vec<(Section, f64)>) -> SectionMGRList<'a> {
@@ -1367,64 +1367,77 @@ impl<'a> SectionMGRList<'a> {
         info!("Geometry Len: {:?}", geometry.len());
         let mut section_set = HashSet::new();
 
-        for (s, p) in geometry{
+        for (s, _) in geometry {
             section_set.insert(format!("{}", s));
         }
 
         debug!("Section Set: {:?}", section_set.len());
         debug!("Section Set: {:?}", section_set);
         let mut state = ListState::default();
-        let items: Vec<(Section, ListItem)> = [0, 1, 2, 3, 4].iter().map(|i| {
-            let section: Section = FromPrimitive::from_u32(*i as u32).expect("Index not in range for Section enum");
-            let s: String = format!("{}", section);
-            if section_set.contains(s.as_str()){
-                (section, Span::styled(format!("*{}", s), Style::default().add_modifier(Modifier::BOLD)))
-            }
-            else{
-                (section, Span::styled(format!(" {}", s), Style::default()))
-            }
-        }).map(|(s, span)| (s, ListItem::new(span))).collect();
+        let items: Vec<(Section, ListItem)> = [0, 1, 2, 3, 4]
+            .iter()
+            .map(|i| {
+                let section: Section = FromPrimitive::from_u32(*i as u32)
+                    .expect("Index not in range for Section enum");
+                let s: String = format!("{}", section);
+                if section_set.contains(s.as_str()) {
+                    (
+                        section,
+                        Span::styled(
+                            format!("*{}", s),
+                            Style::default().add_modifier(Modifier::BOLD),
+                        ),
+                    )
+                } else {
+                    (section, Span::styled(format!(" {}", s), Style::default()))
+                }
+            })
+            .map(|(s, span)| (s, ListItem::new(span)))
+            .collect();
         state.select(Some(0));
-        SectionMGRList {
-            state,
-            items
-        }
+        SectionMGRList { state, items }
     }
 
-    pub fn selected(&self) -> Option<Section>{
-        match self.state.selected(){
+    pub fn selected(&self) -> Option<Section> {
+        match self.state.selected() {
             Some(s) => Some(self.items[s].0),
-            None => None
+            None => None,
         }
     }
-
 }
 
 fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'_, ZBackend>) {
     debug!("Rendering Section Manager");
 
-    let layout = Layout::default().margin(5).direction(Direction::Vertical).constraints([
-        Constraint::Length(1),
-        Constraint::Percentage(80),
-        Constraint::Length(5)
-    ].as_ref()
-    ).split(area);
+    let layout = Layout::default()
+        .margin(5)
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Length(1),
+                Constraint::Percentage(80),
+                Constraint::Length(5),
+            ]
+            .as_ref(),
+        )
+        .split(area);
     let header_style = Style::default().fg(Color::Green);
-    let t = vec![Span::styled(
-        format!("Options"),
+    let t = vec![Span::styled(format!("Options"), header_style)];
+    let help = vec![Span::styled(
+        format!("Navigate [↑/↓] Toggle [Space] Return [F1]"),
         header_style,
     )];
     Paragraph::new(Spans::from(t))
-        .wrap(Wrap { trim: false})
+        .wrap(Wrap { trim: false })
         .alignment(Alignment::Center)
         .render(f, layout[0]);
+    Paragraph::new(Spans::from(help))
+        .wrap(Wrap { trim: false })
+        .alignment(Alignment::Center)
+        .render(f, layout[2]);
     let list_items: Vec<ListItem> = list.items.iter().map(|i| i.1.clone()).collect();
     let list_widget = List::new(list_items)
-        .block(
-            Block::default()
-                .title("Sections")
-                .borders(Borders::ALL)
-        )
+        .block(Block::default().title("Sections").borders(Borders::ALL))
         .highlight_style(Style::default().bg(Color::Green))
         .highlight_symbol("➡ ");
     f.render_stateful_widget(list_widget, layout[1], &mut list.state);
@@ -1476,6 +1489,10 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
         Spans::from(vec![
             Span::styled("m    ", key_style),
             Span::styled("    Shrinks highlighted section\n", main_style),
+        ]),
+        Spans::from(vec![
+            Span::styled("F1   ", key_style),
+            Span::styled("    Show Section Selection Menu\n", main_style),
         ]),
         Spans::from(vec![
             Span::styled("-    ", key_style),
@@ -1671,7 +1688,7 @@ pub struct TerminalRenderer<'a> {
     filter: String,
     highlighted_row: usize,
     selection_grace_start: Option<Instant>,
-    section_manager_options: SectionMGRList<'a>
+    section_manager_options: SectionMGRList<'a>,
 }
 
 impl<'a> TerminalRenderer<'_> {
@@ -1694,7 +1711,7 @@ impl<'a> TerminalRenderer<'_> {
         terminal.hide_cursor().ok();
 
         let constraints = get_constraints(&section_geometry, terminal_size().1);
-        let section_geometry= section_geometry.to_vec();
+        let section_geometry = section_geometry.to_vec();
         TerminalRenderer {
             terminal,
             app,
@@ -1805,8 +1822,7 @@ impl<'a> TerminalRenderer<'_> {
 
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
                         render_help(v_sections[1], &mut f);
-                    }
-                    else if show_section_mgr {
+                    } else if show_section_mgr {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
                             .margin(0)
@@ -1985,19 +2001,18 @@ impl<'a> TerminalRenderer<'_> {
 
     fn view_up(&mut self, process_table: &[i32], delta: usize) {
         let selected = self.selected_section();
-        if self.show_section_mgr{
-            match self.section_manager_options.state.selected(){
+        if self.show_section_mgr {
+            match self.section_manager_options.state.selected() {
                 Some(i) => {
                     let mut idx = 0;
                     if (i as i32 - delta as i32) > 0 {
                         idx = i - delta;
                     }
                     self.section_manager_options.state.select(Some(idx));
-                },
-                None => self.section_manager_options.state.select(Some(0))
+                }
+                None => self.section_manager_options.state.select(Some(0)),
             }
-        }
-        else if selected == Section::Graphics {
+        } else if selected == Section::Graphics {
             if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
             }
@@ -2021,19 +2036,18 @@ impl<'a> TerminalRenderer<'_> {
     fn view_down(&mut self, process_table: &[i32], process_table_height: usize, delta: usize) {
         use std::cmp::min;
         let selected = self.selected_section();
-        if self.show_section_mgr{
-            match self.section_manager_options.state.selected(){
+        if self.show_section_mgr {
+            match self.section_manager_options.state.selected() {
                 Some(i) => {
                     let mut idx = self.section_manager_options.items.len() - 1;
                     if i + delta < idx {
                         idx = i + delta;
                     }
                     self.section_manager_options.state.select(Some(idx));
-                },
-                None => self.section_manager_options.state.select(Some(0))
+                }
+                None => self.section_manager_options.state.select(Some(0)),
             }
-        }
-        else if selected == Section::Graphics {
+        } else if selected == Section::Graphics {
             if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;
             }
@@ -2095,26 +2109,45 @@ impl<'a> TerminalRenderer<'_> {
         }
     }
 
+    fn recompute_constraints(&mut self) {
+        self.selected_section_index = 0;
+        for idx in 0..self.section_geometry.len() {
+            self.section_geometry[idx].1 = 100.0 / self.section_geometry.len() as f64;
+        }
+        let new_geometry = self.section_geometry.clone();
+        let selected = self.section_manager_options.state.selected();
+        self.section_manager_options = SectionMGRList::with_geometry(new_geometry);
+        self.section_manager_options.state.select(selected);
+        self.constraints = get_constraints(self.section_geometry.as_slice(), terminal_size().1);
+    }
 
-    // fn advance_to_next_section(&mut self) {
-    //     if self.cpu_height > 0
-    //         || self.net_height > 0
-    //         || self.disk_height > 0
-    //         || self.graphics_height > 0
-    //         || self.process_height > 0
-    //     {
-    //         let mut i = self.selected_section as u32 + 1;
-    //         if i > 4 {
-    //             i = 0;
-    //         }
-    //         self.selected_section = FromPrimitive::from_u32(i).unwrap_or(Section::CPU);
-    //         if self.current_section_height() == 0 {
-    //             self.advance_to_next_section();
-    //         }
-    //     }
-    // }
+    fn toggle_section(&mut self) {
+        if self.show_section_mgr {
+            match self.section_manager_options.selected() {
+                Some(s) => {
+                    if self.section_geometry.len() > 1
+                        && self.section_geometry.iter().any(|(gs, _)| *gs == s)
+                    {
+                        self.section_geometry.retain(|(section, _)| *section != s);
+                        self.recompute_constraints();
+                    } else if !self.section_geometry.iter().any(|(gs, _)| *gs == s) {
+                        let idx = 0;
+                        self.section_geometry.insert(idx, (s, 1.0));
+                        self.section_geometry
+                            .sort_by(|(a_section, _), (b_section, _)| {
+                                a_section
+                                    .partial_cmp(b_section)
+                                    .expect("Can't compare sections. Shouldn't happen.")
+                            });
+                        self.recompute_constraints();
+                    }
+                }
+                None => {}
+            }
+        }
+    }
 
-    fn toggle_section_mgr(&mut self){
+    fn toggle_section_mgr(&mut self) {
         self.show_section_mgr = !self.show_section_mgr;
     }
 
@@ -2209,32 +2242,7 @@ impl<'a> TerminalRenderer<'_> {
                     (self.selected_section_index + 1) % self.section_geometry.len();
             }
             Key::Char(' ') => {
-                if self.show_section_mgr{
-                    match self.section_manager_options.selected(){
-                        Some(s) => {
-                            if self.section_geometry.len() > 1{
-                                let num_shown = self.section_geometry.len();
-                                self.section_geometry.retain(|(section, size)| *section != s);
-                                if num_shown > self.section_geometry.len(){
-                                    let new_geometry = self.section_geometry.clone();
-                                    let selected = self.section_manager_options.state.selected();
-                                    self.section_manager_options = SectionMGRList::with_geometry(new_geometry);
-                                    self.section_manager_options.state.select(selected);
-                                    self.selected_section_index = 0;
-                                    for idx in 0..self.section_geometry.len(){
-                                        self.section_geometry[idx].1 = 100.0 / self.section_geometry.len() as f64;
-                                    }
-                                    self.constraints = get_constraints(self.section_geometry.as_slice(), terminal_size().1);
-                                }
-                            }
-
-
-
-                        },
-                        None => {}
-                    }
-
-                }
+                self.toggle_section();
             }
             Key::F(1) => {
                 self.toggle_section_mgr();
