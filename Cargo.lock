@@ -763,6 +763,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2448f6066e80e3bfc792e9c98bf705b4b0fc6e8ef5b43e5889aff0eaa9c58743"
 
 [[package]]
+name = "libloading"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9367bdfa836b7e3cf895867f7a570283444da90562980ec2263d6e1569b16bc"
+dependencies = [
+ "cfg-if 1.0.0",
+ "winapi",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -920,21 +930,26 @@ dependencies = [
 
 [[package]]
 name = "nvml-wrapper"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "944ffe87fee13faccf308c0fa0942213e706354f3f63ce86ebf99329fbfa1c70"
+checksum = "4f6fb95ab904553d1b8914d340cadd0b34bee1cc984668eaa096a018f04ed8b8"
 dependencies = [
  "bitflags",
+ "libloading",
  "nvml-wrapper-sys",
+ "static_assertions",
  "thiserror",
  "wrapcenum-derive",
 ]
 
 [[package]]
 name = "nvml-wrapper-sys"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e93d1ef218b5bf0862525fb59a0c30ef06511f6035ca764b659833fb6630bb5c"
+checksum = "4be195fa681ad2a9c903a866bc3f97f174333f04fb7b9e7c1f2413452f698484"
+dependencies = [
+ "libloading",
+]
 
 [[package]]
 name = "once_cell"
@@ -1266,6 +1281,12 @@ dependencies = [
  "redox_syscall",
  "winapi",
 ]
+
+[[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "strsim"

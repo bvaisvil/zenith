@@ -186,6 +186,8 @@ pub struct CPUTimeApp {
     pub max_pid_len: usize,
     pub batteries: Vec<battery::Battery>,
     pub uptime: Duration,
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    pub nvml: Option<nvml::NVML>,
 }
 
 impl CPUTimeApp {
@@ -233,6 +235,15 @@ impl CPUTimeApp {
             top_disk_writer_pid: None,
             uptime: Duration::from_secs(0),
             gfx_devices: vec![],
+
+            #[cfg(all(target_os = "linux", feature = "nvidia"))]
+            nvml: match nvml::NVML::init() {
+                Ok(n) => Some(n),
+                Err(e) => {
+                    error!("Couldn't init NVML: {:?}", e);
+                    None
+                }
+            },
         };
         debug!("Initial Metrics Update");
         s.system.refresh_all();

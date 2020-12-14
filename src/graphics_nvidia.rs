@@ -6,7 +6,6 @@ use crate::metrics::CPUTimeApp;
 use nvml::device::Device;
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
 use nvml::struct_wrappers::device::ProcessUtilizationSample;
-use nvml::NVML;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -93,15 +92,11 @@ impl fmt::Display for GraphicsDevice {
 
 impl GraphicsExt for CPUTimeApp {
     fn update_gfx_devices(&mut self) {
-        self.gfx_devices.clear();
-        let nvml = NVML::init();
-        let n = match nvml {
-            Ok(n) => n,
-            Err(e) => {
-                error!("Couldn't init NVML: {:?}", e);
-                return;
-            }
+        let n = match &self.nvml {
+            Some(n) => n,
+            _ => return,
         };
+        self.gfx_devices.clear();
 
         let count = n.device_count().unwrap_or(0);
         for i in 0..count {
