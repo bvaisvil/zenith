@@ -4,7 +4,8 @@
  */
 use crate::constants::DEFAULT_TICK;
 use crossterm::{event, event::Event as CEvent, event::KeyCode as Key, event::KeyEvent};
-use signal_hook::{iterator::Signals, SIGABRT, SIGINT, SIGTERM};
+use signal_hook::consts::signal::{SIGABRT, SIGINT, SIGTERM};
+use signal_hook::iterator::Signals;
 use std::fs::{remove_file, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -82,7 +83,7 @@ impl Events {
         };
         let sig_handle = {
             let tx = tx;
-            let signals =
+            let mut signals =
                 Signals::new(&[SIGINT, SIGTERM, SIGABRT]).expect("Couldn't create signal handler");
             thread::spawn(move || {
                 let tx = tx.clone();

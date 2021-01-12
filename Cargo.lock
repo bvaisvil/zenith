@@ -402,9 +402,9 @@ dependencies = [
 
 [[package]]
 name = "dirs-next"
-version = "1.0.2"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf36e65a80337bea855cd4ef9b8401ffce06a7baedf2e85ec467b1ac3f6e82b6"
+checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if 1.0.0",
  "dirs-sys-next",
@@ -1257,9 +1257,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook"
-version = "0.2.3"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "844024c8913df6bfbfeee3061075ccc47216a897ac0b54a683dea3dfe16d19af"
+checksum = "a90334751bc87d07fe48ad9396400bfbd4cf1814a3ea41422adf3204af05a6f0"
 dependencies = [
  "libc",
  "signal-hook-registry",
@@ -1534,8 +1534,7 @@ dependencies = [
  "nvml-wrapper",
  "serde",
  "serde_derive",
- "signal-hook 0.2.3",
- "signal-hook-registry",
+ "signal-hook 0.3.3",
  "sysinfo",
  "tui",
  "users",
