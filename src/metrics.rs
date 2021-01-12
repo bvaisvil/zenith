@@ -323,11 +323,8 @@ impl CPUTimeApp {
                         continue;
                     }
                     let dest = match n.destination() {
-                        Some(d) => match d {
-                            Address::Inet(d) => d.to_string(),
-                            _ => format!(""),
-                        },
-                        None => format!(""),
+                        Some(Address::Inet(d)) => d.to_string(),
+                        _ => format!(""),
                     };
                     self.network_interfaces.push(NetworkInterface {
                         name: n.name().to_owned(),

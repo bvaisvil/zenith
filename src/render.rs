@@ -1422,9 +1422,9 @@ fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'
         )
         .split(area);
     let header_style = Style::default().fg(Color::Green);
-    let t = vec![Span::styled(format!("Options"), header_style)];
+    let t = vec![Span::styled("Options", header_style)];
     let help = vec![Span::styled(
-        format!("Navigate [↑/↓] Toggle [Space] Return [F1]"),
+        "Navigate [↑/↓] Toggle [Space] Return [F1]",
         header_style,
     )];
     Paragraph::new(Spans::from(t))
@@ -1769,7 +1769,7 @@ impl<'a> TerminalRenderer<'_> {
                 // abort if process section became too small and borrowed from others
                 if !borrowed {
                     let new_sum_heights = sum_section_heights(&new_geometry);
-                    assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+                    assert!((99.9..=100.1).contains(&new_sum_heights));
                     self.section_geometry = new_geometry;
                     self.constraints = new_constraints;
                 }
@@ -2123,26 +2123,23 @@ impl<'a> TerminalRenderer<'_> {
 
     fn toggle_section(&mut self) {
         if self.show_section_mgr {
-            match self.section_manager_options.selected() {
-                Some(s) => {
-                    if self.section_geometry.len() > 1
-                        && self.section_geometry.iter().any(|(gs, _)| *gs == s)
-                    {
-                        self.section_geometry.retain(|(section, _)| *section != s);
-                        self.recompute_constraints();
-                    } else if !self.section_geometry.iter().any(|(gs, _)| *gs == s) {
-                        let idx = 0;
-                        self.section_geometry.insert(idx, (s, 1.0));
-                        self.section_geometry
-                            .sort_by(|(a_section, _), (b_section, _)| {
-                                a_section
-                                    .partial_cmp(b_section)
-                                    .expect("Can't compare sections. Shouldn't happen.")
-                            });
-                        self.recompute_constraints();
-                    }
+            if let Some(s) = self.section_manager_options.selected() {
+                if self.section_geometry.len() > 1
+                    && self.section_geometry.iter().any(|(gs, _)| *gs == s)
+                {
+                    self.section_geometry.retain(|(section, _)| *section != s);
+                    self.recompute_constraints();
+                } else if !self.section_geometry.iter().any(|(gs, _)| *gs == s) {
+                    let idx = 0;
+                    self.section_geometry.insert(idx, (s, 1.0));
+                    self.section_geometry
+                        .sort_by(|(a_section, _), (b_section, _)| {
+                            a_section
+                                .partial_cmp(b_section)
+                                .expect("Can't compare sections. Shouldn't happen.")
+                        });
+                    self.recompute_constraints();
                 }
-                None => {}
             }
         }
     }
