@@ -209,7 +209,7 @@ fn render_process_table(
     if area.height < 5 {
         return highlighted_process; // not enough space to draw anything
     }
-    let rows: Vec<(Vec<String>, Option<Style>)> = procs
+    let rows: Vec<Row> = procs
         .iter()
         .enumerate()
         .skip(process_table_start)
@@ -267,17 +267,17 @@ fn render_process_table(
             }
             row.push(format!("{:}{:}", p.name, cmd_string));
 
-            let style = if i == highlighted_row {
-                Some(
+            let row = Row::new(row);
+
+            if i == highlighted_row {
+                row.style(
                     Style::default()
                         .fg(Color::Magenta)
                         .add_modifier(Modifier::BOLD),
                 )
             } else {
-                None
-            };
-
-            (row, style)
+                row
+            }
         })
         .collect();
 
@@ -317,13 +317,6 @@ fn render_process_table(
         ProcessTableSortOrder::Descending => '↓',
     };
     header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
-    let rows_view = rows.iter().map(|(row, style)| {
-        if let Some(style) = style {
-            Row::StyledData(row.iter(), *style)
-        } else {
-            Row::Data(row.iter())
-        }
-    });
 
     let title = if show_find {
         format!("[ESC] Clear, Find: {:}", filter)
@@ -337,7 +330,7 @@ fn render_process_table(
         )
     };
 
-    Table::new(header.into_iter(), rows_view)
+    Table::new(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -346,7 +339,11 @@ fn render_process_table(
         )
         .widths(widths.as_slice())
         .column_spacing(0)
-        .header_style(Style::default().bg(Color::DarkGray))
+        .header(
+            Row::new(header)
+                .style(Style::default().bg(Color::DarkGray))
+                .bottom_margin(1),
+        )
         .render(f, area);
     highlighted_process
 }
