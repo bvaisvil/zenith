@@ -619,8 +619,7 @@ dependencies = [
 [[package]]
 name = "heim"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8a653442b9bdd11a77d3753a60443c60c4437d3acac8e6c3d4a6a9acd7cceed"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "heim-common",
  "heim-cpu",
@@ -637,8 +636,7 @@ dependencies = [
 [[package]]
 name = "heim-common"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d767e6e47cf88abe7c9a5ebb4df82f180d30d9c0ba0269b6d166482461765834"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation 0.9.1",
@@ -656,8 +654,7 @@ dependencies = [
 [[package]]
 name = "heim-cpu"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ba5fb13a3b90581d22b4edf99e87c54316444622ae123d36816a227a7caa6df"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "cfg-if 1.0.0",
  "futures",
@@ -675,8 +672,7 @@ dependencies = [
 [[package]]
 name = "heim-disk"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75603ff3868851c04954ee86bf610a6bd45be2732a0e81c35fd72b2b90fa4718"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -692,8 +688,7 @@ dependencies = [
 [[package]]
 name = "heim-host"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9abf6cd02bc4f6e6aa31a7f80702a2d0e574f4f2c6156a93c3550eb036304722"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "cfg-if 1.0.0",
  "heim-common",
@@ -710,8 +705,7 @@ dependencies = [
 [[package]]
 name = "heim-memory"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fa81bccc5e81ab0c68f520ecba5cb42817bacabfc6120160de886754ad0e3e1"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "cfg-if 1.0.0",
  "heim-common",
@@ -725,8 +719,7 @@ dependencies = [
 [[package]]
 name = "heim-net"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d13afa5e9b71c813c1e087bb27f51ae87d3a6d68a2bdd045bae4322dfae4948b"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -740,8 +733,7 @@ dependencies = [
 [[package]]
 name = "heim-process"
 version = "0.1.1-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "386870aac75d29b817fe709f1ef4303553e0af369e3c71d04beceeb50ae2cf39"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "async-trait",
  "cfg-if 1.0.0",
@@ -765,8 +757,7 @@ dependencies = [
 [[package]]
 name = "heim-runtime"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54ec7e5238c8f0dd0cc60914d31a5a7aadd4cde74c966a76c1caed1f5224e9b8"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "futures",
  "futures-timer",
@@ -777,8 +768,7 @@ dependencies = [
 [[package]]
 name = "heim-sensors"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82de7f0784d3b0c53f2e8875c63f430bf6718b03ec8ddce905c12887031158f5"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "cfg-if 1.0.0",
  "heim-common",
@@ -788,8 +778,7 @@ dependencies = [
 [[package]]
 name = "heim-virt"
 version = "0.1.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7616c8db704e85495952fc1350da7624ebf1d459feab1b7f01d43944b7412744"
+source = "git+https://github.com/heim-rs/heim?rev=0cc1540#0cc1540782546da2f24e30cf1a49f735e4931371"
 dependencies = [
  "cfg-if 1.0.0",
  "futures",

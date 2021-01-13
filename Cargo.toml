@@ -21,7 +21,7 @@ byte-unit = "4.0.9"
 users = "0.11.0"
 num-derive = "0.3.0"
 num-traits = "0.2"
-heim = {version = "0.1.0-rc.1", features = ["full"]}
+heim = {git = "https://github.com/heim-rs/heim", rev = "0cc1540", features = ["full"]}
 futures = "0.3.7"
 gumdrop = {version = "0.8", features = ["default_expr"]}
 chrono = "0.4.*"
