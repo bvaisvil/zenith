@@ -209,7 +209,7 @@ fn render_process_table(
     if area.height < 5 {
         return highlighted_process; // not enough space to draw anything
     }
-    let rows: Vec<(Vec<String>, Option<Style>)> = procs
+    let rows: Vec<Row> = procs
         .iter()
         .enumerate()
         .skip(process_table_start)
@@ -267,17 +267,17 @@ fn render_process_table(
             }
             row.push(format!("{:}{:}", p.name, cmd_string));
 
-            let style = if i == highlighted_row {
-                Some(
+            let row = Row::new(row);
+
+            if i == highlighted_row {
+                row.style(
                     Style::default()
                         .fg(Color::Magenta)
                         .add_modifier(Modifier::BOLD),
                 )
             } else {
-                None
-            };
-
-            (row, style)
+                row
+            }
         })
         .collect();
 
@@ -317,13 +317,6 @@ fn render_process_table(
         ProcessTableSortOrder::Descending => '↓',
     };
     header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
-    let rows_view = rows.iter().map(|(row, style)| {
-        if let Some(style) = style {
-            Row::StyledData(row.iter(), *style)
-        } else {
-            Row::Data(row.iter())
-        }
-    });
 
     let title = if show_find {
         format!("[ESC] Clear, Find: {:}", filter)
@@ -337,7 +330,7 @@ fn render_process_table(
         )
     };
 
-    Table::new(header.into_iter(), rows_view)
+    Table::new(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -346,7 +339,11 @@ fn render_process_table(
         )
         .widths(widths.as_slice())
         .column_spacing(0)
-        .header_style(Style::default().bg(Color::DarkGray))
+        .header(
+            Row::new(header)
+                .style(Style::default().bg(Color::DarkGray))
+                .bottom_margin(1),
+        )
         .render(f, area);
     highlighted_process
 }
@@ -1422,9 +1419,9 @@ fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'
         )
         .split(area);
     let header_style = Style::default().fg(Color::Green);
-    let t = vec![Span::styled(format!("Options"), header_style)];
+    let t = vec![Span::styled("Options", header_style)];
     let help = vec![Span::styled(
-        format!("Navigate [↑/↓] Toggle [Space] Return [F1]"),
+        "Navigate [↑/↓] Toggle [Space] Return [F1]",
         header_style,
     )];
     Paragraph::new(Spans::from(t))
@@ -1769,7 +1766,7 @@ impl<'a> TerminalRenderer<'_> {
                 // abort if process section became too small and borrowed from others
                 if !borrowed {
                     let new_sum_heights = sum_section_heights(&new_geometry);
-                    assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+                    assert!((99.9..=100.1).contains(&new_sum_heights));
                     self.section_geometry = new_geometry;
                     self.constraints = new_constraints;
                 }
@@ -2123,26 +2120,23 @@ impl<'a> TerminalRenderer<'_> {
 
     fn toggle_section(&mut self) {
         if self.show_section_mgr {
-            match self.section_manager_options.selected() {
-                Some(s) => {
-                    if self.section_geometry.len() > 1
-                        && self.section_geometry.iter().any(|(gs, _)| *gs == s)
-                    {
-                        self.section_geometry.retain(|(section, _)| *section != s);
-                        self.recompute_constraints();
-                    } else if !self.section_geometry.iter().any(|(gs, _)| *gs == s) {
-                        let idx = 0;
-                        self.section_geometry.insert(idx, (s, 1.0));
-                        self.section_geometry
-                            .sort_by(|(a_section, _), (b_section, _)| {
-                                a_section
-                                    .partial_cmp(b_section)
-                                    .expect("Can't compare sections. Shouldn't happen.")
-                            });
-                        self.recompute_constraints();
-                    }
+            if let Some(s) = self.section_manager_options.selected() {
+                if self.section_geometry.len() > 1
+                    && self.section_geometry.iter().any(|(gs, _)| *gs == s)
+                {
+                    self.section_geometry.retain(|(section, _)| *section != s);
+                    self.recompute_constraints();
+                } else if !self.section_geometry.iter().any(|(gs, _)| *gs == s) {
+                    let idx = 0;
+                    self.section_geometry.insert(idx, (s, 1.0));
+                    self.section_geometry
+                        .sort_by(|(a_section, _), (b_section, _)| {
+                            a_section
+                                .partial_cmp(b_section)
+                                .expect("Can't compare sections. Shouldn't happen.")
+                        });
+                    self.recompute_constraints();
                 }
-                None => {}
             }
         }
     }

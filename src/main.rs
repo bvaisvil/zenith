@@ -161,7 +161,7 @@ fn create_geometry(
     }
     // after redistribution, the new sum should be 100% with some tolerance for precision error
     let new_sum_heights = sum_section_heights(&geometry);
-    assert!(new_sum_heights >= 99.9 && new_sum_heights <= 100.1);
+    assert!((99.9..=100.1).contains(&new_sum_heights));
 
     geometry
 }
