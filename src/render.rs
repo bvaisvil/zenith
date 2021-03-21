@@ -157,12 +157,12 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
     };
     let temp = if !app.sensors.is_empty() {
         let t: f32 = app.sensors.iter().map(|s| s.current_temp).sum();
-        format!("TEMP [{: >3.0}°C]", t)
+        format!(" TEMP [{: >3.0}°C]", t)
     } else {
         String::from("")
     };
     format!(
-        "CPU [{: >3}%] {:} MEAN [{: >3.2}%] TOP [{} - {} - {}]",
+        "CPU [{: >3}%]{:} MEAN [{: >3.2}%] TOP [{} - {} - {}]",
         app.cpu_utilization, temp, mean, top_pid, top_process_name, top_process_amt
     )
 }
