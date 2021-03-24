@@ -152,8 +152,6 @@ pub struct CPUTimeApp {
     pub swap_utilization: u64,
     pub swap_total: u64,
     pub disks: Vec<ZDisk>,
-    pub disk_total: u64,
-    pub disk_available: u64,
     pub disk_write: u64,
     pub disk_read: u64,
     pub cpus: Vec<(String, u64)>,
@@ -203,8 +201,6 @@ impl CPUTimeApp {
             swap_total: 0,
             swap_utilization: 0,
             disks: vec![],
-            disk_available: 0,
-            disk_total: 0,
             net_in: 0,
             net_out: 0,
             processes: Vec::with_capacity(400),
@@ -522,8 +518,6 @@ impl CPUTimeApp {
 
     fn update_disk(&mut self, _width: u16) {
         debug!("Updating Disks");
-        self.disk_available = 0;
-        self.disk_total = 0;
         self.disks.clear();
 
         static IGNORED_FILE_SYSTEMS: &[&[u8]] = &[
@@ -556,9 +550,6 @@ impl CPUTimeApp {
                     continue;
                 }
             }
-            self.disk_available += d.get_available_space();
-            self.disk_total += d.get_total_space();
-
             self.disks.push(ZDisk::from_disk(d));
         }
 
