@@ -570,7 +570,6 @@ impl CPUTimeApp {
 
     fn update_disk(&mut self, _width: u16) {
         debug!("Updating Disks");
-        debug!("Updating Disks");
         self.disk_available = 0;
         self.disk_total = 0;
         self.disks.clear();
@@ -586,6 +585,7 @@ impl CPUTimeApp {
             b"iso9660",
         ];
 
+        self.system.refresh_disks_list();
         for d in self.system.get_disks().iter() {
             let name = d.get_name().to_string_lossy();
             let mp = d.get_mount_point().to_string_lossy();
