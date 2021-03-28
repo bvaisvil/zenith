@@ -59,10 +59,16 @@ pub struct HistogramMap {
     previous_stop: Option<SystemTime>,
 }
 
-pub fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramMap {
+pub fn load_zenith_store(path: &Path, current_time: &SystemTime) -> Option<HistogramMap> {
     // need to fill in time between when it was last stored and now, like the sled DB
     let data = std::fs::read(path).expect(DB_ERROR);
-    let mut hm: HistogramMap = bincode::deserialize(&data).expect(DSER_ERROR);
+    let mut hm: HistogramMap = match bincode::deserialize(&data) {
+        Ok(hm) => hm,
+        Err(e) => {
+            error!("{}: {}", DSER_ERROR, e,);
+            return None;
+        }
+    };
     if let Some(previous_stop) = hm.previous_stop {
         if previous_stop < *current_time {
             let d = current_time
@@ -85,30 +91,36 @@ pub fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramM
             }
         }
     }
-    hm
+    Some(hm)
 }
 
 impl HistogramMap {
     pub(crate) fn new(dur: Duration, tick: Duration, db: Option<PathBuf>) -> HistogramMap {
         let current_time = SystemTime::now();
-        let path = db.as_ref().map(|db| db.to_owned());
-        match &db {
+        match db {
             Some(db) => {
                 debug!("Opening DB");
-                let dbfile = Path::new(db).join(Path::new("store"));
-                if dbfile.exists() {
+                let dbfile = db.join("store");
+                let hm = if dbfile.exists() {
                     debug!("Zenith store exists, opening...");
-                    load_zenith_store(dbfile, &current_time)
+                    load_zenith_store(&dbfile, &current_time)
                 } else {
+                    None
+                }
+                .unwrap_or_else(|| {
+                    if let Err(e) = fs::remove_file(dbfile) {
+                        error!("{}", e);
+                    }
                     debug!("Starting a new database.");
                     HistogramMap {
                         map: HashMap::with_capacity(5),
                         duration: dur,
                         tick,
-                        db: path,
+                        db: Some(db),
                         previous_stop: None,
                     }
-                }
+                });
+                hm
             }
             None => {
                 debug!("Starting with no DB.");
@@ -116,7 +128,7 @@ impl HistogramMap {
                     map: HashMap::with_capacity(5),
                     duration: dur,
                     tick,
-                    db: path,
+                    db: None,
                     previous_stop: None,
                 }
             }
@@ -184,7 +196,7 @@ impl HistogramMap {
             Some(db) => {
                 debug!("Saving Histograms");
                 self.previous_stop = Some(SystemTime::now());
-                let dbfile = Path::new(db).join(Path::new("store"));
+                let dbfile = db.join("store");
                 let mut database = fs::OpenOptions::new()
                     .create(true)
                     .write(true)
@@ -193,7 +205,7 @@ impl HistogramMap {
                 database
                     .write_all(&bincode::serialize(self).expect(SER_ERROR))
                     .expect("Failed to write file.");
-                let configuration = Path::new(db).join(Path::new(".configuration"));
+                let configuration = db.join(".configuration");
                 let mut configuration = fs::OpenOptions::new()
                     .create(true)
                     .write(true)
