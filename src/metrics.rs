@@ -179,7 +179,7 @@ pub struct CPUTimeApp {
     pub gfx_devices: Vec<GraphicsDevice>,
     pub processor_name: String,
     pub started: chrono::DateTime<chrono::Local>,
-    pub selected_process: Option<ZProcess>,
+    pub selected_process: Option<Box<ZProcess>>,
     pub max_pid_len: usize,
     pub batteries: Vec<battery::Battery>,
     pub uptime: Duration,
@@ -345,7 +345,7 @@ impl CPUTimeApp {
         }
     }
 
-    pub fn select_process(&mut self, highlighted_process: Option<ZProcess>) {
+    pub fn select_process(&mut self, highlighted_process: Option<Box<ZProcess>>) {
         debug!("Selected Process.");
         self.selected_process = highlighted_process;
     }
@@ -478,7 +478,7 @@ impl CPUTimeApp {
         if let Some(p) = self.selected_process.as_mut() {
             let pid = &p.pid;
             if let Some(proc) = self.process_map.get(pid) {
-                self.selected_process = Some(proc.clone());
+                self.selected_process = Some(Box::new(proc.clone()));
             } else {
                 p.set_end_time();
             }

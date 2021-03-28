@@ -180,7 +180,7 @@ fn render_process_table(
     show_find: bool,
     filter: &str,
     highlighted_row: usize,
-) -> Option<ZProcess> {
+) -> Option<Box<ZProcess>> {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default(),
@@ -203,7 +203,7 @@ fn render_process_table(
         })
         .collect();
     let highlighted_process = if !procs.is_empty() {
-        Some(procs[highlighted_row].clone())
+        Some(Box::new(procs[highlighted_row].clone()))
     } else {
         None
     };
@@ -615,14 +615,11 @@ fn render_process(
     f: &mut Frame<'_, ZBackend>,
     selected_section: &Section,
     process_message: &Option<String>,
+    p: &ZProcess,
 ) {
     let style = match selected_section {
         Section::Process => Style::default().fg(Color::Red),
         _ => Style::default(),
-    };
-    let p = match &app.selected_process {
-        Some(p) => p,
-        None => return,
     };
     Block::default()
         .title(Span::styled(format!("Process: {0}", p.name), style))
@@ -1753,7 +1750,7 @@ impl<'a> TerminalRenderer<'_> {
             let show_paths = self.show_paths;
             let filter = &self.filter;
             let show_find = self.show_find;
-            let mut highlighted_process: Option<ZProcess> = None;
+            let mut highlighted_process: Option<Box<ZProcess>> = None;
             let process_table = filter_process_table(app, &self.filter);
             let gfx_device_index = &self.gfx_device_index;
 
@@ -1817,7 +1814,16 @@ impl<'a> TerminalRenderer<'_> {
                                     &selected,
                                 ),
                                 Section::Process => {
-                                    if app.selected_process.is_none() {
+                                    if let Some(p) = app.selected_process.as_ref() {
+                                        render_process(
+                                            &app,
+                                            v_section,
+                                            &mut f,
+                                            &selected,
+                                            process_message,
+                                            p,
+                                        );
+                                    } else {
                                         highlighted_process = render_process_table(
                                             &app,
                                             &process_table,
@@ -1835,14 +1841,6 @@ impl<'a> TerminalRenderer<'_> {
                                             // account for table border & margins.
                                             process_table_height = v_section.height - 5;
                                         }
-                                    } else if app.selected_process.is_some() {
-                                        render_process(
-                                            &app,
-                                            v_section,
-                                            &mut f,
-                                            &selected,
-                                            process_message,
-                                        );
                                     }
                                 }
                             }
@@ -1870,7 +1868,7 @@ impl<'a> TerminalRenderer<'_> {
         &mut self,
         process_table: &[i32],
         process_table_height: u16,
-        highlighted_process: Option<ZProcess>,
+        highlighted_process: Option<Box<ZProcess>>,
         width: u16,
     ) -> Action {
         let input = match self.events.next().expect("No new event.") {
