@@ -2,6 +2,7 @@
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
 use serde_derive::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
@@ -14,21 +15,25 @@ const DSER_ERROR: &str = "Couldn't deserialize object";
 const SER_ERROR: &str = "Couldn't serialize object";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Histogram {
-    pub data: Vec<u64>,
+pub struct Histogram<'a> {
+    data: Cow<'a, [u64]>,
 }
 
-impl Histogram {
-    fn new(size: usize) -> Histogram {
+impl Histogram<'_> {
+    fn new(size: usize) -> Self {
         Histogram {
-            data: vec![0; size],
+            data: vec![0; size].into(),
         }
+    }
+
+    pub fn data(&self) -> &[u64] {
+        self.data.as_ref()
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistogramMap {
-    map: HashMap<String, Histogram>,
+    map: HashMap<String, Histogram<'static>>,
     duration: Duration,
     pub tick: Duration,
     db: Option<PathBuf>,
@@ -39,31 +44,29 @@ pub fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramM
     // need to fill in time between when it was last stored and now, like the sled DB
     let data = std::fs::read(path).expect(DB_ERROR);
     let mut hm: HistogramMap = bincode::deserialize(&data).expect(DSER_ERROR);
-    match hm.previous_stop {
-        Some(previous_stop) => {
-            if previous_stop < *current_time {
-                let d = current_time
-                    .duration_since(previous_stop)
-                    .expect("Current time is before stored time. This should not happen.");
-                let week_ticks = ONE_WEEK / hm.tick.as_secs();
-                for (_k, v) in hm.map.iter_mut() {
-                    if v.data.len() as u64 > week_ticks {
-                        let end = v.data.len() as u64 - week_ticks;
-                        v.data.drain(0..end as usize);
-                    }
-                    let mut dur = d;
-                    // add 0s between then and now.
-                    let zero_dur = Duration::from_secs(0);
-                    while dur > zero_dur + hm.tick {
-                        v.data.push(0);
-                        dur -= hm.tick;
-                    }
+    if let Some(previous_stop) = hm.previous_stop {
+        if previous_stop < *current_time {
+            let d = current_time
+                .duration_since(previous_stop)
+                .expect("Current time is before stored time. This should not happen.");
+            let week_ticks = ONE_WEEK / hm.tick.as_secs();
+            for (_k, v) in hm.map.iter_mut() {
+                let data = v.data.to_mut();
+                if data.len() as u64 > week_ticks {
+                    let end = data.len() as u64 - week_ticks;
+                    data.drain(0..end as usize);
+                }
+                let mut dur = d;
+                // add 0s between then and now.
+                let zero_dur = Duration::from_secs(0);
+                while dur > zero_dur + hm.tick {
+                    data.push(0);
+                    dur -= hm.tick;
                 }
             }
-            hm
         }
-        None => hm,
     }
+    hm
 }
 
 impl HistogramMap {
@@ -101,40 +104,38 @@ impl HistogramMap {
         }
     }
 
-    pub fn get_zoomed(
-        &self,
+    pub fn get_zoomed<'a>(
+        &'a self,
         name: &str,
         zoom_factor: u32,
         update_number: u32,
         width: usize,
         offset: usize,
-    ) -> Option<Histogram> {
+    ) -> Option<Histogram<'a>> {
         let h = self.get(name)?;
+        let h_data = h.data();
+        let h_len = h_data.len();
 
-        let mut nh = Histogram::new(width);
-        let mut h = h.clone();
-        for _i in 0..zoom_factor as usize * offset {
-            h.data.pop();
+        if zoom_factor == 1 {
+            let low = h_len - (width + offset);
+            let high = h_len - offset;
+            return Some(Histogram {
+                data: Cow::Borrowed(&h_data[low..high]),
+            });
         }
-        let nh_len = nh.data.len();
+
         let zf = zoom_factor as usize;
-        let mut si: usize = if (width * zf) > h.data.len() {
-            0
-        } else {
-            h.data.len() - (width * zf) - update_number as usize
-        };
+        let start: usize = h_len.saturating_sub((width + offset) * zf + update_number as usize);
+        let end = h_len.saturating_sub(zf * offset);
 
-        for index in 0..nh_len {
-            if si + zf <= h.data.len() {
-                nh.data[index] = h.data[si..si + zf].iter().sum::<u64>();
-            } else {
-                nh.data[index] = h.data[si..].iter().sum::<u64>();
-            }
-            si += zf;
-        }
+        let new_data: Vec<_> = h_data[start..end]
+            .chunks(zf)
+            .map(|set| set.iter().sum::<u64>() / zoom_factor as u64)
+            .collect();
 
-        nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();
-        Some(nh)
+        Some(Histogram {
+            data: Cow::Owned(new_data),
+        })
     }
 
     pub fn get(&self, name: &str) -> Option<&Histogram> {
@@ -150,7 +151,7 @@ impl HistogramMap {
                 .entry(name.to_string())
                 .or_insert_with(|| Histogram::new(size))
         };
-        h.data.push(val);
+        h.data.to_mut().push(val);
         debug!("Adding {} to {} chart.", val, name);
     }
 

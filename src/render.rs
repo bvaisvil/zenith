@@ -363,13 +363,13 @@ fn render_cpu_histogram(
         area.width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
-    let title = cpu_title(&app, &h);
+    let title = cpu_title(&app, h.data());
     Sparkline::default()
         .block(Block::default().title(title.as_str()))
-        .data(&h)
+        .data(h.data())
         .style(Style::default().fg(Color::Blue))
         .max(100)
         .render(f, area);
@@ -390,13 +390,13 @@ fn render_memory_histogram(
         area.width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
     let title2 = mem_title(&app);
     Sparkline::default()
         .block(Block::default().title(title2.as_str()))
-        .data(&h)
+        .data(h.data())
         .style(Style::default().fg(Color::Cyan))
         .max(100)
         .render(f, area);
@@ -572,11 +572,11 @@ fn render_net(
         net[0].width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
 
-    let up_max: u64 = match h_out.iter().max() {
+    let up_max: u64 = match h_out.data().iter().max() {
         Some(x) => *x,
         None => 1,
     };
@@ -587,7 +587,7 @@ fn render_net(
             Block::default()
                 .title(format!("↑ [{:^10}/s] Max [{:^10}/s]", net_up, up_max_bytes).as_str()),
         )
-        .data(&h_out)
+        .data(h_out.data())
         .style(Style::default().fg(Color::LightYellow))
         .max(up_max)
         .render(f, net[0]);
@@ -603,11 +603,11 @@ fn render_net(
         net[1].width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
 
-    let down_max: u64 = match h_in.iter().max() {
+    let down_max: u64 = match h_in.data().iter().max() {
         Some(x) => *x,
         None => 1,
     };
@@ -617,7 +617,7 @@ fn render_net(
             Block::default()
                 .title(format!("↓ [{:^10}/s] Max [{:^10}/s]", net_down, down_max_bytes).as_str()),
         )
-        .data(&h_in)
+        .data(h_in.data())
         .style(Style::default().fg(Color::LightMagenta))
         .max(down_max)
         .render(f, net[1]);
@@ -886,11 +886,11 @@ fn render_disk(
         area[0].width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
 
-    let read_max: u64 = match h_read.iter().max() {
+    let read_max: u64 = match h_read.data().iter().max() {
         Some(x) => *x,
         None => 1,
     };
@@ -914,7 +914,7 @@ fn render_disk(
                 .as_str(),
             ),
         )
-        .data(&h_read)
+        .data(h_read.data())
         .style(Style::default().fg(Color::LightYellow))
         .max(read_max)
         .render(f, area[0]);
@@ -927,11 +927,11 @@ fn render_disk(
         area[1].width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
 
-    let write_max: u64 = match h_write.iter().max() {
+    let write_max: u64 = match h_write.data().iter().max() {
         Some(x) => *x,
         None => 1,
     };
@@ -955,7 +955,7 @@ fn render_disk(
                 .as_str(),
             ),
         )
-        .data(&h_write)
+        .data(h_write.data())
         .style(Style::default().fg(Color::LightMagenta))
         .max(write_max)
         .render(f, area[1]);
@@ -1029,7 +1029,7 @@ fn render_graphics(
         area[0].width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
     let fan = if !gd.fans.is_empty() {
@@ -1052,7 +1052,7 @@ fn render_graphics(
                 .as_str(),
             ),
         )
-        .data(&h_gpu)
+        .data(h_gpu.data())
         .style(Style::default().fg(Color::LightYellow))
         .max(100)
         .render(f, area[0]);
@@ -1064,7 +1064,7 @@ fn render_graphics(
         area[1].width as usize,
         *offset,
     ) {
-        Some(h) => h.data,
+        Some(h) => h,
         None => return,
     };
 
@@ -1086,7 +1086,7 @@ fn render_graphics(
                 .as_str(),
             ),
         )
-        .data(&h_mem)
+        .data(h_mem.data())
         .style(Style::default().fg(Color::LightMagenta))
         .max(100)
         .render(f, area[1]);
