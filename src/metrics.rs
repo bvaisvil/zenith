@@ -2,7 +2,7 @@
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
 use crate::graphics::{GraphicsDevice, GraphicsExt};
-use crate::histogram::HistogramMap;
+use crate::histogram::{HistogramKind, HistogramMap};
 use crate::util::percent_of;
 use crate::zprocess::*;
 
@@ -563,9 +563,10 @@ impl CPUTimeApp {
             .map(|(_pid, p)| p.get_write_bytes_sec(&self.histogram_map.tick) as u64)
             .sum();
 
-        self.histogram_map.add_value_to("disk_read", self.disk_read);
         self.histogram_map
-            .add_value_to("disk_write", self.disk_write);
+            .add_value_to(&HistogramKind::IoRead, self.disk_read);
+        self.histogram_map
+            .add_value_to(&HistogramKind::IoWrite, self.disk_write);
     }
 
     pub async fn update_cpu(&mut self) {
@@ -593,7 +594,7 @@ impl CPUTimeApp {
             self.cpu_utilization = usage as u64;
         }
         self.histogram_map
-            .add_value_to("cpu_usage_histogram", self.cpu_utilization);
+            .add_value_to(&HistogramKind::Cpu, self.cpu_utilization);
     }
 
     pub async fn update_networks(&mut self) {
@@ -606,8 +607,10 @@ impl CPUTimeApp {
         }
         self.net_in = net_in;
         self.net_out = net_out;
-        self.histogram_map.add_value_to("net_in", self.net_in);
-        self.histogram_map.add_value_to("net_out", self.net_out);
+        self.histogram_map
+            .add_value_to(&HistogramKind::NetRx, self.net_in);
+        self.histogram_map
+            .add_value_to(&HistogramKind::NetTx, self.net_out);
     }
 
     pub async fn update(&mut self, width: u16, keep_order: bool) {
@@ -621,7 +624,7 @@ impl CPUTimeApp {
 
         let mem = percent_of(self.mem_utilization, self.mem_total) as u64;
 
-        self.histogram_map.add_value_to("mem_utilization", mem);
+        self.histogram_map.add_value_to(&HistogramKind::Mem, mem);
 
         self.swap_utilization = self.system.get_used_swap();
         self.swap_total = self.system.get_total_swap();

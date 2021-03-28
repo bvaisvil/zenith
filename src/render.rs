@@ -1,3 +1,4 @@
+use crate::histogram::HistogramKind;
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
@@ -357,7 +358,7 @@ fn render_cpu_histogram(
     offset: &usize,
 ) {
     let h = match app.histogram_map.get_zoomed(
-        "cpu_usage_histogram",
+        &HistogramKind::Cpu,
         *zf,
         *update_number,
         area.width as usize,
@@ -384,7 +385,7 @@ fn render_memory_histogram(
     offset: &usize,
 ) {
     let h = match app.histogram_map.get_zoomed(
-        "mem_utilization",
+        &HistogramKind::Mem,
         *zf,
         *update_number,
         area.width as usize,
@@ -566,7 +567,7 @@ fn render_net(
         ByteUnit::B
     );
     let h_out = match app.histogram_map.get_zoomed(
-        "net_out",
+        &HistogramKind::NetTx,
         *zf,
         *update_number,
         net[0].width as usize,
@@ -597,7 +598,7 @@ fn render_net(
         ByteUnit::B
     );
     let h_in = match app.histogram_map.get_zoomed(
-        "net_in",
+        &HistogramKind::NetRx,
         *zf,
         *update_number,
         net[1].width as usize,
@@ -880,7 +881,7 @@ fn render_disk(
 
     let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
     let h_read = match app.histogram_map.get_zoomed(
-        "disk_read",
+        &HistogramKind::IoRead,
         *zf,
         *update_number,
         area[0].width as usize,
@@ -921,7 +922,7 @@ fn render_disk(
 
     let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
     let h_write = match app.histogram_map.get_zoomed(
-        "disk_write",
+        &HistogramKind::IoWrite,
         *zf,
         *update_number,
         area[1].width as usize,
@@ -1023,7 +1024,7 @@ fn render_graphics(
     }
     let gd = &app.gfx_devices[*gfx_device_index];
     let h_gpu = match app.histogram_map.get_zoomed(
-        format!("{}_gpu", gd.uuid).as_str(),
+        &HistogramKind::GpuUse(gd.uuid.clone()),
         *zf,
         *update_number,
         area[0].width as usize,
@@ -1058,7 +1059,7 @@ fn render_graphics(
         .render(f, area[0]);
 
     let h_mem = match app.histogram_map.get_zoomed(
-        format!("{}_mem", gd.uuid).as_str(),
+        &HistogramKind::GpuMem(gd.uuid.clone()),
         *zf,
         *update_number,
         area[1].width as usize,

@@ -31,9 +31,21 @@ impl Histogram<'_> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+pub enum HistogramKind {
+    Cpu,
+    Mem,
+    NetTx,
+    NetRx,
+    IoRead,
+    IoWrite,
+    GpuUse(String),
+    GpuMem(String),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistogramMap {
-    map: HashMap<String, Histogram<'static>>,
+    map: HashMap<HistogramKind, Histogram<'static>>,
     duration: Duration,
     pub tick: Duration,
     db: Option<PathBuf>,
@@ -106,7 +118,7 @@ impl HistogramMap {
 
     pub fn get_zoomed<'a>(
         &'a self,
-        name: &str,
+        name: &HistogramKind,
         zoom_factor: u32,
         update_number: u32,
         width: usize,
@@ -138,21 +150,21 @@ impl HistogramMap {
         })
     }
 
-    pub fn get(&self, name: &str) -> Option<&Histogram> {
+    pub fn get(&self, name: &HistogramKind) -> Option<&Histogram> {
         self.map.get(name)
     }
 
-    pub(crate) fn add_value_to(&mut self, name: &str, val: u64) {
+    pub(crate) fn add_value_to(&mut self, name: &HistogramKind, val: u64) {
         let h = if let Some(h) = self.map.get_mut(name) {
             h
         } else {
             let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
             self.map
-                .entry(name.to_string())
+                .entry(name.clone())
                 .or_insert_with(|| Histogram::new(size))
         };
         h.data.to_mut().push(val);
-        debug!("Adding {} to {} chart.", val, name);
+        debug!("Adding {} to {:?} chart.", val, name);
     }
 
     pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration {
