@@ -42,6 +42,13 @@ pub enum HistogramKind {
     GpuUse(String),
     GpuMem(String),
 }
+#[derive(Clone, Copy)]
+pub struct View {
+    pub zoom_factor: u32,
+    pub update_number: u32,
+    pub width: usize,
+    pub offset: usize,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistogramMap {
@@ -116,33 +123,27 @@ impl HistogramMap {
         }
     }
 
-    pub fn get_zoomed<'a>(
-        &'a self,
-        name: &HistogramKind,
-        zoom_factor: u32,
-        update_number: u32,
-        width: usize,
-        offset: usize,
-    ) -> Option<Histogram<'a>> {
+    pub fn get_zoomed<'a>(&'a self, name: &HistogramKind, view: &View) -> Option<Histogram<'a>> {
         let h = self.get(name)?;
         let h_data = h.data();
         let h_len = h_data.len();
 
-        if zoom_factor == 1 {
-            let low = h_len - (width + offset);
-            let high = h_len - offset;
+        if view.zoom_factor == 1 {
+            let low = h_len - (view.width + view.offset);
+            let high = h_len - view.offset;
             return Some(Histogram {
                 data: Cow::Borrowed(&h_data[low..high]),
             });
         }
 
-        let zf = zoom_factor as usize;
-        let start: usize = h_len.saturating_sub((width + offset) * zf + update_number as usize);
-        let end = h_len.saturating_sub(zf * offset);
+        let zf = view.zoom_factor as usize;
+        let start: usize =
+            h_len.saturating_sub((view.width + view.offset) * zf + view.update_number as usize);
+        let end = h_len.saturating_sub(zf * view.offset);
 
         let new_data: Vec<_> = h_data[start..end]
             .chunks(zf)
-            .map(|set| set.iter().sum::<u64>() / zoom_factor as u64)
+            .map(|set| set.iter().sum::<u64>() / view.zoom_factor as u64)
             .collect();
 
         Some(Histogram {

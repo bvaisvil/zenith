@@ -1,4 +1,4 @@
-use crate::histogram::HistogramKind;
+use crate::histogram::{HistogramKind, View};
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
@@ -349,21 +349,8 @@ fn render_process_table(
     highlighted_process
 }
 
-fn render_cpu_histogram(
-    app: &CPUTimeApp,
-    area: Rect,
-    f: &mut Frame<'_, ZBackend>,
-    zf: &u32,
-    update_number: &u32,
-    offset: &usize,
-) {
-    let h = match app.histogram_map.get_zoomed(
-        &HistogramKind::Cpu,
-        *zf,
-        *update_number,
-        area.width as usize,
-        *offset,
-    ) {
+fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, view: &View) {
+    let h = match app.histogram_map.get_zoomed(&HistogramKind::Cpu, view) {
         Some(h) => h,
         None => return,
     };
@@ -376,21 +363,8 @@ fn render_cpu_histogram(
         .render(f, area);
 }
 
-fn render_memory_histogram(
-    app: &CPUTimeApp,
-    area: Rect,
-    f: &mut Frame<'_, ZBackend>,
-    zf: &u32,
-    update_number: &u32,
-    offset: &usize,
-) {
-    let h = match app.histogram_map.get_zoomed(
-        &HistogramKind::Mem,
-        *zf,
-        *update_number,
-        area.width as usize,
-        *offset,
-    ) {
+fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, view: &View) {
+    let h = match app.histogram_map.get_zoomed(&HistogramKind::Mem, view) {
         Some(h) => h,
         None => return,
     };
@@ -537,9 +511,7 @@ fn render_net(
     app: &CPUTimeApp,
     area: Rect,
     f: &mut Frame<'_, ZBackend>,
-    zf: &u32,
-    update_number: &u32,
-    offset: &usize,
+    view: View,
     selected_section: &Section,
 ) {
     let style = match selected_section {
@@ -562,17 +534,16 @@ fn render_net(
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(network_layout[1]);
 
+    let view = View {
+        width: net[0].width as usize,
+        ..view
+    };
+
     let net_up = float_to_byte_string!(
         app.net_out as f64 / app.histogram_map.tick.as_secs_f64(),
         ByteUnit::B
     );
-    let h_out = match app.histogram_map.get_zoomed(
-        &HistogramKind::NetTx,
-        *zf,
-        *update_number,
-        net[0].width as usize,
-        *offset,
-    ) {
+    let h_out = match app.histogram_map.get_zoomed(&HistogramKind::NetTx, &view) {
         Some(h) => h,
         None => return,
     };
@@ -597,13 +568,7 @@ fn render_net(
         app.net_in as f64 / app.histogram_map.tick.as_secs_f64(),
         ByteUnit::B
     );
-    let h_in = match app.histogram_map.get_zoomed(
-        &HistogramKind::NetRx,
-        *zf,
-        *update_number,
-        net[1].width as usize,
-        *offset,
-    ) {
+    let h_in = match app.histogram_map.get_zoomed(&HistogramKind::NetRx, &view) {
         Some(h) => h,
         None => return,
     };
@@ -854,9 +819,7 @@ fn render_disk(
     app: &CPUTimeApp,
     layout: Rect,
     f: &mut Frame<'_, ZBackend>,
-    zf: &u32,
-    update_number: &u32,
-    offset: &usize,
+    view: View,
     selected_section: &Section,
 ) {
     let style = match selected_section {
@@ -879,14 +842,13 @@ fn render_disk(
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(disk_layout[1]);
 
+    let view = View {
+        width: area[0].width as usize,
+        ..view
+    };
+
     let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
-    let h_read = match app.histogram_map.get_zoomed(
-        &HistogramKind::IoRead,
-        *zf,
-        *update_number,
-        area[0].width as usize,
-        *offset,
-    ) {
+    let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead, &view) {
         Some(h) => h,
         None => return,
     };
@@ -921,13 +883,7 @@ fn render_disk(
         .render(f, area[0]);
 
     let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
-    let h_write = match app.histogram_map.get_zoomed(
-        &HistogramKind::IoWrite,
-        *zf,
-        *update_number,
-        area[1].width as usize,
-        *offset,
-    ) {
+    let h_write = match app.histogram_map.get_zoomed(&HistogramKind::IoWrite, &view) {
         Some(h) => h,
         None => return,
     };
@@ -994,10 +950,8 @@ fn render_graphics(
     app: &CPUTimeApp,
     layout: Rect,
     f: &mut Frame<'_, ZBackend>,
-    zf: &u32,
-    update_number: &u32,
+    view: View,
     gfx_device_index: &usize,
-    offset: &usize,
     selected_section: &Section,
 ) {
     let style = match selected_section {
@@ -1022,14 +976,17 @@ fn render_graphics(
     if app.gfx_devices.is_empty() {
         return;
     }
+
+    let view = View {
+        width: area[0].width as usize,
+        ..view
+    };
+
     let gd = &app.gfx_devices[*gfx_device_index];
-    let h_gpu = match app.histogram_map.get_zoomed(
-        &HistogramKind::GpuUse(gd.uuid.clone()),
-        *zf,
-        *update_number,
-        area[0].width as usize,
-        *offset,
-    ) {
+    let h_gpu = match app
+        .histogram_map
+        .get_zoomed(&HistogramKind::GpuUse(gd.uuid.clone()), &view)
+    {
         Some(h) => h,
         None => return,
     };
@@ -1058,13 +1015,10 @@ fn render_graphics(
         .max(100)
         .render(f, area[0]);
 
-    let h_mem = match app.histogram_map.get_zoomed(
-        &HistogramKind::GpuMem(gd.uuid.clone()),
-        *zf,
-        *update_number,
-        area[1].width as usize,
-        *offset,
-    ) {
+    let h_mem = match app
+        .histogram_map
+        .get_zoomed(&HistogramKind::GpuMem(gd.uuid.clone()), &view)
+    {
         Some(h) => h,
         None => return,
     };
@@ -1297,9 +1251,7 @@ fn render_cpu(
     app: &CPUTimeApp,
     area: Rect,
     f: &mut Frame<'_, ZBackend>,
-    zf: &u32,
-    update_number: &u32,
-    offset: &usize,
+    view: View,
     selected_section: &Section,
 ) {
     let style = match selected_section {
@@ -1317,13 +1269,18 @@ fn render_cpu(
         .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
         .split(area);
 
+    let view = View {
+        width: cpu_layout[1].width as usize,
+        ..view
+    };
+
     let cpu_mem = Layout::default()
         .margin(1)
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(cpu_layout[1]);
-    render_cpu_histogram(&app, cpu_mem[0], f, zf, update_number, offset);
-    render_memory_histogram(&app, cpu_mem[1], f, zf, update_number, offset);
+    render_cpu_histogram(&app, cpu_mem[0], f, &view);
+    render_memory_histogram(&app, cpu_mem[1], f, &view);
     render_cpu_bars(&app, cpu_layout[0], LEFT_PANE_WIDTH, f, &style);
 }
 
@@ -1835,26 +1792,28 @@ impl<'a> TerminalRenderer<'_> {
                             .split(f.size());
 
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        let view = View {
+                            zoom_factor: *zf,
+                            update_number: *un,
+                            width: 0,
+                            offset: *offset,
+                        };
                         for section_index in 0..geometry.len() {
                             let v_section = v_sections[section_index + 1];
                             match geometry[section_index].0 {
-                                Section::Cpu => {
-                                    render_cpu(app, v_section, &mut f, zf, un, offset, &selected)
-                                }
+                                Section::Cpu => render_cpu(app, v_section, &mut f, view, &selected),
                                 Section::Network => {
-                                    render_net(&app, v_section, &mut f, zf, un, offset, &selected)
+                                    render_net(&app, v_section, &mut f, view, &selected)
                                 }
                                 Section::Disk => {
-                                    render_disk(&app, v_section, &mut f, zf, un, offset, &selected)
+                                    render_disk(&app, v_section, &mut f, view, &selected)
                                 }
                                 Section::Graphics => render_graphics(
                                     &app,
                                     v_section,
                                     &mut f,
-                                    zf,
-                                    un,
+                                    view,
                                     gfx_device_index,
-                                    offset,
                                     &selected,
                                 ),
                                 Section::Process => {
