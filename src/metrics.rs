@@ -29,14 +29,14 @@ pub enum ProcessTableSortBy {
     User = 1,
     Priority = 2,
     Nice = 3,
-    CPU = 4,
+    Cpu = 4,
     MemPerc = 5,
     Mem = 6,
     Virt = 7,
     Status = 8,
     DiskRead = 9,
     DiskWrite = 10,
-    GPU = 11,
+    Gpu = 11,
     FB = 12,
     Cmd = 13,
 }
@@ -48,7 +48,7 @@ pub enum ProcessTableSortBy {
     User = 1,
     Priority = 2,
     Nice = 3,
-    CPU = 4,
+    Cpu = 4,
     MemPerc = 5,
     Mem = 6,
     Virt = 7,
@@ -211,7 +211,7 @@ impl CPUTimeApp {
             threads_total: 0,
             disk_read: 0,
             disk_write: 0,
-            psortby: ProcessTableSortBy::CPU,
+            psortby: ProcessTableSortBy::Cpu,
             psortorder: ProcessTableSortOrder::Descending,
             osname: String::from(""),
             release: String::from(""),
@@ -276,12 +276,11 @@ impl CPUTimeApp {
     fn get_batteries(&mut self) {
         debug!("Updating Batteries.");
         let manager = battery::Manager::new().expect("Couldn't create battery manager");
-        self.batteries.clear();
-        for b in manager.batteries().expect("Couldn't get batteries") {
-            if let Ok(b) = b {
-                self.batteries.push(b)
-            }
-        }
+        self.batteries = manager
+            .batteries()
+            .expect("Couldn't get batteries")
+            .filter_map(|res| res.ok())
+            .collect();
     }
 
     async fn get_nics(&mut self) {

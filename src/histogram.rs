@@ -69,10 +69,7 @@ pub fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramM
 impl HistogramMap {
     pub(crate) fn new(dur: Duration, tick: Duration, db: Option<PathBuf>) -> HistogramMap {
         let current_time = SystemTime::now();
-        let path = match &db {
-            Some(db) => Some(db.to_owned()),
-            None => None,
-        };
+        let path = db.as_ref().map(|db| db.to_owned());
         match &db {
             Some(db) => {
                 debug!("Opening DB");
@@ -165,10 +162,7 @@ impl HistogramMap {
     }
 
     pub fn histograms_width(&self) -> Option<usize> {
-        match self.map.iter().next() {
-            Some((_k, h)) => Some(h.data.len()),
-            None => None,
-        }
+        self.map.iter().next().map(|(_k, h)| h.data.len())
     }
 
     pub(crate) fn save_histograms(&mut self) {

@@ -134,7 +134,7 @@ fn create_geometry(
     graphics_height: u16,
 ) -> Vec<(Section, f64)> {
     let mut geometry: Vec<(Section, f64)> = Vec::new();
-    push_geometry!(geometry, Section::CPU, cpu_height);
+    push_geometry!(geometry, Section::Cpu, cpu_height);
     push_geometry!(geometry, Section::Network, net_height);
     push_geometry!(geometry, Section::Disk, disk_height);
     push_geometry!(geometry, Section::Graphics, graphics_height);

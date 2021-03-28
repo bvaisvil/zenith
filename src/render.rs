@@ -86,7 +86,7 @@ macro_rules! update_section_height {
 
 #[derive(FromPrimitive, PartialEq, Copy, Clone, Debug, Ord, PartialOrd, Eq)]
 pub enum Section {
-    CPU = 0,
+    Cpu = 0,
     Network = 1,
     Disk = 2,
     Graphics = 3,
@@ -96,7 +96,7 @@ pub enum Section {
 impl fmt::Display for Section {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
-            Section::CPU => " CPU",
+            Section::Cpu => " CPU",
             Section::Disk => " Disk",
             Section::Graphics => " Graphics",
             Section::Network => " Network",
@@ -1302,7 +1302,7 @@ fn render_cpu(
     selected_section: &Section,
 ) {
     let style = match selected_section {
-        Section::CPU => Style::default().fg(Color::Red),
+        Section::Cpu => Style::default().fg(Color::Red),
         _ => Style::default(),
     };
     Block::default()
@@ -1392,14 +1392,11 @@ impl<'a> SectionMGRList<'a> {
             .map(|(s, span)| (s, ListItem::new(span)))
             .collect();
         state.select(Some(0));
-        SectionMGRList { state, items }
+        SectionMGRList { items, state }
     }
 
     pub fn selected(&self) -> Option<Section> {
-        match self.state.selected() {
-            Some(s) => Some(self.items[s].0),
-            None => None,
-        }
+        self.state.selected().map(|s| self.items[s].0)
     }
 }
 
@@ -1840,7 +1837,7 @@ impl<'a> TerminalRenderer<'_> {
                         for section_index in 0..geometry.len() {
                             let v_section = v_sections[section_index + 1];
                             match geometry[section_index].0 {
-                                Section::CPU => {
+                                Section::Cpu => {
                                     render_cpu(app, v_section, &mut f, zf, un, offset, &selected)
                                 }
                                 Section::Network => {
@@ -2220,16 +2217,14 @@ impl<'a> TerminalRenderer<'_> {
                 };
             }
             Key::Char('n') => {
-                self.process_message = match &mut self.app.selected_process {
-                    Some(p) => Some(p.nice()),
-                    None => None,
-                };
+                self.process_message = self.app.selected_process.as_mut().map(|p| p.nice());
             }
             Key::Char('p') if self.app.selected_process.is_some() => {
-                self.process_message = match &mut self.app.selected_process {
-                    Some(p) => Some(p.set_priority(0)),
-                    None => None,
-                };
+                self.process_message = self
+                    .app
+                    .selected_process
+                    .as_mut()
+                    .map(|p| p.set_priority(0));
             }
             Key::Tab => {
                 self.selected_section_index =

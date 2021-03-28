@@ -183,7 +183,7 @@ impl ZProcess {
         sortfield: ProcessTableSortBy,
     ) -> fn(&Self, &Self, &Duration) -> Ordering {
         match sortfield {
-            ProcessTableSortBy::CPU => {
+            ProcessTableSortBy::Cpu => {
                 |pa, pb, _tick| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
             }
             ProcessTableSortBy::Mem => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
@@ -218,7 +218,7 @@ impl ZProcess {
         sortfield: ProcessTableSortBy,
     ) -> fn(&Self, &Self, &Duration) -> Ordering {
         match sortfield {
-            ProcessTableSortBy::CPU => {
+            ProcessTableSortBy::Cpu => {
                 |pa, pb, _tick| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
             }
             ProcessTableSortBy::Mem => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
@@ -244,7 +244,7 @@ impl ZProcess {
                     .partial_cmp(&pb.get_write_bytes_sec(tick))
                     .unwrap_or(Equal)
             },
-            ProcessTableSortBy::GPU => |pa, pb, _tick| pa.gpu_usage.cmp(&pb.gpu_usage),
+            ProcessTableSortBy::Gpu => |pa, pb, _tick| pa.gpu_usage.cmp(&pb.gpu_usage),
             ProcessTableSortBy::FB => |pa, pb, _tick| pa.fb_utilization.cmp(&pb.fb_utilization),
         }
     }
