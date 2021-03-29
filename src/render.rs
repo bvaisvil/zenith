@@ -1281,7 +1281,11 @@ fn render_cpu(
     render_cpu_bars(&app, cpu_layout[0], LEFT_PANE_WIDTH, f, &style);
 }
 
-fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
+fn filter_process_table<'a>(app: &'a CPUTimeApp, filter: &str) -> Cow<'a, [i32]> {
+    if filter.is_empty() {
+        return Cow::Borrowed(&app.processes);
+    }
+
     let filter_lc = filter.to_lowercase();
     let results: Vec<i32> = app
         .processes
@@ -1291,15 +1295,14 @@ fn filter_process_table(app: &CPUTimeApp, filter: &str) -> Vec<i32> {
                 .process_map
                 .get(pid)
                 .expect("Pid present in processes but not in map.");
-            filter.is_empty()
-                || p.name.to_lowercase().contains(&filter_lc)
+            p.name.to_lowercase().contains(&filter_lc)
                 || p.exe.to_lowercase().contains(&filter_lc)
                 || p.command.join(" ").to_lowercase().contains(&filter_lc)
                 || format!("{:}", p.pid).contains(&filter_lc)
         })
         .copied()
         .collect();
-    results
+    results.into()
 }
 
 struct SectionMGRList<'a> {
@@ -1849,66 +1852,71 @@ impl<'a> TerminalRenderer<'_> {
                 })
                 .expect("Could not draw frame.");
 
-            match self
-                .process_next_event(
-                    &process_table,
-                    process_table_height,
-                    highlighted_process,
-                    width,
-                )
-                .await
-            {
+            let event = self.events.next().expect("No new event.");
+            let action = match event {
+                Event::Input(input) => {
+                    let process_table = process_table.into_owned();
+                    self.process_key_event(
+                        input,
+                        &process_table,
+                        process_table_height,
+                        highlighted_process,
+                    )
+                    .await
+                }
+                Event::Resize(_, height) => {
+                    self.constraints = get_constraints(&self.section_geometry, height);
+                    Action::Continue
+                }
+                Event::Tick => {
+                    self.process_tick(width).await;
+                    Action::Continue
+                }
+                Event::Save => {
+                    debug!("Event Save");
+                    self.app.save_state().await;
+                    Action::Continue
+                }
+                Event::Terminate => {
+                    debug!("Event Terminate");
+                    Action::Quit
+                }
+            };
+            match action {
                 Action::Quit => break,
                 Action::Continue => {}
             }
         }
     }
 
-    async fn process_next_event(
+    async fn process_tick(&mut self, width: u16) {
+        debug!("Event Tick");
+
+        if self.app.selected_process.is_none() {
+            if let Some(start) = self.selection_grace_start {
+                if start.elapsed() > PROCESS_SELECTION_GRACE {
+                    self.selection_grace_start = None;
+                }
+            }
+        }
+
+        let keep_order =
+            self.app.selected_process.is_some() || self.selection_grace_start.is_some();
+
+        self.app.update(width, keep_order).await;
+        self.update_number += 1;
+        if self.update_number == self.zoom_factor {
+            self.update_number = 0;
+        }
+    }
+
+    async fn process_key_event(
         &mut self,
+        input: KeyEvent,
         process_table: &[i32],
         process_table_height: u16,
         highlighted_process: Option<Box<ZProcess>>,
-        width: u16,
     ) -> Action {
-        let input = match self.events.next().expect("No new event.") {
-            Event::Input(input) => input,
-            Event::Resize(_, height) => {
-                self.constraints = get_constraints(&self.section_geometry, height);
-                return Action::Continue;
-            }
-            Event::Tick => {
-                debug!("Event Tick");
-
-                if self.app.selected_process.is_none() {
-                    if let Some(start) = self.selection_grace_start {
-                        if start.elapsed() > PROCESS_SELECTION_GRACE {
-                            self.selection_grace_start = None;
-                        }
-                    }
-                }
-
-                let keep_order =
-                    self.app.selected_process.is_some() || self.selection_grace_start.is_some();
-
-                self.app.update(width, keep_order).await;
-                self.update_number += 1;
-                if self.update_number == self.zoom_factor {
-                    self.update_number = 0;
-                }
-                return Action::Continue;
-            }
-            Event::Save => {
-                debug!("Event Save");
-                self.app.save_state().await;
-                return Action::Continue;
-            }
-            Event::Terminate => {
-                debug!("Event Terminate");
-                return Action::Quit;
-            }
-        };
-
         debug!("Event Key: {:?}", input);
         match input.code {
             Key::Up => self.view_up(process_table, 1),
