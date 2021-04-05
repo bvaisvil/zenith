@@ -41,7 +41,7 @@ pub enum HistogramKind {
     IoWrite,
     GpuUse(String),
     GpuMem(String),
-    FileSystemFreeSpace(String)
+    FileSystemUsedSpace(String)
 }
 #[derive(Clone, Copy)]
 pub struct View {

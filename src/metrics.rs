@@ -144,6 +144,19 @@ impl ZDisk {
         }
         percent_of(self.available_bytes, self.size_bytes)
     }
+
+    pub fn get_used_bytes(&self) -> u64 {
+        self.size_bytes.saturating_sub(self.available_bytes)
+    }
+
+    pub fn get_perc_used_space(&self) -> f32 {
+        if self.size_bytes < 1 {
+            0.0
+        }
+        else{
+            percent_of(self.get_used_bytes(), self.size_bytes)
+        }
+    }
 }
 
 pub struct CPUTimeApp {
@@ -552,7 +565,7 @@ impl CPUTimeApp {
                 }
             }
             let zd = ZDisk::from_disk(d);
-            self.histogram_map.add_value_to(&HistogramKind::FileSystemFreeSpace(name.to_string()), zd.available_bytes);
+            self.histogram_map.add_value_to(&HistogramKind::FileSystemUsedSpace(name.to_string()), zd.get_used_bytes());
             self.disks.push(zd);
         }
 

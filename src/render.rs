@@ -898,17 +898,13 @@ fn disk_usage_histogram(app: &CPUTimeApp,
                         area: &Vec<Rect>,
                         file_system_index: &usize) {
     if let Some(fs) = app.disks.get(*file_system_index) {
-        let h_free = match app.histogram_map.get_zoomed(&HistogramKind::FileSystemFreeSpace(fs.name.clone()), &view) {
+        let h_used = match app.histogram_map.get_zoomed(&HistogramKind::FileSystemUsedSpace(fs.name.clone()), &view) {
             Some(h) => h,
             None => return,
         };
         if fs.size_bytes > 0 {
-            let h_used: Vec<u64> = h_free.data().iter().map(|f| fs.size_bytes.saturating_sub(*f)).collect();
             let free = float_to_byte_string!(fs.available_bytes as f64, ByteUnit::B);
-            let free_perc = fs.available_bytes as f64 / fs.size_bytes as f64 * 100.0;
-            let used_bytes = fs.size_bytes.saturating_sub(fs.available_bytes);
-            let used = float_to_byte_string!(used_bytes as f64, ByteUnit::B);
-            let used_perc = (used_bytes as f64 / fs.size_bytes as f64) * 100.0;
+            let used = float_to_byte_string!(fs.get_used_bytes() as f64, ByteUnit::B);
             let size = float_to_byte_string!(fs.size_bytes as f64, ByteUnit::B);
             Sparkline::default()
                 .block(
@@ -917,15 +913,15 @@ fn disk_usage_histogram(app: &CPUTimeApp,
                             "{}  ↓Used [{:^10} ({:.1}%)] Free [{:^10} ({:.1}%)] Size [{:^10}]",
                             fs.name,
                             used,
-                            used_perc,
+                            fs.get_perc_used_space(),
                             free,
-                            free_perc,
+                            fs.get_perc_free_space(),
                             size
                         )
                             .as_str(),
                     ),
                 )
-                .data(&h_used)
+                .data(h_used.data())
                 .style(Style::default().fg(Color::LightYellow))
                 .max(fs.size_bytes)
                 .render(f, area[0]);
