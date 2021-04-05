@@ -125,6 +125,7 @@ pub struct ZDisk {
     pub mount_point: PathBuf,
     pub available_bytes: u64,
     pub size_bytes: u64,
+    pub name: String
 }
 
 impl ZDisk {
@@ -133,6 +134,7 @@ impl ZDisk {
             mount_point: d.get_mount_point().to_path_buf(),
             available_bytes: d.get_available_space(),
             size_bytes: d.get_total_space(),
+            name: d.get_name().to_string_lossy().to_string(),
         }
     }
 
@@ -549,7 +551,9 @@ impl CPUTimeApp {
                     continue;
                 }
             }
-            self.disks.push(ZDisk::from_disk(d));
+            let zd = ZDisk::from_disk(d);
+            self.histogram_map.add_value_to(&HistogramKind::FileSystemFreeSpace(name.to_string()), zd.available_bytes);
+            self.disks.push(zd);
         }
 
         self.disk_read = self
