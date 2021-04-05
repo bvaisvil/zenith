@@ -2,6 +2,7 @@
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
 use crate::graphics::*;
+use crate::histogram::HistogramKind;
 use crate::metrics::CPUTimeApp;
 use nvml::device::Device;
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
@@ -115,11 +116,11 @@ impl GraphicsExt for CPUTimeApp {
                 }
             };
             self.histogram_map.add_value_to(
-                format!("{}_gpu", gd.uuid).as_str(),
+                &HistogramKind::GpuUse(gd.uuid.clone()),
                 gd.gpu_utilization as u64,
             );
             self.histogram_map.add_value_to(
-                format!("{}_mem", gd.uuid).as_str(),
+                &HistogramKind::GpuMem(gd.uuid.clone()),
                 gd.mem_utilization as u64,
             );
 

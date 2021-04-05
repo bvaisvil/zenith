@@ -2,6 +2,7 @@
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
 use serde_derive::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
@@ -14,82 +15,112 @@ const DSER_ERROR: &str = "Couldn't deserialize object";
 const SER_ERROR: &str = "Couldn't serialize object";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Histogram {
-    pub data: Vec<u64>,
+pub struct Histogram<'a> {
+    data: Cow<'a, [u64]>,
 }
 
-impl Histogram {
-    fn new(size: usize) -> Histogram {
+impl Histogram<'_> {
+    fn new(size: usize) -> Self {
         Histogram {
-            data: vec![0; size],
+            data: vec![0; size].into(),
         }
     }
+
+    pub fn data(&self) -> &[u64] {
+        self.data.as_ref()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+pub enum HistogramKind {
+    Cpu,
+    Mem,
+    NetTx,
+    NetRx,
+    IoRead,
+    IoWrite,
+    GpuUse(String),
+    GpuMem(String),
+}
+#[derive(Clone, Copy)]
+pub struct View {
+    pub zoom_factor: u32,
+    pub update_number: u32,
+    pub width: usize,
+    pub offset: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HistogramMap {
-    map: HashMap<String, Histogram>,
+    map: HashMap<HistogramKind, Histogram<'static>>,
     duration: Duration,
     pub tick: Duration,
     db: Option<PathBuf>,
     previous_stop: Option<SystemTime>,
 }
 
-pub fn load_zenith_store(path: PathBuf, current_time: &SystemTime) -> HistogramMap {
+pub fn load_zenith_store(path: &Path, current_time: &SystemTime) -> Option<HistogramMap> {
     // need to fill in time between when it was last stored and now, like the sled DB
     let data = std::fs::read(path).expect(DB_ERROR);
-    let mut hm: HistogramMap = bincode::deserialize(&data).expect(DSER_ERROR);
-    match hm.previous_stop {
-        Some(previous_stop) => {
-            if previous_stop < *current_time {
-                let d = current_time
-                    .duration_since(previous_stop)
-                    .expect("Current time is before stored time. This should not happen.");
-                let week_ticks = ONE_WEEK / hm.tick.as_secs();
-                for (_k, v) in hm.map.iter_mut() {
-                    if v.data.len() as u64 > week_ticks {
-                        let end = v.data.len() as u64 - week_ticks;
-                        v.data.drain(0..end as usize);
-                    }
-                    let mut dur = d;
-                    // add 0s between then and now.
-                    let zero_dur = Duration::from_secs(0);
-                    while dur > zero_dur + hm.tick {
-                        v.data.push(0);
-                        dur -= hm.tick;
-                    }
+    let mut hm: HistogramMap = match bincode::deserialize(&data) {
+        Ok(hm) => hm,
+        Err(e) => {
+            error!("{}: {}", DSER_ERROR, e,);
+            return None;
+        }
+    };
+    if let Some(previous_stop) = hm.previous_stop {
+        if previous_stop < *current_time {
+            let d = current_time
+                .duration_since(previous_stop)
+                .expect("Current time is before stored time. This should not happen.");
+            let week_ticks = ONE_WEEK / hm.tick.as_secs();
+            for (_k, v) in hm.map.iter_mut() {
+                let data = v.data.to_mut();
+                if data.len() as u64 > week_ticks {
+                    let end = data.len() as u64 - week_ticks;
+                    data.drain(0..end as usize);
+                }
+                let mut dur = d;
+                // add 0s between then and now.
+                let zero_dur = Duration::from_secs(0);
+                while dur > zero_dur + hm.tick {
+                    data.push(0);
+                    dur -= hm.tick;
                 }
             }
-            hm
         }
-        None => hm,
     }
+    Some(hm)
 }
 
 impl HistogramMap {
     pub(crate) fn new(dur: Duration, tick: Duration, db: Option<PathBuf>) -> HistogramMap {
         let current_time = SystemTime::now();
-        let path = match &db {
-            Some(db) => Some(db.to_owned()),
-            None => None,
-        };
-        match &db {
+        match db {
             Some(db) => {
                 debug!("Opening DB");
-                let dbfile = Path::new(db).join(Path::new("store"));
-                if dbfile.exists() {
+                let dbfile = db.join("store");
+                let hm = if dbfile.exists() {
                     debug!("Zenith store exists, opening...");
-                    load_zenith_store(dbfile, &current_time)
+                    load_zenith_store(&dbfile, &current_time)
                 } else {
+                    None
+                }
+                .unwrap_or_else(|| {
+                    if let Err(e) = fs::remove_file(dbfile) {
+                        error!("{}", e);
+                    }
                     debug!("Starting a new database.");
                     HistogramMap {
                         map: HashMap::with_capacity(5),
                         duration: dur,
                         tick,
-                        db: path,
+                        db: Some(db),
                         previous_stop: None,
                     }
-                }
+                });
+                hm
             }
             None => {
                 debug!("Starting with no DB.");
@@ -97,64 +128,56 @@ impl HistogramMap {
                     map: HashMap::with_capacity(5),
                     duration: dur,
                     tick,
-                    db: path,
+                    db: None,
                     previous_stop: None,
                 }
             }
         }
     }
 
-    pub fn get_zoomed(
-        &self,
-        name: &str,
-        zoom_factor: u32,
-        update_number: u32,
-        width: usize,
-        offset: usize,
-    ) -> Option<Histogram> {
+    pub fn get_zoomed<'a>(&'a self, name: &HistogramKind, view: &View) -> Option<Histogram<'a>> {
         let h = self.get(name)?;
+        let h_data = h.data();
+        let h_len = h_data.len();
 
-        let mut nh = Histogram::new(width);
-        let mut h = h.clone();
-        for _i in 0..zoom_factor as usize * offset {
-            h.data.pop();
-        }
-        let nh_len = nh.data.len();
-        let zf = zoom_factor as usize;
-        let mut si: usize = if (width * zf) > h.data.len() {
-            0
-        } else {
-            h.data.len() - (width * zf) - update_number as usize
-        };
-
-        for index in 0..nh_len {
-            if si + zf <= h.data.len() {
-                nh.data[index] = h.data[si..si + zf].iter().sum::<u64>();
-            } else {
-                nh.data[index] = h.data[si..].iter().sum::<u64>();
-            }
-            si += zf;
+        if view.zoom_factor == 1 {
+            let low = h_len - (view.width + view.offset);
+            let high = h_len - view.offset;
+            return Some(Histogram {
+                data: Cow::Borrowed(&h_data[low..high]),
+            });
         }
 
-        nh.data = nh.data.iter().map(|d| d / zoom_factor as u64).collect();
-        Some(nh)
+        let zf = view.zoom_factor as usize;
+        let start: usize =
+            h_len.saturating_sub((view.width + view.offset) * zf + view.update_number as usize);
+        let end = h_len.saturating_sub(zf * view.offset);
+
+        let new_data: Vec<_> = h_data[start..end]
+            .chunks(zf)
+            .map(|set| set.iter().sum::<u64>() / view.zoom_factor as u64)
+            .collect();
+
+        Some(Histogram {
+            data: Cow::Owned(new_data),
+        })
     }
 
-    pub fn get(&self, name: &str) -> Option<&Histogram> {
+    pub fn get(&self, name: &HistogramKind) -> Option<&Histogram> {
         self.map.get(name)
     }
 
-    pub(crate) fn add_value_to(&mut self, name: &str, val: u64) {
+    pub(crate) fn add_value_to(&mut self, name: &HistogramKind, val: u64) {
         let h = if let Some(h) = self.map.get_mut(name) {
             h
         } else {
             let size = (self.duration.as_secs() / self.tick.as_secs()) as usize; //smallest has to be >= 1000ms
             self.map
-                .entry(name.to_string())
+                .entry(name.clone())
                 .or_insert_with(|| Histogram::new(size))
         };
-        h.data.push(val);
-        debug!("Adding {} to {} chart.", val, name);
+        h.data.to_mut().push(val);
+        debug!("Adding {} to {:?} chart.", val, name);
     }
 
     pub fn hist_duration(&self, width: usize, zoom_factor: u32) -> chrono::Duration {
@@ -165,10 +188,7 @@ impl HistogramMap {
     }
 
     pub fn histograms_width(&self) -> Option<usize> {
-        match self.map.iter().next() {
-            Some((_k, h)) => Some(h.data.len()),
-            None => None,
-        }
+        self.map.iter().next().map(|(_k, h)| h.data.len())
     }
 
     pub(crate) fn save_histograms(&mut self) {
@@ -176,7 +196,7 @@ impl HistogramMap {
             Some(db) => {
                 debug!("Saving Histograms");
                 self.previous_stop = Some(SystemTime::now());
-                let dbfile = Path::new(db).join(Path::new("store"));
+                let dbfile = db.join("store");
                 let mut database = fs::OpenOptions::new()
                     .create(true)
                     .write(true)
@@ -185,7 +205,7 @@ impl HistogramMap {
                 database
                     .write_all(&bincode::serialize(self).expect(SER_ERROR))
                     .expect("Failed to write file.");
-                let configuration = Path::new(db).join(Path::new(".configuration"));
+                let configuration = db.join(".configuration");
                 let mut configuration = fs::OpenOptions::new()
                     .create(true)
                     .write(true)

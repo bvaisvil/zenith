@@ -9,6 +9,8 @@ use libc::getpriority;
 use libc::{id_t, setpriority};
 use std::cmp::Ordering::{self, Equal};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use sysinfo::Process;
+use sysinfo::ProcessExt;
 use sysinfo::ProcessStatus;
 
 macro_rules! convert_result_to_string {
@@ -62,6 +64,37 @@ pub struct ZProcess {
 }
 
 impl ZProcess {
+    pub fn from_user_and_process(user_name: String, process: &Process) -> Self {
+        let disk_usage = process.disk_usage();
+        ZProcess {
+            uid: process.uid,
+            user_name,
+            pid: process.pid(),
+            memory: process.memory(),
+            cpu_usage: process.cpu_usage(),
+            command: process.cmd().to_vec(),
+            status: process.status(),
+            exe: format!("{}", process.exe().display()),
+            name: process.name().to_string(),
+            cum_cpu_usage: process.cpu_usage() as f64,
+            priority: process.priority,
+            nice: process.nice,
+            virtual_memory: process.virtual_memory(),
+            threads_total: process.threads_total,
+            read_bytes: disk_usage.total_read_bytes,
+            write_bytes: disk_usage.total_written_bytes,
+            prev_read_bytes: disk_usage.total_read_bytes,
+            prev_write_bytes: disk_usage.total_written_bytes,
+            last_updated: SystemTime::now(),
+            end_time: None,
+            start_time: process.start_time(),
+            gpu_usage: 0,
+            fb_utilization: 0,
+            enc_utilization: 0,
+            dec_utilization: 0,
+            sm_utilization: 0,
+        }
+    }
     pub fn get_read_bytes_sec(&self, tick_rate: &Duration) -> f64 {
         debug!(
             "Pid {:?} Read {:?} Prev {:?}",
@@ -150,7 +183,7 @@ impl ZProcess {
         sortfield: ProcessTableSortBy,
     ) -> fn(&Self, &Self, &Duration) -> Ordering {
         match sortfield {
-            ProcessTableSortBy::CPU => {
+            ProcessTableSortBy::Cpu => {
                 |pa, pb, _tick| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
             }
             ProcessTableSortBy::Mem => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
@@ -185,7 +218,7 @@ impl ZProcess {
         sortfield: ProcessTableSortBy,
     ) -> fn(&Self, &Self, &Duration) -> Ordering {
         match sortfield {
-            ProcessTableSortBy::CPU => {
+            ProcessTableSortBy::Cpu => {
                 |pa, pb, _tick| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
             }
             ProcessTableSortBy::Mem => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
@@ -211,7 +244,7 @@ impl ZProcess {
                     .partial_cmp(&pb.get_write_bytes_sec(tick))
                     .unwrap_or(Equal)
             },
-            ProcessTableSortBy::GPU => |pa, pb, _tick| pa.gpu_usage.cmp(&pb.gpu_usage),
+            ProcessTableSortBy::Gpu => |pa, pb, _tick| pa.gpu_usage.cmp(&pb.gpu_usage),
             ProcessTableSortBy::FB => |pa, pb, _tick| pa.fb_utilization.cmp(&pb.fb_utilization),
         }
     }

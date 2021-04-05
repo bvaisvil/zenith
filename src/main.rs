@@ -79,12 +79,14 @@ fn restore_terminal() {
     disable_raw_mode().expect("Unable to disable raw mode");
 }
 
-fn use_db_history(db_path: &str, tick_rate: u64) -> Option<bool> {
-    let path = format!("{}/store", db_path);
-    let db_path = Path::new(path.as_str());
+fn use_db_history(db_path: &Path, tick_rate: u64) -> Option<bool> {
+    let db_path = db_path.join("store");
     if db_path.exists() {
         let now = SystemTime::now();
-        let map = load_zenith_store(db_path.to_owned(), &now);
+        let map = match load_zenith_store(&db_path, &now) {
+            Some(map) => map,
+            None => return Some(true),
+        };
         let tick = Duration::from_millis(tick_rate);
         if map.tick != tick {
             println!(
@@ -134,7 +136,7 @@ fn create_geometry(
     graphics_height: u16,
 ) -> Vec<(Section, f64)> {
     let mut geometry: Vec<(Section, f64)> = Vec::new();
-    push_geometry!(geometry, Section::CPU, cpu_height);
+    push_geometry!(geometry, Section::Cpu, cpu_height);
     push_geometry!(geometry, Section::Network, net_height);
     push_geometry!(geometry, Section::Disk, disk_height);
     push_geometry!(geometry, Section::Graphics, graphics_height);
@@ -185,8 +187,10 @@ fn start_zenith(
           process_height,
           graphics_height,
           disable_history,
-          db_path
+          db_path,
     );
+
+    let db_path = Path::new(db_path);
 
     let mut disable_history = disable_history;
     if !disable_history {
