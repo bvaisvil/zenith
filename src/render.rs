@@ -897,31 +897,39 @@ fn disk_usage_histogram(app: &CPUTimeApp,
                         view: View,
                         area: &Vec<Rect>,
                         file_system_index: &usize) {
-    if let Some(fs) = app.disks.get(*file_system_index){
+    if let Some(fs) = app.disks.get(*file_system_index) {
         let h_free = match app.histogram_map.get_zoomed(&HistogramKind::FileSystemFreeSpace(fs.name.clone()), &view) {
             Some(h) => h,
             None => return,
         };
-        let free = float_to_byte_string!(fs.available_bytes as f64, ByteUnit::B);
-        let used = float_to_byte_string!((fs.size_bytes - fs.available_bytes) as f64, ByteUnit::B);
-        let size = float_to_byte_string!(fs.size_bytes as f64, ByteUnit::B);
-        Sparkline::default()
-            .block(
-                Block::default().title(
-                    format!(
-                        "{} Free [{:^10}] Used [{:^10}] Size [{:^10}]",
-                        fs.name,
-                        free,
-                        used,
-                        size
-                    )
-                        .as_str(),
-                ),
-            )
-            .data(h_free.data())
-            .style(Style::default().fg(Color::LightYellow))
-            .max(fs.size_bytes)
-            .render(f, area[0]);
+        if fs.size_bytes > 0 {
+            let h_used: Vec<u64> = h_free.data().iter().map(|f| fs.size_bytes.saturating_sub(*f)).collect();
+            let free = float_to_byte_string!(fs.available_bytes as f64, ByteUnit::B);
+            let free_perc = fs.available_bytes as f64 / fs.size_bytes as f64 * 100.0;
+            let used_bytes = fs.size_bytes.saturating_sub(fs.available_bytes);
+            let used = float_to_byte_string!(used_bytes as f64, ByteUnit::B);
+            let used_perc = (used_bytes as f64 / fs.size_bytes as f64) * 100.0;
+            let size = float_to_byte_string!(fs.size_bytes as f64, ByteUnit::B);
+            Sparkline::default()
+                .block(
+                    Block::default().title(
+                        format!(
+                            "{}  ↓Used [{:^10} ({:.1}%)] Free [{:^10} ({:.1}%)] Size [{:^10}]",
+                            fs.name,
+                            used,
+                            used_perc,
+                            free,
+                            free_perc,
+                            size
+                        )
+                            .as_str(),
+                    ),
+                )
+                .data(&h_used)
+                .style(Style::default().fg(Color::LightYellow))
+                .max(fs.size_bytes)
+                .render(f, area[0]);
+        }
     }
 }
 
