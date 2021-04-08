@@ -21,6 +21,7 @@ use sysinfo::{
     Component, ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt,
 };
 use users::{Users, UsersCache};
+use serde::de::value::StringDeserializer;
 
 #[cfg(feature = "nvidia")]
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
@@ -125,7 +126,8 @@ pub struct ZDisk {
     pub mount_point: PathBuf,
     pub available_bytes: u64,
     pub size_bytes: u64,
-    pub name: String
+    pub name: String,
+    pub file_system: String
 }
 
 impl ZDisk {
@@ -135,6 +137,7 @@ impl ZDisk {
             available_bytes: d.get_available_space(),
             size_bytes: d.get_total_space(),
             name: d.get_name().to_string_lossy().to_string(),
+            file_system: String::from_utf8_lossy(d.get_file_system()).into_owned()
         }
     }
 

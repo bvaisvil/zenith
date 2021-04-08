@@ -892,7 +892,7 @@ fn disk_activity_histogram(app: &CPUTimeApp,
         .render(f, area[1]);
 }
 
-fn disk_usage_histogram(app: &CPUTimeApp,
+fn disk_usage(app: &CPUTimeApp,
                         f: &mut Frame<'_, ZBackend>,
                         view: View,
                         area: &Vec<Rect>,
@@ -902,30 +902,64 @@ fn disk_usage_histogram(app: &CPUTimeApp,
             Some(h) => h,
             None => return,
         };
-        if fs.size_bytes > 0 {
-            let free = float_to_byte_string!(fs.available_bytes as f64, ByteUnit::B);
-            let used = float_to_byte_string!(fs.get_used_bytes() as f64, ByteUnit::B);
-            let size = float_to_byte_string!(fs.size_bytes as f64, ByteUnit::B);
-            Sparkline::default()
-                .block(
-                    Block::default().title(
-                        format!(
-                            "{}  ↓Used [{:^10} ({:.1}%)] Free [{:^10} ({:.1}%)] Size [{:^10}]",
-                            fs.name,
-                            used,
-                            fs.get_perc_used_space(),
-                            free,
-                            fs.get_perc_free_space(),
-                            size
-                        )
-                            .as_str(),
-                    ),
-                )
-                .data(h_used.data())
-                .style(Style::default().fg(Color::LightYellow))
-                .max(fs.size_bytes)
-                .render(f, area[0]);
-        }
+        let free = float_to_byte_string!(fs.available_bytes as f64, ByteUnit::B);
+        let used = float_to_byte_string!(fs.get_used_bytes() as f64, ByteUnit::B);
+        let size = float_to_byte_string!(fs.size_bytes as f64, ByteUnit::B);
+        Sparkline::default()
+            .block(
+                Block::default().title(
+                    format!(
+                        "{}  ↓Used [{:^10} ({:.1}%)] Free [{:^10} ({:.1}%)] Size [{:^10}]",
+                        fs.name,
+                        used,
+                        fs.get_perc_used_space(),
+                        free,
+                        fs.get_perc_free_space(),
+                        size
+                    )
+                        .as_str(),
+                ),
+            )
+            .data(h_used.data())
+            .style(Style::default().fg(Color::LightYellow))
+            .max(fs.size_bytes)
+            .render(f, area[0]);
+        let columns = Layout::default()
+            .margin(1)
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(area[1]);
+        let rhs_style = Style::default().fg(Color::Green);
+        let text = vec![
+            Spans::from(vec![
+                Span::raw(format!("Name:                  ")),
+                Span::styled(format!("{}", fs.name), rhs_style)
+                ]),
+            Spans::from(vec![
+                Span::raw(format!("File System            ")),
+                Span::styled(format!("{}", fs.file_system), rhs_style)
+            ]),
+            Spans::from(vec![
+                Span::raw(format!("Mount Point:           ")),
+                Span::styled(format!("{}", fs.mount_point.to_string_lossy()), rhs_style)
+            ]),
+        ];
+        Paragraph::new(text).render(f, columns[0]);
+        let text = vec![
+            Spans::from(vec![
+                Span::raw(format!("Size:                  ")),
+                Span::styled(format!("{}", size), rhs_style)
+            ]),
+            Spans::from(vec![
+                Span::raw(format!("Used                   ")),
+                Span::styled(format!("{}", used), rhs_style)
+            ]),
+            Spans::from(vec![
+                Span::raw(format!("Free:                  ")),
+                Span::styled(format!("{}", free), rhs_style)
+            ]),
+        ];
+        Paragraph::new(text).render(f, columns[1]);
     }
 }
 
@@ -968,7 +1002,7 @@ fn render_disk(
         disk_activity_histogram(app, f, view, &area);
     }
     else{
-        disk_usage_histogram(app, f, view, &area, file_system_index);
+        disk_usage(app, f, view, &area, file_system_index);
     }
 
     let disks: Vec<_> = app
