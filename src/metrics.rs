@@ -8,9 +8,11 @@ use crate::zprocess::*;
 
 use futures::StreamExt;
 use heim::host;
+use heim::disk;
 use heim::net;
-use heim::net::Address;
+use heim::net::{Address, IoCounters};
 use heim::units::frequency::megahertz;
+use heim::units::information::byte;
 use heim::units::time;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime};
@@ -122,6 +124,57 @@ fn get_max_pid_length() -> usize {
     format!("{:}", get_max_pid()).len()
 }
 
+pub struct ZDiskIoCounters {
+    pub name: String,
+    pub read_count: u64,
+    pub prev_read_count: u64,
+    pub write_count: u64,
+    pub prev_write_count: u64,
+    pub read_bytes: u64,
+    pub prev_read_bytes: u64,
+    pub write_bytes: u64,
+    pub prev_write_bytes: u64
+}
+
+impl ZDiskIoCounters{
+    fn new() -> ZDiskIoCounters{
+        ZDiskIoCounters{
+            name: String::from(""),
+            read_count: 0,
+            prev_read_count: 0,
+            write_count: 0,
+            prev_write_count: 0,
+            read_bytes: 0,
+            prev_read_bytes: 0,
+            write_bytes: 0,
+            prev_write_bytes: 0
+        }
+    }
+
+    fn from(io_counters: &heim::disk::IoCounters) -> ZDiskIoCounters{
+        let read_count = io_counters.read_count();
+        let write_count = io_counters.write_count();
+        let read_bytes = io_counters.read_bytes().get::<byte>();
+        let write_bytes = io_counters.write_bytes().get::<byte>();
+        ZDiskIoCounters{
+            name: io_counters.device_name().to_string_lossy().to_string(),
+            read_count,
+            prev_read_count: read_count,
+            write_count,
+            prev_write_count: write_count,
+            read_bytes,
+            prev_read_bytes: read_bytes,
+            write_bytes,
+            prev_write_bytes: write_bytes
+        }
+    }
+
+    fn update(&mut self, io_counters: &heim::disk::IoCounters){
+        self.prev_read_count = self.read_count;
+        self.prev_write_count = self.write_count;
+    }
+}
+
 pub struct ZDisk {
     pub mount_point: PathBuf,
     pub available_bytes: u64,
@@ -201,6 +254,7 @@ pub struct CPUTimeApp {
     pub max_pid_len: usize,
     pub batteries: Vec<battery::Battery>,
     pub uptime: Duration,
+    pub io_counters: HashMap<String, ZDiskIoCounters>,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
     pub nvml: Option<nvml::NVML>,
 }
@@ -248,6 +302,7 @@ impl CPUTimeApp {
             top_disk_writer_pid: None,
             uptime: Duration::from_secs(0),
             gfx_devices: vec![],
+            io_counters: HashMap::new(),
 
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
             nvml: match nvml::NVML::init() {
@@ -533,7 +588,7 @@ impl CPUTimeApp {
         }
     }
 
-    fn update_disk(&mut self, _width: u16) {
+    async fn update_disk(&mut self, _width: u16) {
         debug!("Updating Disks");
         self.disks.clear();
 
@@ -549,6 +604,33 @@ impl CPUTimeApp {
         ];
 
         self.system.refresh_disks_list();
+        let counters = heim::disk::io_counters_physical().await;
+        let counters = match counters {
+            Ok(counters) => counters,
+            Err(_) => {
+                debug!("Couldn't get disk information");
+                return;
+            }
+        };
+        ::futures::pin_mut!(counters);
+        let mut all = ZDiskIoCounters::new();
+        while let Some(c) = counters.next().await {
+            match c {
+                Ok(c) => {
+                    let c = ZDiskIoCounters::from(&c);
+                    all.write_bytes += c.write_bytes;
+                    all.write_count += c.write_count;
+                    all.read_bytes += c.read_bytes;
+                    all.read_count += c.read_count;
+                    debug!("Adding: {:?}", c.name);
+                    self.io_counters.insert(c.name.clone(), c);
+
+                },
+                Err(_) => println!("Couldn't information about io counter/disk.")
+            }
+        }
+        self.io_counters.insert(String::from("all"),all);
+
         for d in self.system.get_disks().iter() {
             let name = d.get_name().to_string_lossy();
             let mp = d.get_mount_point().to_string_lossy();
@@ -652,7 +734,7 @@ impl CPUTimeApp {
         self.update_networks().await;
         self.update_process_list(keep_order);
         self.update_frequency().await;
-        self.update_disk(width);
+        self.update_disk(width).await;
         self.get_platform().await;
         self.get_nics().await;
         self.get_batteries();

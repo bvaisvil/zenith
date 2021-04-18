@@ -945,21 +945,6 @@ fn disk_usage(app: &CPUTimeApp,
             ]),
         ];
         Paragraph::new(text).render(f, columns[0]);
-        let text = vec![
-            Spans::from(vec![
-                Span::raw(format!("Size:                  ")),
-                Span::styled(format!("{}", size), rhs_style)
-            ]),
-            Spans::from(vec![
-                Span::raw(format!("Used                   ")),
-                Span::styled(format!("{}", used), rhs_style)
-            ]),
-            Spans::from(vec![
-                Span::raw(format!("Free:                  ")),
-                Span::styled(format!("{}", free), rhs_style)
-            ]),
-        ];
-        Paragraph::new(text).render(f, columns[1]);
     }
 }
 
