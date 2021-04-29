@@ -157,8 +157,13 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
         _ => histogram.iter().sum::<u64>() as f64 / histogram.len() as f64,
     };
     let temp = if !app.sensors.is_empty() {
-        let t: f32 = app.sensors.iter().map(|s| s.current_temp).sum();
-        format!(" TEMP [{: >3.0}°C]", t)
+        let mut t = app
+            .sensors
+            .iter()
+            .map(|s| format!("{: >3.0}", s.current_temp))
+            .collect::<Vec<String>>()
+            .join(",");
+        format!(" TEMP [{:}°C]", t)
     } else {
         String::from("")
     };
