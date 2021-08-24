@@ -432,7 +432,7 @@ impl CPUTimeApp {
                     .get_user_by_uid(process.uid)
                     .map(|user| user.name().to_string_lossy().to_string())
                     .unwrap_or_default();
-                let zprocess = ZProcess::from_user_and_process(user_name, &process);
+                let zprocess = ZProcess::from_user_and_process(user_name, process);
                 self.threads_total += zprocess.threads_total as usize;
 
                 top.update(&zprocess, &self.histogram_map.tick);
