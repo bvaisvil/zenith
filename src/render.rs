@@ -1,7 +1,7 @@
-use crate::histogram::{HistogramKind, View};
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
+use crate::histogram::{HistogramKind, View};
 use crate::metrics::*;
 use crate::util::*;
 use crate::zprocess::*;
@@ -25,7 +25,6 @@ use std::collections::HashSet;
 use std::fmt;
 use std::io;
 use std::io::Stdout;
-use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tui::{backend::CrosstermBackend, Terminal};
@@ -157,7 +156,7 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
         _ => histogram.iter().sum::<u64>() as f64 / histogram.len() as f64,
     };
     let temp = if !app.sensors.is_empty() {
-        let mut t = app
+        let t = app
             .sensors
             .iter()
             .map(|s| format!("{: >3.0}", s.current_temp))
@@ -359,7 +358,7 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend
         Some(h) => h,
         None => return,
     };
-    let title = cpu_title(&app, h.data());
+    let title = cpu_title(app, h.data());
     Sparkline::default()
         .block(Block::default().title(title.as_str()))
         .data(h.data())
@@ -373,7 +372,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBack
         Some(h) => h,
         None => return,
     };
-    let title2 = mem_title(&app);
+    let title2 = mem_title(app);
     Sparkline::default()
         .block(Block::default().title(title2.as_str()))
         .data(h.data())
@@ -1281,9 +1280,9 @@ fn render_cpu(
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(cpu_layout[1]);
-    render_cpu_histogram(&app, cpu_mem[0], f, &view);
-    render_memory_histogram(&app, cpu_mem[1], f, &view);
-    render_cpu_bars(&app, cpu_layout[0], LEFT_PANE_WIDTH, f, &style);
+    render_cpu_histogram(app, cpu_mem[0], f, &view);
+    render_memory_histogram(app, cpu_mem[1], f, &view);
+    render_cpu_bars(app, cpu_layout[0], LEFT_PANE_WIDTH, f, &style);
 }
 
 fn filter_process_table<'a>(app: &'a CPUTimeApp, filter: &str) -> Cow<'a, [i32]> {
@@ -1316,12 +1315,6 @@ struct SectionMGRList<'a> {
 }
 
 impl<'a> SectionMGRList<'a> {
-    pub fn new() -> SectionMGRList<'a> {
-        SectionMGRList {
-            items: Vec::new(),
-            state: ListState::default(),
-        }
-    }
     pub fn with_geometry(geometry: Vec<(Section, f64)>) -> SectionMGRList<'a> {
         info!("Geometry: {:?}", geometry);
         info!("Geometry Len: {:?}", geometry.len());
@@ -1667,7 +1660,7 @@ impl<'a> TerminalRenderer<'_> {
             Terminal::new(backend).expect("Couldn't create new terminal with backend");
         terminal.hide_cursor().ok();
 
-        let constraints = get_constraints(&section_geometry, terminal_size().1);
+        let constraints = get_constraints(section_geometry, terminal_size().1);
         let section_geometry = section_geometry.to_vec();
         TerminalRenderer {
             terminal,
@@ -1808,13 +1801,13 @@ impl<'a> TerminalRenderer<'_> {
                             match geometry[section_index].0 {
                                 Section::Cpu => render_cpu(app, v_section, &mut f, view, &selected),
                                 Section::Network => {
-                                    render_net(&app, v_section, &mut f, view, &selected)
+                                    render_net(app, v_section, &mut f, view, &selected)
                                 }
                                 Section::Disk => {
-                                    render_disk(&app, v_section, &mut f, view, &selected)
+                                    render_disk(app, v_section, &mut f, view, &selected)
                                 }
                                 Section::Graphics => render_graphics(
-                                    &app,
+                                    app,
                                     v_section,
                                     &mut f,
                                     view,
@@ -1824,7 +1817,7 @@ impl<'a> TerminalRenderer<'_> {
                                 Section::Process => {
                                     if let Some(p) = app.selected_process.as_ref() {
                                         render_process(
-                                            &app,
+                                            app,
                                             v_section,
                                             &mut f,
                                             &selected,
@@ -1833,7 +1826,7 @@ impl<'a> TerminalRenderer<'_> {
                                         );
                                     } else {
                                         highlighted_process = render_process_table(
-                                            &app,
+                                            app,
                                             &process_table,
                                             width,
                                             v_section,

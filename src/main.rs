@@ -37,7 +37,7 @@ use futures::executor::block_on;
 use histogram::load_zenith_store;
 use std::error::Error;
 use std::fs;
-use std::io::{stdout, Write};
+use std::io::stdout;
 use std::panic;
 use std::panic::PanicInfo;
 use std::path::Path;
