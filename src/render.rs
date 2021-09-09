@@ -2197,9 +2197,17 @@ impl<'a> TerminalRenderer<'_> {
                     .as_mut()
                     .map(|p| p.set_priority(0));
             }
-            Key::Tab => {
+            k @ Key::Tab | k @ Key::BackTab => {
+                // hopefully cross platform enough regarding https://github.com/crossterm-rs/crossterm/issues/442
                 self.selected_section_index =
-                    (self.selected_section_index + 1) % self.section_geometry.len();
+                    if k == Key::BackTab || input.modifiers.contains(KeyModifiers::SHIFT) {
+                        match self.selected_section_index {
+                            0 => self.section_geometry.len() - 1,
+                            x => x - 1,
+                        }
+                    } else {
+                        (self.selected_section_index + 1) % self.section_geometry.len()
+                    };
             }
             Key::Char(' ') => {
                 self.toggle_section();
