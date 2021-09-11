@@ -192,17 +192,16 @@ fn start_zenith(
 
     let db_path = Path::new(db_path);
 
-    let mut disable_history = disable_history;
-    if !disable_history {
+    let use_history = if disable_history {
+        false
+    } else {
         match use_db_history(db_path, rate) {
-            Some(r) => {
-                disable_history = !r;
-            }
+            Some(r) => r,
             None => {
                 exit(0);
             }
-        };
-    }
+        }
+    };
 
     init_terminal();
 
@@ -216,7 +215,7 @@ fn start_zenith(
 
     let run = || async {
         //check lock
-        let (db, lock) = if !disable_history {
+        let (db, lock) = if use_history {
             let db_path = Path::new(db_path);
             if !db_path.exists() {
                 debug!("Creating DB dir.");
@@ -225,20 +224,17 @@ fn start_zenith(
             debug!("Creating Lock");
 
             let lock_path = db_path.join(".zenith.lock");
-            let lock = match util::Lockfile::new(main_pid, &lock_path).await {
-                Some(f) => f,
+            match util::Lockfile::new(main_pid, &lock_path).await {
+                Some(f) => (Some(db_path.to_owned()), Some(f)), // keeps the lock handle alive
                 None => {
-                    let msg = format!(
+                    warn!(
                         "{:} exists and history recording is on. Is another copy of zenith \
                             open? If not remove the path and open zenith again.",
                         lock_path.display()
                     );
-                    exit_with_message!(msg, 1);
+                    (None, None)
                 }
-            };
-
-            // keeps the lock handle alive
-            (Some(db_path.to_owned()), Some(lock))
+            }
         } else {
             (None, None)
         };
@@ -253,7 +249,7 @@ fn start_zenith(
             sensor_height,
             graphics_height,
         );
-        let mut r = TerminalRenderer::new(rate, &geometry, db);
+        let mut r = TerminalRenderer::new(rate, &geometry, db, disable_history);
 
         r.start().await;
 

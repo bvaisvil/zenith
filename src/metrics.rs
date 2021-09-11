@@ -666,4 +666,8 @@ impl CPUTimeApp {
     pub async fn save_state(&mut self) {
         self.histogram_map.save_histograms();
     }
+
+    pub fn writes_db_store(&self) -> bool {
+        self.histogram_map.writes_db_store()
+    }
 }

@@ -219,6 +219,10 @@ impl HistogramMap {
             None => {}
         }
     }
+
+    pub fn writes_db_store(&self) -> bool {
+        self.db.is_some()
+    }
 }
 
 impl Drop for HistogramMap {
