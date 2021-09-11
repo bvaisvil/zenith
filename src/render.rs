@@ -1517,7 +1517,7 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
         .split(area);
     let header_style = Style::default().fg(Color::Green);
     let t = vec![Span::styled(
-        format!("zenith v{:}", env!("CARGO_PKG_VERSION")),
+        concat!("zenith v", env!("CARGO_PKG_VERSION")),
         header_style,
     )];
     Paragraph::new(Spans::from(t))
