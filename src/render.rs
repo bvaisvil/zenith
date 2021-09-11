@@ -1527,107 +1527,61 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
     let main_style = Style::default();
     let key_style = main_style.fg(Color::Cyan);
 
-    let t = vec![
-        Spans::from(vec![Span::styled("Primary Interface", header_style)]),
-        Spans::from(vec![
-            Span::styled("h    ", key_style),
-            Span::styled("    Toggle this help screen\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("q    ", key_style),
-            Span::styled("    Quit and exit zenith\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("<TAB>", key_style),
-            Span::styled("    Changes highlighted section\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("e    ", key_style),
-            Span::styled("    Expands highlighted section\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("m    ", key_style),
-            Span::styled("    Shrinks highlighted section\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("F1   ", key_style),
-            Span::styled("    Show Section Selection Menu\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("-    ", key_style),
-            Span::styled("    Zoom chart out\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("+    ", key_style),
-            Span::styled("    Zoom chart in\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("←    ", key_style),
-            Span::styled("    Move back in time\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("→    ", key_style),
-            Span::styled("    Move forward In time\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("`    ", key_style),
-            Span::styled("    Reset charts to current\n", main_style),
-        ]),
-        Spans::from(vec![Span::styled("", header_style)]),
-        Spans::from(vec![Span::styled("Process Table\n", header_style)]),
-        Spans::from(vec![
-            Span::styled("<RET> ", key_style),
-            Span::styled("    Focus current process\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("↓     ", key_style),
-            Span::styled("    Move one line down\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("↑     ", key_style),
-            Span::styled("    Move one line up\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("PgDown", key_style),
-            Span::styled("    Move view one screen down\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("PgUp  ", key_style),
-            Span::styled("    Move view one screen up\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("Home  ", key_style),
-            Span::styled("    Move to top\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("End   ", key_style),
-            Span::styled("    Move to bottom\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("/     ", key_style),
-            Span::styled("    Change sort between ascending/descending\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled(",     ", key_style),
-            Span::styled("    Cycle columns left\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled(".     ", key_style),
-            Span::styled("    Cycle columns right\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("p     ", key_style),
-            Span::styled("    Toggle paths on/off\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("f     ", key_style),
-            Span::styled("    Toggle filter mode\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("<ESC> ", key_style),
-            Span::styled("    Leave filter mode\n", main_style),
-        ]),
+    static GLOBAL_KEYS: &[[&str; 2]] = &[
+        ["h    ", "    Toggle this help screen\n"],
+        ["q    ", "    Quit and exit zenith\n"],
+        ["<TAB>", "    Changes highlighted section\n"],
+        ["e    ", "    Expands highlighted section\n"],
+        ["m    ", "    Shrinks highlighted section\n"],
+        ["F1   ", "    Show Section Selection Menu\n"],
+        ["-    ", "    Zoom chart out\n"],
+        ["+    ", "    Zoom chart in\n"],
+        ["←    ", "    Move back in time\n"],
+        ["→    ", "    Move forward In time\n"],
+        ["`    ", "    Reset charts to current\n"],
     ];
+
+    static PROCESS_TABLE_KEYS: &[[&str; 2]] = &[
+        ["<RET> ", "    Focus current process\n"],
+        ["↓     ", "    Move one line down\n"],
+        ["↑     ", "    Move one line up\n"],
+        ["PgDown", "    Move view one screen down\n"],
+        ["PgUp  ", "    Move view one screen up\n"],
+        ["Home  ", "    Move to top\n"],
+        ["End   ", "    Move to bottom\n"],
+        ["/     ", "    Change sort between ascending/descending\n"],
+        [",     ", "    Cycle columns left\n"],
+        [".     ", "    Cycle columns right\n"],
+        ["p     ", "    Toggle paths on/off\n"],
+        ["f     ", "    Toggle filter mode\n"],
+        ["<ESC> ", "    Leave filter mode\n"],
+    ];
+
+    let mut t = vec![Spans::from(vec![Span::styled(
+        "Primary Interface",
+        header_style,
+    )])];
+
+    for [key, text] in GLOBAL_KEYS {
+        t.push(Spans::from(vec![
+            Span::styled(*key, key_style),
+            Span::styled(*text, main_style),
+        ]));
+    }
+
+    t.push(Spans::from(vec![Span::styled("", header_style)]));
+    t.push(Spans::from(vec![Span::styled(
+        "Process Table\n",
+        header_style,
+    )]));
+
+    for [key, text] in PROCESS_TABLE_KEYS {
+        t.push(Spans::from(vec![
+            Span::styled(*key, key_style),
+            Span::styled(*text, main_style),
+        ]));
+    }
+
     let b = Block::default().borders(Borders::ALL);
     Paragraph::new(t)
         .wrap(Wrap { trim: true })
