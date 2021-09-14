@@ -825,7 +825,7 @@ fn render_process(
 fn disk_activity_histogram(app: &CPUTimeApp,
                            f: &mut Frame<'_, ZBackend>,
                            view: View,
-                           area: &Vec<Rect>) {
+                           area: &[Rect]) {
     let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
     let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead, &view) {
         Some(h) => h,
@@ -899,7 +899,7 @@ fn disk_activity_histogram(app: &CPUTimeApp,
 fn disk_usage(app: &CPUTimeApp,
                         f: &mut Frame<'_, ZBackend>,
                         view: View,
-                        area: &Vec<Rect>,
+                        area: &[Rect],
                         file_system_index: &usize) {
     if let Some(fs) = app.disks.get(*file_system_index) {
         let h_used = match app.histogram_map.get_zoomed(&HistogramKind::FileSystemUsedSpace(fs.name.clone()), &view) {
@@ -936,31 +936,31 @@ fn disk_usage(app: &CPUTimeApp,
         let rhs_style = Style::default().fg(Color::Green);
         let text = vec![
             Spans::from(vec![
-                Span::raw(format!("Name:                  ")),
-                Span::styled(format!("{}", fs.name), rhs_style)
+                Span::raw("Name:                  ".to_string()),
+                Span::styled(fs.name.to_string(), rhs_style)
                 ]),
             Spans::from(vec![
-                Span::raw(format!("File System            ")),
-                Span::styled(format!("{}", fs.file_system), rhs_style)
+                Span::raw("File System            ".to_string()),
+                Span::styled(fs.file_system.to_string(), rhs_style)
             ]),
             Spans::from(vec![
-                Span::raw(format!("Mount Point:           ")),
-                Span::styled(format!("{}", fs.mount_point.to_string_lossy()), rhs_style)
+                Span::raw("Mount Point:           ".to_string()),
+                Span::styled(fs.mount_point.to_string_lossy(), rhs_style)
             ]),
         ];
         Paragraph::new(text).render(f, columns[0]);
         let text = vec![
             Spans::from(vec![
-                Span::raw(format!("Size:                  ")),
-                Span::styled(format!("{}", size), rhs_style)
+                Span::raw("Size:                  ".to_string()),
+                Span::styled(size, rhs_style)
             ]),
             Spans::from(vec![
-                Span::raw(format!("Used                   ")),
-                Span::styled(format!("{}", used), rhs_style)
+                Span::raw("Used                   ".to_string()),
+                Span::styled(used, rhs_style)
             ]),
             Spans::from(vec![
-                Span::raw(format!("Free:                  ")),
-                Span::styled(format!("{}", free), rhs_style)
+                Span::raw("Free:                  ".to_string()),
+                Span::styled(free, rhs_style)
             ]),
         ];
         Paragraph::new(text).render(f, columns[1]);
@@ -1916,7 +1916,7 @@ impl<'a> TerminalRenderer<'_> {
                                     render_net(app, v_section, &mut f, view, &selected)
                                 }
                                 Section::Disk => {
-                                    render_disk(&app, v_section, &mut f, view,
+                                    render_disk(app, v_section, &mut f, view,
                                                 &selected, file_system_index,
                                                 file_system_display)
                                 }
