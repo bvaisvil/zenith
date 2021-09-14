@@ -21,7 +21,6 @@ use sysinfo::{
     Component, ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt,
 };
 use users::{Users, UsersCache};
-use serde::de::value::StringDeserializer;
 
 #[cfg(feature = "nvidia")]
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
