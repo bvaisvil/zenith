@@ -822,10 +822,12 @@ fn render_process(
     }
 }
 
-fn disk_activity_histogram(app: &CPUTimeApp,
-                           f: &mut Frame<'_, ZBackend>,
-                           view: View,
-                           area: &[Rect]) {
+fn disk_activity_histogram(
+    app: &CPUTimeApp,
+    f: &mut Frame<'_, ZBackend>,
+    view: View,
+    area: &[Rect],
+) {
     let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
     let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead, &view) {
         Some(h) => h,
@@ -872,7 +874,7 @@ fn disk_activity_histogram(app: &CPUTimeApp,
                     "R [{:^10}/s] Max [{:^10}/s] {:}",
                     read_up, read_max_bytes, top_reader
                 )
-                    .as_str(),
+                .as_str(),
             ),
         )
         .data(h_read.data())
@@ -887,7 +889,7 @@ fn disk_activity_histogram(app: &CPUTimeApp,
                     "W [{:^10}/s] Max [{:^10}/s] {:}",
                     write_down, write_max_bytes, top_writer
                 )
-                    .as_str(),
+                .as_str(),
             ),
         )
         .data(h_write.data())
@@ -896,13 +898,18 @@ fn disk_activity_histogram(app: &CPUTimeApp,
         .render(f, area[1]);
 }
 
-fn disk_usage(app: &CPUTimeApp,
-                        f: &mut Frame<'_, ZBackend>,
-                        view: View,
-                        area: &[Rect],
-                        file_system_index: &usize) {
+fn disk_usage(
+    app: &CPUTimeApp,
+    f: &mut Frame<'_, ZBackend>,
+    view: View,
+    area: &[Rect],
+    file_system_index: &usize,
+) {
     if let Some(fs) = app.disks.get(*file_system_index) {
-        let h_used = match app.histogram_map.get_zoomed(&HistogramKind::FileSystemUsedSpace(fs.name.clone()), &view) {
+        let h_used = match app
+            .histogram_map
+            .get_zoomed(&HistogramKind::FileSystemUsedSpace(fs.name.clone()), &view)
+        {
             Some(h) => h,
             None => return,
         };
@@ -921,7 +928,7 @@ fn disk_usage(app: &CPUTimeApp,
                         fs.get_perc_free_space(),
                         size
                     )
-                        .as_str(),
+                    .as_str(),
                 ),
             )
             .data(h_used.data())
@@ -937,30 +944,30 @@ fn disk_usage(app: &CPUTimeApp,
         let text = vec![
             Spans::from(vec![
                 Span::raw("Name:                  ".to_string()),
-                Span::styled(fs.name.to_string(), rhs_style)
-                ]),
+                Span::styled(fs.name.to_string(), rhs_style),
+            ]),
             Spans::from(vec![
                 Span::raw("File System            ".to_string()),
-                Span::styled(fs.file_system.to_string(), rhs_style)
+                Span::styled(fs.file_system.to_string(), rhs_style),
             ]),
             Spans::from(vec![
                 Span::raw("Mount Point:           ".to_string()),
-                Span::styled(fs.mount_point.to_string_lossy(), rhs_style)
+                Span::styled(fs.mount_point.to_string_lossy(), rhs_style),
             ]),
         ];
         Paragraph::new(text).render(f, columns[0]);
         let text = vec![
             Spans::from(vec![
                 Span::raw("Size:                  ".to_string()),
-                Span::styled(size, rhs_style)
+                Span::styled(size, rhs_style),
             ]),
             Spans::from(vec![
                 Span::raw("Used                   ".to_string()),
-                Span::styled(used, rhs_style)
+                Span::styled(used, rhs_style),
             ]),
             Spans::from(vec![
                 Span::raw("Free:                  ".to_string()),
-                Span::styled(free, rhs_style)
+                Span::styled(free, rhs_style),
             ]),
         ];
         Paragraph::new(text).render(f, columns[1]);
@@ -974,7 +981,7 @@ fn render_disk(
     view: View,
     selected_section: &Section,
     file_system_index: &usize,
-    file_system_display: &FileSystemDisplay
+    file_system_display: &FileSystemDisplay,
 ) {
     let style = match selected_section {
         Section::Disk => Style::default().fg(Color::Red),
@@ -1001,11 +1008,9 @@ fn render_disk(
         ..view
     };
 
-
     if *file_system_display == FileSystemDisplay::Activity {
         disk_activity_histogram(app, f, view, &area);
-    }
-    else{
+    } else {
         disk_usage(app, f, view, &area, file_system_index);
     }
 
@@ -1028,8 +1033,7 @@ fn render_disk(
                     )),
                     style,
                 )
-            }
-            else{
+            } else {
                 Span::styled(
                     Cow::Owned(format!(
                         " {:3.0}%: {}",
@@ -1039,7 +1043,6 @@ fn render_disk(
                     style,
                 )
             }
-
         })
         .map(ListItem::new)
         .collect();
@@ -1915,11 +1918,15 @@ impl<'a> TerminalRenderer<'_> {
                                 Section::Network => {
                                     render_net(app, v_section, &mut f, view, &selected)
                                 }
-                                Section::Disk => {
-                                    render_disk(app, v_section, &mut f, view,
-                                                &selected, file_system_index,
-                                                file_system_display)
-                                }
+                                Section::Disk => render_disk(
+                                    app,
+                                    v_section,
+                                    &mut f,
+                                    view,
+                                    &selected,
+                                    file_system_index,
+                                    file_system_display,
+                                ),
                                 Section::Graphics => render_graphics(
                                     app,
                                     v_section,
@@ -2066,7 +2073,7 @@ impl<'a> TerminalRenderer<'_> {
         Action::Continue
     }
 
-    fn select(&mut self, highlighted_process: Option<Box<ZProcess>>){
+    fn select(&mut self, highlighted_process: Option<Box<ZProcess>>) {
         let selected = self.selected_section();
         if selected == Section::Process {
             self.app.select_process(highlighted_process);
@@ -2093,8 +2100,7 @@ impl<'a> TerminalRenderer<'_> {
             if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
             }
-        }
-        else if selected == Section::Disk {
+        } else if selected == Section::Disk {
             if self.file_system_index > 0 {
                 self.file_system_index -= 1;
             }
@@ -2356,12 +2362,11 @@ impl<'a> TerminalRenderer<'_> {
                 self.show_find = true;
                 self.highlighted_row = 0;
                 self.process_table_row_start = 0;
-            },
+            }
             Key::Char('a') => {
-                if self.file_system_display == FileSystemDisplay::Activity{
+                if self.file_system_display == FileSystemDisplay::Activity {
                     self.file_system_display = FileSystemDisplay::Usage;
-                }
-                else{
+                } else {
                     self.file_system_display = FileSystemDisplay::Activity;
                 }
             }

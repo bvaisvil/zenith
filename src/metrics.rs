@@ -126,7 +126,7 @@ pub struct ZDisk {
     pub available_bytes: u64,
     pub size_bytes: u64,
     pub name: String,
-    pub file_system: String
+    pub file_system: String,
 }
 
 impl ZDisk {
@@ -136,7 +136,7 @@ impl ZDisk {
             available_bytes: d.get_available_space(),
             size_bytes: d.get_total_space(),
             name: d.get_name().to_string_lossy().to_string(),
-            file_system: String::from_utf8_lossy(d.get_file_system()).into_owned()
+            file_system: String::from_utf8_lossy(d.get_file_system()).into_owned(),
         }
     }
 
@@ -154,8 +154,7 @@ impl ZDisk {
     pub fn get_perc_used_space(&self) -> f32 {
         if self.size_bytes < 1 {
             0.0
-        }
-        else{
+        } else {
             percent_of(self.get_used_bytes(), self.size_bytes)
         }
     }
@@ -567,7 +566,10 @@ impl CPUTimeApp {
                 }
             }
             let zd = ZDisk::from_disk(d);
-            self.histogram_map.add_value_to(&HistogramKind::FileSystemUsedSpace(name.to_string()), zd.get_used_bytes());
+            self.histogram_map.add_value_to(
+                &HistogramKind::FileSystemUsedSpace(name.to_string()),
+                zd.get_used_bytes(),
+            );
             self.disks.push(zd);
         }
 
