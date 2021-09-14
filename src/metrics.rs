@@ -21,6 +21,7 @@ use sysinfo::{
     Component, ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt,
 };
 use users::{Users, UsersCache};
+use serde::de::value::StringDeserializer;
 
 #[cfg(feature = "nvidia")]
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
@@ -125,6 +126,8 @@ pub struct ZDisk {
     pub mount_point: PathBuf,
     pub available_bytes: u64,
     pub size_bytes: u64,
+    pub name: String,
+    pub file_system: String
 }
 
 impl ZDisk {
@@ -133,6 +136,8 @@ impl ZDisk {
             mount_point: d.get_mount_point().to_path_buf(),
             available_bytes: d.get_available_space(),
             size_bytes: d.get_total_space(),
+            name: d.get_name().to_string_lossy().to_string(),
+            file_system: String::from_utf8_lossy(d.get_file_system()).into_owned()
         }
     }
 
@@ -141,6 +146,19 @@ impl ZDisk {
             return 0.0;
         }
         percent_of(self.available_bytes, self.size_bytes)
+    }
+
+    pub fn get_used_bytes(&self) -> u64 {
+        self.size_bytes.saturating_sub(self.available_bytes)
+    }
+
+    pub fn get_perc_used_space(&self) -> f32 {
+        if self.size_bytes < 1 {
+            0.0
+        }
+        else{
+            percent_of(self.get_used_bytes(), self.size_bytes)
+        }
     }
 }
 
@@ -549,7 +567,9 @@ impl CPUTimeApp {
                     continue;
                 }
             }
-            self.disks.push(ZDisk::from_disk(d));
+            let zd = ZDisk::from_disk(d);
+            self.histogram_map.add_value_to(&HistogramKind::FileSystemUsedSpace(name.to_string()), zd.get_used_bytes());
+            self.disks.push(zd);
         }
 
         self.disk_read = self

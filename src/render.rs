@@ -93,6 +93,12 @@ pub enum Section {
     Process = 4,
 }
 
+#[derive(FromPrimitive, PartialEq, Copy, Clone, Debug, Ord, PartialOrd, Eq)]
+enum FileSystemDisplay {
+    Usage,
+    Activity,
+}
+
 impl fmt::Display for Section {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
@@ -816,12 +822,159 @@ fn render_process(
     }
 }
 
+fn disk_activity_histogram(app: &CPUTimeApp,
+                           f: &mut Frame<'_, ZBackend>,
+                           view: View,
+                           area: &Vec<Rect>) {
+    let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
+    let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead, &view) {
+        Some(h) => h,
+        None => return,
+    };
+
+    let read_max: u64 = match h_read.data().iter().max() {
+        Some(x) => *x,
+        None => 1,
+    };
+    let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
+
+    let top_reader = match app.top_disk_reader_pid {
+        Some(pid) => match app.process_map.get(&pid) {
+            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+            None => String::from(""),
+        },
+        None => String::from(""),
+    };
+
+    let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
+    let h_write = match app.histogram_map.get_zoomed(&HistogramKind::IoWrite, &view) {
+        Some(h) => h,
+        None => return,
+    };
+
+    let write_max: u64 = match h_write.data().iter().max() {
+        Some(x) => *x,
+        None => 1,
+    };
+    let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
+
+    let top_writer = match app.top_disk_writer_pid {
+        Some(pid) => match app.process_map.get(&pid) {
+            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+            None => String::from(""),
+        },
+        None => String::from(""),
+    };
+    Sparkline::default()
+        .block(
+            Block::default().title(
+                format!(
+                    "R [{:^10}/s] Max [{:^10}/s] {:}",
+                    read_up, read_max_bytes, top_reader
+                )
+                    .as_str(),
+            ),
+        )
+        .data(h_read.data())
+        .style(Style::default().fg(Color::LightYellow))
+        .max(read_max)
+        .render(f, area[0]);
+
+    Sparkline::default()
+        .block(
+            Block::default().title(
+                format!(
+                    "W [{:^10}/s] Max [{:^10}/s] {:}",
+                    write_down, write_max_bytes, top_writer
+                )
+                    .as_str(),
+            ),
+        )
+        .data(h_write.data())
+        .style(Style::default().fg(Color::LightMagenta))
+        .max(write_max)
+        .render(f, area[1]);
+}
+
+fn disk_usage(app: &CPUTimeApp,
+                        f: &mut Frame<'_, ZBackend>,
+                        view: View,
+                        area: &Vec<Rect>,
+                        file_system_index: &usize) {
+    if let Some(fs) = app.disks.get(*file_system_index) {
+        let h_used = match app.histogram_map.get_zoomed(&HistogramKind::FileSystemUsedSpace(fs.name.clone()), &view) {
+            Some(h) => h,
+            None => return,
+        };
+        let free = float_to_byte_string!(fs.available_bytes as f64, ByteUnit::B);
+        let used = float_to_byte_string!(fs.get_used_bytes() as f64, ByteUnit::B);
+        let size = float_to_byte_string!(fs.size_bytes as f64, ByteUnit::B);
+        Sparkline::default()
+            .block(
+                Block::default().title(
+                    format!(
+                        "{}  ↓Used [{:^10} ({:.1}%)] Free [{:^10} ({:.1}%)] Size [{:^10}]",
+                        fs.name,
+                        used,
+                        fs.get_perc_used_space(),
+                        free,
+                        fs.get_perc_free_space(),
+                        size
+                    )
+                        .as_str(),
+                ),
+            )
+            .data(h_used.data())
+            .style(Style::default().fg(Color::LightYellow))
+            .max(fs.size_bytes)
+            .render(f, area[0]);
+        let columns = Layout::default()
+            .margin(1)
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(area[1]);
+        let rhs_style = Style::default().fg(Color::Green);
+        let text = vec![
+            Spans::from(vec![
+                Span::raw(format!("Name:                  ")),
+                Span::styled(format!("{}", fs.name), rhs_style)
+                ]),
+            Spans::from(vec![
+                Span::raw(format!("File System            ")),
+                Span::styled(format!("{}", fs.file_system), rhs_style)
+            ]),
+            Spans::from(vec![
+                Span::raw(format!("Mount Point:           ")),
+                Span::styled(format!("{}", fs.mount_point.to_string_lossy()), rhs_style)
+            ]),
+        ];
+        Paragraph::new(text).render(f, columns[0]);
+        let text = vec![
+            Spans::from(vec![
+                Span::raw(format!("Size:                  ")),
+                Span::styled(format!("{}", size), rhs_style)
+            ]),
+            Spans::from(vec![
+                Span::raw(format!("Used                   ")),
+                Span::styled(format!("{}", used), rhs_style)
+            ]),
+            Spans::from(vec![
+                Span::raw(format!("Free:                  ")),
+                Span::styled(format!("{}", free), rhs_style)
+            ]),
+        ];
+        Paragraph::new(text).render(f, columns[1]);
+    }
+}
+
 fn render_disk(
     app: &CPUTimeApp,
     layout: Rect,
     f: &mut Frame<'_, ZBackend>,
     view: View,
     selected_section: &Section,
+    file_system_index: &usize,
+    file_system_display: &FileSystemDisplay
 ) {
     let style = match selected_section {
         Section::Disk => Style::default().fg(Color::Red),
@@ -848,99 +1001,52 @@ fn render_disk(
         ..view
     };
 
-    let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
-    let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead, &view) {
-        Some(h) => h,
-        None => return,
-    };
 
-    let read_max: u64 = match h_read.data().iter().max() {
-        Some(x) => *x,
-        None => 1,
-    };
-    let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
+    if *file_system_display == FileSystemDisplay::Activity {
+        disk_activity_histogram(app, f, view, &area);
+    }
+    else{
+        disk_usage(app, f, view, &area, file_system_index);
+    }
 
-    let top_reader = match app.top_disk_reader_pid {
-        Some(pid) => match app.process_map.get(&pid) {
-            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
-            None => String::from(""),
-        },
-        None => String::from(""),
-    };
-
-    Sparkline::default()
-        .block(
-            Block::default().title(
-                format!(
-                    "R [{:^10}/s] Max [{:^10}/s] {:}",
-                    read_up, read_max_bytes, top_reader
-                )
-                .as_str(),
-            ),
-        )
-        .data(h_read.data())
-        .style(Style::default().fg(Color::LightYellow))
-        .max(read_max)
-        .render(f, area[0]);
-
-    let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
-    let h_write = match app.histogram_map.get_zoomed(&HistogramKind::IoWrite, &view) {
-        Some(h) => h,
-        None => return,
-    };
-
-    let write_max: u64 = match h_write.data().iter().max() {
-        Some(x) => *x,
-        None => 1,
-    };
-    let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
-
-    let top_writer = match app.top_disk_writer_pid {
-        Some(pid) => match app.process_map.get(&pid) {
-            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
-            None => String::from(""),
-        },
-        None => String::from(""),
-    };
-
-    Sparkline::default()
-        .block(
-            Block::default().title(
-                format!(
-                    "W [{:^10}/s] Max [{:^10}/s] {:}",
-                    write_down, write_max_bytes, top_writer
-                )
-                .as_str(),
-            ),
-        )
-        .data(h_write.data())
-        .style(Style::default().fg(Color::LightMagenta))
-        .max(write_max)
-        .render(f, area[1]);
     let disks: Vec<_> = app
         .disks
         .iter()
-        .map(|d| {
+        .enumerate()
+        .map(|(i, d)| {
             let style = if d.get_perc_free_space() < 10.0 {
                 Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::Green)
             };
-            Span::styled(
-                Cow::Owned(format!(
-                    "{:3.0}%: {}",
-                    d.get_perc_free_space(),
-                    d.mount_point.display()
-                )),
-                style,
-            )
+            if *file_system_index == i {
+                Span::styled(
+                    Cow::Owned(format!(
+                        "→{:3.0}%: {}",
+                        d.get_perc_free_space(),
+                        d.mount_point.display()
+                    )),
+                    style,
+                )
+            }
+            else{
+                Span::styled(
+                    Cow::Owned(format!(
+                        " {:3.0}%: {}",
+                        d.get_perc_free_space(),
+                        d.mount_point.display()
+                    )),
+                    style,
+                )
+            }
+
         })
         .map(ListItem::new)
         .collect();
     List::new(disks)
         .block(
             Block::default()
-                .title(Span::styled("Disks / File Systems", style))
+                .title(Span::styled("File Systems [(a)ctivity/usage]", style))
                 .borders(Borders::ALL)
                 .border_style(style),
         )
@@ -1613,6 +1719,8 @@ pub struct TerminalRenderer<'a> {
     events: Events,
     process_table_row_start: usize,
     gfx_device_index: usize,
+    file_system_index: usize,
+    file_system_display: FileSystemDisplay,
     /// Index in the vector below is "order" on the screen starting from the top
     /// (usually CPU) while value is the section it belongs to and its current height (as %).
     /// Currently all sections are stacked on top of one another horizontally and
@@ -1668,6 +1776,8 @@ impl<'a> TerminalRenderer<'_> {
             events,
             process_table_row_start: 0,
             gfx_device_index: 0,
+            file_system_index: 0,
+            file_system_display: FileSystemDisplay::Activity,
             section_geometry: section_geometry.clone(),
             zoom_factor: 1,
             update_number: 0,
@@ -1754,6 +1864,8 @@ impl<'a> TerminalRenderer<'_> {
             let mut highlighted_process: Option<Box<ZProcess>> = None;
             let process_table = filter_process_table(app, &self.filter);
             let gfx_device_index = &self.gfx_device_index;
+            let file_system_index = &self.file_system_index;
+            let file_system_display = &self.file_system_display;
 
             if !process_table.is_empty() && self.highlighted_row >= process_table.len() {
                 self.highlighted_row = process_table.len() - 1;
@@ -1804,7 +1916,9 @@ impl<'a> TerminalRenderer<'_> {
                                     render_net(app, v_section, &mut f, view, &selected)
                                 }
                                 Section::Disk => {
-                                    render_disk(app, v_section, &mut f, view, &selected)
+                                    render_disk(&app, v_section, &mut f, view,
+                                                &selected, file_system_index,
+                                                file_system_display)
                                 }
                                 Section::Graphics => render_graphics(
                                     app,
@@ -1933,12 +2047,7 @@ impl<'a> TerminalRenderer<'_> {
             ),
             Key::Left => self.histogram_left(),
             Key::Right => self.histogram_right(),
-            Key::Enter => {
-                self.app.select_process(highlighted_process);
-                self.process_message = None;
-                self.show_find = false;
-                self.process_table_row_start = 0;
-            }
+            Key::Enter => self.select(highlighted_process),
             Key::Char('c') => {
                 if input.modifiers.contains(KeyModifiers::CONTROL) {
                     return Action::Quit;
@@ -1957,6 +2066,16 @@ impl<'a> TerminalRenderer<'_> {
         Action::Continue
     }
 
+    fn select(&mut self, highlighted_process: Option<Box<ZProcess>>){
+        let selected = self.selected_section();
+        if selected == Section::Process {
+            self.app.select_process(highlighted_process);
+            self.process_message = None;
+            self.show_find = false;
+            self.process_table_row_start = 0;
+        }
+    }
+
     fn view_up(&mut self, process_table: &[i32], delta: usize) {
         let selected = self.selected_section();
         if self.show_section_mgr {
@@ -1973,6 +2092,11 @@ impl<'a> TerminalRenderer<'_> {
         } else if selected == Section::Graphics {
             if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
+            }
+        }
+        else if selected == Section::Disk {
+            if self.file_system_index > 0 {
+                self.file_system_index -= 1;
             }
         } else if selected == Section::Process {
             if self.app.selected_process.is_some() || process_table.is_empty() {
@@ -2008,6 +2132,10 @@ impl<'a> TerminalRenderer<'_> {
         } else if selected == Section::Graphics {
             if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;
+            }
+        } else if selected == Section::Disk {
+            if self.file_system_index < self.app.disks.len() - 1 {
+                self.file_system_index += 1;
             }
         } else if selected == Section::Process {
             if self.app.selected_process.is_some() || process_table.is_empty() {
@@ -2228,6 +2356,14 @@ impl<'a> TerminalRenderer<'_> {
                 self.show_find = true;
                 self.highlighted_row = 0;
                 self.process_table_row_start = 0;
+            },
+            Key::Char('a') => {
+                if self.file_system_display == FileSystemDisplay::Activity{
+                    self.file_system_display = FileSystemDisplay::Usage;
+                }
+                else{
+                    self.file_system_display = FileSystemDisplay::Activity;
+                }
             }
             _ => {}
         }
