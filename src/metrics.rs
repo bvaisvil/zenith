@@ -15,6 +15,9 @@ use heim::units::time;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime};
 
+#[cfg(target_os = "linux")]
+use linux_taskstats::{self, Client};
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use sysinfo::{
@@ -22,7 +25,7 @@ use sysinfo::{
 };
 use users::{Users, UsersCache};
 
-#[cfg(feature = "nvidia")]
+#[cfg(all(feature = "nvidia", not(target_os = "linux")))]
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy {
     Pid = 0,
@@ -41,7 +44,27 @@ pub enum ProcessTableSortBy {
     Cmd = 13,
 }
 
-#[cfg(not(feature = "nvidia"))]
+#[cfg(all(feature = "nvidia", target_os = "linux"))]
+#[derive(FromPrimitive, PartialEq, Copy, Clone)]
+pub enum ProcessTableSortBy {
+    Pid = 0,
+    User = 1,
+    Priority = 2,
+    Nice = 3,
+    Cpu = 4,
+    MemPerc = 5,
+    Mem = 6,
+    Virt = 7,
+    Status = 8,
+    DiskRead = 9,
+    DiskWrite = 10,
+    IOWait = 11,
+    Gpu = 12,
+    FB = 13,
+    Cmd = 14,
+}
+
+#[cfg(all(not(feature = "nvidia"), not(target_os = "linux")))]
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
 pub enum ProcessTableSortBy {
     Pid = 0,
@@ -56,6 +79,24 @@ pub enum ProcessTableSortBy {
     DiskRead = 9,
     DiskWrite = 10,
     Cmd = 11,
+}
+
+#[cfg(all(not(feature = "nvidia"), target_os = "linux"))]
+#[derive(FromPrimitive, PartialEq, Copy, Clone)]
+pub enum ProcessTableSortBy {
+    Pid = 0,
+    User = 1,
+    Priority = 2,
+    Nice = 3,
+    Cpu = 4,
+    MemPerc = 5,
+    Mem = 6,
+    Virt = 7,
+    Status = 8,
+    DiskRead = 9,
+    DiskWrite = 10,
+    IOWait = 11,
+    Cmd = 12,
 }
 
 #[derive(PartialEq, Eq)]
@@ -201,6 +242,8 @@ pub struct CPUTimeApp {
     pub uptime: Duration,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
     pub nvml: Option<nvml::NVML>,
+    #[cfg(target_os = "linux")]
+    pub netlink_client: Option<Client>,
 }
 
 impl CPUTimeApp {
@@ -252,6 +295,14 @@ impl CPUTimeApp {
                 Ok(n) => Some(n),
                 Err(e) => {
                     error!("Couldn't init NVML: {:?}", e);
+                    None
+                }
+            },
+            #[cfg(target_os = "linux")]
+            netlink_client: match Client::open() {
+                Ok(c) => Some(c),
+                Err(_) => {
+                    debug!("Couldn't open netlink client.");
                     None
                 }
             },
@@ -369,6 +420,7 @@ impl CPUTimeApp {
     fn update_process_list(&mut self, keep_order: bool) {
         debug!("Updating Process List");
         let process_list = self.system.get_processes();
+        let client = &self.netlink_client;
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
 
         #[derive(Default)]
@@ -427,7 +479,9 @@ impl CPUTimeApp {
                     zp.read_bytes = disk_usage.total_read_bytes;
                     zp.write_bytes = disk_usage.total_written_bytes;
                     zp.last_updated = SystemTime::now();
-
+                    if cfg!(target_os = "linux") {
+                        zp.update_delay(client);
+                    }
                     top.update(zp, &self.histogram_map.tick);
                 } else {
                     let user_name = self
@@ -448,7 +502,10 @@ impl CPUTimeApp {
                     .get_user_by_uid(process.uid)
                     .map(|user| user.name().to_string_lossy().to_string())
                     .unwrap_or_default();
-                let zprocess = ZProcess::from_user_and_process(user_name, process);
+                let mut zprocess = ZProcess::from_user_and_process(user_name, process);
+                if cfg!(target_os = "linux") {
+                    zprocess.update_delay(client);
+                }
                 self.threads_total += zprocess.threads_total as usize;
 
                 top.update(&zprocess, &self.histogram_map.tick);

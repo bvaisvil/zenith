@@ -36,3 +36,5 @@ log = "0.4.14"
 env_logger = { version = "0.9", default-features = false }
 libc = "0.2"
 nvml-wrapper = { version = "0.7.0", optional = true }
+[target.'cfg(target_os = "linux")'.dependencies]
+linux-taskstats = { git = "https://github.com/bvaisvil/linux-taskstats-rs.git", rev = "95e7e60" }
