@@ -1056,7 +1056,7 @@ dependencies = [
 [[package]]
 name = "linux-taskstats"
 version = "0.1.3"
-source = "git+https://github.com/bvaisvil/linux-taskstats-rs.git?rev=95e7e60#95e7e606dd2af06c5f58f9f996b000a265b1c374"
+source = "git+https://github.com/bvaisvil/linux-taskstats-rs.git?rev=c06b9f5bea1fed5b6bfc6b288d067a7ad6a1c00f#c06b9f5bea1fed5b6bfc6b288d067a7ad6a1c00f"
 dependencies = [
  "bindgen",
  "clap",
