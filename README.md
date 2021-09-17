@@ -16,6 +16,7 @@
 - Managing processes with signals
 - Performance data saved between runs
 - GPU Utilization Metrics for NVIDIA GPUs (with `--features nvidia`)
+- Delay accounting (on Linux when running zenith with root permissions)
 
 ## Planned Features
 
