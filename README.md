@@ -2,7 +2,7 @@
 
 ## In terminal graphical metrics for your *nix system written in Rust
 
-<img src="./assets/screenshot.png" alt="Running zenith on iTerm2 on MacOS">
+<img src="./assets/zenith_screenshot.png" alt="Running zenith on alacritty on MacOS">
 
 ## Features
 
@@ -15,7 +15,10 @@
 - Zoomable chart views (with support to scroll back in time)
 - Managing processes with signals
 - Performance data saved between runs
-- GPU Utilization Metrics for NVIDIA GPUs (with `--features nvidia`)
+- GPU Utilization Metrics for NVIDIA GPUs (with `--features nvidia`), including per-process GPU usage
+- Disk free space charts
+
+<img src ="./assets/zenith_with_gpu.png" alt="zenith running on linux in iTerm2">
 
 ## Planned Features
 
