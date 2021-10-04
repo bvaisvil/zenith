@@ -1323,7 +1323,13 @@ fn render_top_title_bar(
     let battery_widets = render_battery_widget(&app.batteries);
     let battery_start = if !app.batteries.is_empty() { " [" } else { "" };
     let battery_end = if !app.batteries.is_empty() { "]" } else { "" };
-    let line = vec![
+    let not_recording_warning = if app.writes_db_store() {
+        ""
+    } else {
+        "History not recording, more info: (h) "
+    };
+
+    let mut line = vec![
         Span::styled(
             format!(" {:}", app.hostname),
             default_style.add_modifier(Modifier::BOLD),
@@ -1349,11 +1355,18 @@ fn render_top_title_bar(
         Span::styled("]", default_style),
         Span::styled(" (h)elp", default_style),
         Span::styled(" (q)uit", default_style),
-        Span::styled(
-            format!("{: >width$}", "", width = area.width as usize),
-            default_style,
-        ),
     ];
+
+    let used_width: usize = line.iter().map(|s| s.content.len()).sum();
+    line.push(Span::styled(
+        format!(
+            "{:>width$}",
+            not_recording_warning,
+            width = ((area.width as usize).saturating_sub(used_width))
+        ),
+        default_style.fg(Color::Red).add_modifier(Modifier::BOLD),
+    ));
+
     Paragraph::new(Spans::from(line)).render(f, area);
 }
 
@@ -1502,138 +1515,117 @@ fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'
     f.render_stateful_widget(list_widget, layout[1], &mut list.state);
 }
 
-fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>) {
+fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>, history_recording: HistoryRecording) {
+    let header_style = Style::default().fg(Color::Green);
+    let main_style = Style::default();
+    let key_style = main_style.fg(Color::Cyan);
+
+    static GLOBAL_KEYS: &[[&str; 2]] = &[
+        ["h    ", "    Toggle this help screen\n"],
+        ["q    ", "    Quit and exit zenith\n"],
+        ["<TAB>", "    Changes highlighted section\n"],
+        ["e    ", "    Expands highlighted section\n"],
+        ["m    ", "    Shrinks highlighted section\n"],
+        ["F1   ", "    Show Section Selection Menu\n"],
+        ["-    ", "    Zoom chart out\n"],
+        ["+    ", "    Zoom chart in\n"],
+        ["←    ", "    Move back in time\n"],
+        ["→    ", "    Move forward In time\n"],
+        ["`    ", "    Reset charts to current\n"],
+    ];
+
+    static PROCESS_TABLE_KEYS: &[[&str; 2]] = &[
+        ["<RET> ", "    Focus current process\n"],
+        ["↓     ", "    Move one line down\n"],
+        ["↑     ", "    Move one line up\n"],
+        ["PgDown", "    Move view one screen down\n"],
+        ["PgUp  ", "    Move view one screen up\n"],
+        ["Home  ", "    Move to top\n"],
+        ["End   ", "    Move to bottom\n"],
+        ["/     ", "    Change sort between ascending/descending\n"],
+        [",     ", "    Cycle columns left\n"],
+        [".     ", "    Cycle columns right\n"],
+        ["p     ", "    Toggle paths on/off\n"],
+        ["f     ", "    Toggle filter mode\n"],
+        ["<ESC> ", "    Leave filter mode\n"],
+    ];
+
+    let mut t = vec![Spans::from(vec![Span::styled(
+        "Primary Interface",
+        header_style,
+    )])];
+
+    for [key, text] in GLOBAL_KEYS {
+        t.push(Spans::from(vec![
+            Span::styled(*key, key_style),
+            Span::styled(*text, main_style),
+        ]));
+    }
+
+    t.push(Spans::from(vec![Span::styled("", header_style)]));
+    t.push(Spans::from(vec![Span::styled(
+        "Process Table\n",
+        header_style,
+    )]));
+
+    for [key, text] in PROCESS_TABLE_KEYS {
+        t.push(Spans::from(vec![
+            Span::styled(*key, key_style),
+            Span::styled(*text, main_style),
+        ]));
+    }
+
+    let not_recording_reason = match history_recording {
+        HistoryRecording::On => None,
+        HistoryRecording::UserDisabled => {
+            Some("because zenith was started with the `--disable_history` flag\n")
+        }
+        HistoryRecording::OtherInstancePrevents => {
+            Some("because another zenith instance was already running\n")
+        }
+    };
+
+    if let Some(reason) = not_recording_reason {
+        t.push(Spans::from(vec![Span::styled("", header_style)]));
+        for s in ["Recorded data is not being saved to the database\n", reason].iter() {
+            t.push(Spans::from(vec![Span::styled(
+                *s,
+                Style::default().fg(Color::Yellow),
+            )]));
+        }
+    }
+
+    let help_height = t.len() as u16;
+
     let help_layout = Layout::default()
-        .margin(5)
+        .horizontal_margin(5)
         .direction(Direction::Vertical)
         .constraints(
             [
                 Constraint::Length(1),
-                Constraint::Percentage(80),
-                Constraint::Length(5),
+                Constraint::Min(help_height),
+                Constraint::Max(5),
             ]
             .as_ref(),
         )
         .split(area);
-    let header_style = Style::default().fg(Color::Green);
-    let t = vec![Span::styled(
-        format!("zenith v{:}", env!("CARGO_PKG_VERSION")),
-        header_style,
-    )];
-    Paragraph::new(Spans::from(t))
-        .wrap(Wrap { trim: true })
-        .alignment(Alignment::Center)
-        .render(f, help_layout[0]);
-    let main_style = Style::default();
-    let key_style = main_style.fg(Color::Cyan);
+    let (title_area, help_area) = (help_layout[0], help_layout[1]);
 
-    let t = vec![
-        Spans::from(vec![Span::styled("Primary Interface", header_style)]),
-        Spans::from(vec![
-            Span::styled("h    ", key_style),
-            Span::styled("    Toggle this help screen\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("q    ", key_style),
-            Span::styled("    Quit and exit zenith\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("<TAB>", key_style),
-            Span::styled("    Changes highlighted section\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("e    ", key_style),
-            Span::styled("    Expands highlighted section\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("m    ", key_style),
-            Span::styled("    Shrinks highlighted section\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("F1   ", key_style),
-            Span::styled("    Show Section Selection Menu\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("-    ", key_style),
-            Span::styled("    Zoom chart out\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("+    ", key_style),
-            Span::styled("    Zoom chart in\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("←    ", key_style),
-            Span::styled("    Move back in time\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("→    ", key_style),
-            Span::styled("    Move forward In time\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("`    ", key_style),
-            Span::styled("    Reset charts to current\n", main_style),
-        ]),
-        Spans::from(vec![Span::styled("", header_style)]),
-        Spans::from(vec![Span::styled("Process Table\n", header_style)]),
-        Spans::from(vec![
-            Span::styled("<RET> ", key_style),
-            Span::styled("    Focus current process\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("↓     ", key_style),
-            Span::styled("    Move one line down\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("↑     ", key_style),
-            Span::styled("    Move one line up\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("PgDown", key_style),
-            Span::styled("    Move view one screen down\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("PgUp  ", key_style),
-            Span::styled("    Move view one screen up\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("Home  ", key_style),
-            Span::styled("    Move to top\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("End   ", key_style),
-            Span::styled("    Move to bottom\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("/     ", key_style),
-            Span::styled("    Change sort between ascending/descending\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled(",     ", key_style),
-            Span::styled("    Cycle columns left\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled(".     ", key_style),
-            Span::styled("    Cycle columns right\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("p     ", key_style),
-            Span::styled("    Toggle paths on/off\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("f     ", key_style),
-            Span::styled("    Toggle filter mode\n", main_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("<ESC> ", key_style),
-            Span::styled("    Leave filter mode\n", main_style),
-        ]),
-    ];
     let b = Block::default().borders(Borders::ALL);
     Paragraph::new(t)
         .wrap(Wrap { trim: true })
         .alignment(Alignment::Left)
         .block(b)
-        .render(f, help_layout[1]);
+        .render(f, help_area);
+
+    let t = vec![Span::styled(
+        concat!("zenith v", env!("CARGO_PKG_VERSION")),
+        header_style,
+    )];
+    Paragraph::new(Spans::from(t))
+        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Center)
+        .render(f, title_area);
 }
 
 /// current size of the terminal returned as (columns, rows)
@@ -1750,6 +1742,7 @@ pub struct TerminalRenderer<'a> {
     highlighted_row: usize,
     selection_grace_start: Option<Instant>,
     section_manager_options: SectionMGRList<'a>,
+    disable_history: bool,
 }
 
 impl<'a> TerminalRenderer<'_> {
@@ -1757,6 +1750,7 @@ impl<'a> TerminalRenderer<'_> {
         tick_rate: u64,
         section_geometry: &[(Section, f64)],
         db_path: Option<PathBuf>,
+        disable_history: bool,
     ) -> TerminalRenderer {
         debug!("Create Metrics App");
         let app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
@@ -1797,6 +1791,7 @@ impl<'a> TerminalRenderer<'_> {
             highlighted_row: 0,
             selection_grace_start: None,
             section_manager_options: SectionMGRList::with_geometry(section_geometry),
+            disable_history,
         }
     }
 
@@ -1846,6 +1841,7 @@ impl<'a> TerminalRenderer<'_> {
 
     pub async fn start(&mut self) {
         debug!("Starting Main Loop.");
+        let disable_history = self.disable_history;
         loop {
             let app = &self.app;
             let pst = &self.process_table_row_start;
@@ -1886,7 +1882,12 @@ impl<'a> TerminalRenderer<'_> {
                             .split(f.size());
 
                         render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
-                        render_help(v_sections[1], &mut f);
+                        let history_recording = match (app.writes_db_store(), disable_history) {
+                            (true, _) => HistoryRecording::On,
+                            (false, true) => HistoryRecording::UserDisabled,
+                            (false, false) => HistoryRecording::OtherInstancePrevents,
+                        };
+                        render_help(v_sections[1], &mut f, history_recording);
                     } else if show_section_mgr {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
@@ -2381,4 +2382,10 @@ impl<'a> TerminalRenderer<'_> {
 enum Action {
     Continue,
     Quit,
+}
+
+enum HistoryRecording {
+    On,
+    UserDisabled,
+    OtherInstancePrevents,
 }
