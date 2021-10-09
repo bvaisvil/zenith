@@ -1847,7 +1847,7 @@ impl<'a> TerminalRenderer<'_> {
             let highlighted_row = self.highlighted_row;
 
             self.terminal
-                .draw(|mut f| {
+                .draw(|f| {
                     width = f.size().width;
                     if show_help {
                         let v_sections = Layout::default()
@@ -1856,21 +1856,21 @@ impl<'a> TerminalRenderer<'_> {
                             .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
                             .split(f.size());
 
-                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        render_top_title_bar(app, v_sections[0], f, zf, offset);
                         let history_recording = match (app.writes_db_store(), disable_history) {
                             (true, _) => HistoryRecording::On,
                             (false, true) => HistoryRecording::UserDisabled,
                             (false, false) => HistoryRecording::OtherInstancePrevents,
                         };
-                        render_help(v_sections[1], &mut f, history_recording);
+                        render_help(v_sections[1], f, history_recording);
                     } else if show_section_mgr {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
                             .margin(0)
                             .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
                             .split(f.size());
-                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
-                        render_section_mgr(section_manager_options, v_sections[1], &mut f);
+                        render_top_title_bar(app, v_sections[0], f, zf, offset);
+                        render_section_mgr(section_manager_options, v_sections[1], f);
                     } else {
                         // create layouts
                         // primary vertical
@@ -1880,7 +1880,7 @@ impl<'a> TerminalRenderer<'_> {
                             .constraints(constraints.as_ref())
                             .split(f.size());
 
-                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        render_top_title_bar(app, v_sections[0], f, zf, offset);
                         let view = View {
                             zoom_factor: *zf,
                             update_number: *un,
@@ -1896,16 +1896,14 @@ impl<'a> TerminalRenderer<'_> {
                                 Style::default()
                             };
                             match current_section {
-                                Section::Cpu => {
-                                    render_cpu(app, v_section, &mut f, view, border_style)
-                                }
+                                Section::Cpu => render_cpu(app, v_section, f, view, border_style),
                                 Section::Network => {
-                                    render_net(app, v_section, &mut f, view, border_style)
+                                    render_net(app, v_section, f, view, border_style)
                                 }
                                 Section::Disk => render_disk(
                                     app,
                                     v_section,
-                                    &mut f,
+                                    f,
                                     view,
                                     border_style,
                                     file_system_index,
@@ -1914,7 +1912,7 @@ impl<'a> TerminalRenderer<'_> {
                                 Section::Graphics => render_graphics(
                                     app,
                                     v_section,
-                                    &mut f,
+                                    f,
                                     view,
                                     gfx_device_index,
                                     border_style,
@@ -1924,7 +1922,7 @@ impl<'a> TerminalRenderer<'_> {
                                         render_process(
                                             app,
                                             v_section,
-                                            &mut f,
+                                            f,
                                             border_style,
                                             process_message,
                                             p,
@@ -1935,7 +1933,7 @@ impl<'a> TerminalRenderer<'_> {
                                             &process_table,
                                             v_section,
                                             *pst,
-                                            &mut f,
+                                            f,
                                             border_style,
                                             show_paths,
                                             show_find,
