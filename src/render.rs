@@ -38,6 +38,7 @@ use tui::widgets::{
     BarChart, Block, Borders, List, ListItem, ListState, Paragraph, Row, Sparkline, Table, Wrap,
 };
 use tui::Frame;
+use unicode_width::UnicodeWidthStr;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 const LEFT_PANE_WIDTH: u16 = 34u16;
@@ -1357,7 +1358,7 @@ fn render_top_title_bar(
         Span::styled(" (q)uit", default_style),
     ];
 
-    let used_width: usize = line.iter().map(|s| s.content.len()).sum();
+    let used_width: usize = line.iter().map(|s| s.content.width()).sum();
     line.push(Span::styled(
         format!(
             "{:>width$}",

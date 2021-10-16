@@ -36,3 +36,4 @@ log = "0.4.14"
 env_logger = { version = "0.9", default-features = false }
 libc = "0.2"
 nvml-wrapper = { version = "0.7.0", optional = true }
+unicode-width = "0.1.9"
