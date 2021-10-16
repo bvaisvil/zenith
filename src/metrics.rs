@@ -531,7 +531,7 @@ impl CPUTimeApp {
         }
     }
 
-    fn update_disk(&mut self, _width: u16) {
+    fn update_disk(&mut self) {
         debug!("Updating Disks");
         self.disks.clear();
 
@@ -634,7 +634,7 @@ impl CPUTimeApp {
             .add_value_to(&HistogramKind::NetTx, self.net_out);
     }
 
-    pub async fn update(&mut self, width: u16, keep_order: bool) {
+    pub async fn update(&mut self, keep_order: bool) {
         debug!("Updating Metrics");
         self.system.refresh_all();
         self.update_cpu().await;
@@ -653,7 +653,7 @@ impl CPUTimeApp {
         self.update_networks().await;
         self.update_process_list(keep_order);
         self.update_frequency().await;
-        self.update_disk(width);
+        self.update_disk();
         self.get_platform().await;
         self.get_nics().await;
         self.get_batteries();

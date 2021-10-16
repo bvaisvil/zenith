@@ -379,13 +379,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBack
         .render(f, area);
 }
 
-fn render_cpu_bars(
-    app: &CPUTimeApp,
-    area: Rect,
-    width: u16,
-    f: &mut Frame<'_, ZBackend>,
-    style: &Style,
-) {
+fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, style: &Style) {
     let cpus = app.cpus.to_owned();
     if cpus.is_empty() {
         return;
@@ -409,11 +403,9 @@ fn render_cpu_bars(
         .border_style(*style)
         .render(f, area);
 
-    assert_eq!(area.width, width);
-
     let layout = Layout::default().margin(1).direction(Direction::Vertical);
 
-    if full_width > 2 * width {
+    if full_width > 2 * area.width {
         // won't fit in 2 rows of bars, using grid layout
 
         let layout = layout
@@ -473,14 +465,14 @@ fn render_cpu_bars(
             )
     }
 
-    if full_width <= width {
+    if full_width <= area.width {
         // fits in one row
 
         let cpu_bar_layout = layout
             .constraints(vec![Constraint::Percentage(100)])
             .split(area);
 
-        let bar_width = clamp_up((width - (core_count - 1)) / core_count, max_bar_width);
+        let bar_width = clamp_up((area.width - (core_count - 1)) / core_count, max_bar_width);
 
         styled_bar_chart()
             .data(bars.as_slice())
@@ -495,7 +487,10 @@ fn render_cpu_bars(
             .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(area);
 
-        let bar_width = clamp_up((width * 2 - (core_count - 1)) / core_count, max_bar_width);
+        let bar_width = clamp_up(
+            (area.width * 2 - (core_count - 1)) / core_count,
+            max_bar_width,
+        );
 
         styled_bar_chart()
             .data(&bars[half..])
@@ -1379,7 +1374,7 @@ fn render_cpu(
         .split(cpu_layout[1]);
     render_cpu_histogram(app, cpu_mem[0], f, &view);
     render_memory_histogram(app, cpu_mem[1], f, &view);
-    render_cpu_bars(app, cpu_layout[0], LEFT_PANE_WIDTH, f, &border_style);
+    render_cpu_bars(app, cpu_layout[0], f, &border_style);
 }
 
 fn filter_process_table<'a>(app: &'a CPUTimeApp, filter: &str) -> Cow<'a, [i32]> {
@@ -1969,7 +1964,7 @@ impl<'a> TerminalRenderer<'_> {
                     Action::Continue
                 }
                 Event::Tick => {
-                    self.process_tick(width).await;
+                    self.process_tick().await;
                     Action::Continue
                 }
                 Event::Save => {
@@ -1989,7 +1984,7 @@ impl<'a> TerminalRenderer<'_> {
         }
     }
 
-    async fn process_tick(&mut self, width: u16) {
+    async fn process_tick(&mut self) {
         debug!("Event Tick");
 
         if self.app.selected_process.is_none() {
@@ -2003,7 +1998,7 @@ impl<'a> TerminalRenderer<'_> {
         let keep_order =
             self.app.selected_process.is_some() || self.selection_grace_start.is_some();
 
-        self.app.update(width, keep_order).await;
+        self.app.update(keep_order).await;
         self.update_number += 1;
         if self.update_number == self.zoom_factor {
             self.update_number = 0;
