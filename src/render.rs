@@ -181,28 +181,20 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
 fn render_process_table(
     app: &CPUTimeApp,
     process_table: &[i32],
-    width: u16,
     area: Rect,
     process_table_start: usize,
     f: &mut Frame<'_, ZBackend>,
-    selected_section: &Section,
+    border_style: Style,
     show_paths: bool,
     show_find: bool,
     filter: &str,
     highlighted_row: usize,
 ) -> Option<Box<ZProcess>> {
-    let style = match selected_section {
-        Section::Process => Style::default().fg(Color::Red),
-        _ => Style::default(),
+    // 4 for the margins and table header
+    let display_height = match area.height.saturating_sub(4) {
+        0 => return None,
+        v => v as usize,
     };
-    let display_height = if area.height > 4 {
-        area.height as usize - 4 // 4 for the margins and table header
-    } else {
-        0
-    };
-    if display_height == 0 {
-        return None;
-    }
 
     let procs: Vec<&ZProcess> = process_table
         .iter()
@@ -317,7 +309,7 @@ fn render_process_table(
         widths.push(Constraint::Length(len));
         used_width += len;
     }
-    let cmd_width = width.saturating_sub(used_width).saturating_sub(3);
+    let cmd_width = f.size().width.saturating_sub(used_width).saturating_sub(3);
     let cmd_header = format!("{:<width$}", "CMD", width = cmd_width as usize);
     widths.push(Constraint::Min(cmd_width));
     header.push(cmd_header);
@@ -345,8 +337,8 @@ fn render_process_table(
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(style)
-                .title(Span::styled(title, style)),
+                .border_style(border_style)
+                .title(Span::styled(title, border_style)),
         )
         .widths(widths.as_slice())
         .column_spacing(0)
@@ -387,13 +379,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBack
         .render(f, area);
 }
 
-fn render_cpu_bars(
-    app: &CPUTimeApp,
-    area: Rect,
-    width: u16,
-    f: &mut Frame<'_, ZBackend>,
-    style: &Style,
-) {
+fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, style: &Style) {
     let cpus = app.cpus.to_owned();
     if cpus.is_empty() {
         return;
@@ -417,11 +403,9 @@ fn render_cpu_bars(
         .border_style(*style)
         .render(f, area);
 
-    assert_eq!(area.width, width);
-
     let layout = Layout::default().margin(1).direction(Direction::Vertical);
 
-    if full_width > 2 * width {
+    if full_width > 2 * area.width {
         // won't fit in 2 rows of bars, using grid layout
 
         let layout = layout
@@ -481,14 +465,14 @@ fn render_cpu_bars(
             )
     }
 
-    if full_width <= width {
+    if full_width <= area.width {
         // fits in one row
 
         let cpu_bar_layout = layout
             .constraints(vec![Constraint::Percentage(100)])
             .split(area);
 
-        let bar_width = clamp_up((width - (core_count - 1)) / core_count, max_bar_width);
+        let bar_width = clamp_up((area.width - (core_count - 1)) / core_count, max_bar_width);
 
         styled_bar_chart()
             .data(bars.as_slice())
@@ -503,7 +487,10 @@ fn render_cpu_bars(
             .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(area);
 
-        let bar_width = clamp_up((width * 2 - (core_count - 1)) / core_count, max_bar_width);
+        let bar_width = clamp_up(
+            (area.width * 2 - (core_count - 1)) / core_count,
+            max_bar_width,
+        );
 
         styled_bar_chart()
             .data(&bars[half..])
@@ -522,16 +509,12 @@ fn render_net(
     area: Rect,
     f: &mut Frame<'_, ZBackend>,
     view: View,
-    selected_section: &Section,
+    border_style: Style,
 ) {
-    let style = match selected_section {
-        Section::Network => Style::default().fg(Color::Red),
-        _ => Style::default(),
-    };
     Block::default()
         .title("Network")
         .borders(Borders::ALL)
-        .border_style(style)
+        .border_style(border_style)
         .render(f, area);
     let network_layout = Layout::default()
         .margin(0)
@@ -612,9 +595,9 @@ fn render_net(
     List::new(ips)
         .block(
             Block::default()
-                .title(Span::styled("Network", style))
+                .title(Span::styled("Network", border_style))
                 .borders(Borders::ALL)
-                .border_style(style),
+                .border_style(border_style),
         )
         .render(f, network_layout[0]);
 }
@@ -623,18 +606,14 @@ fn render_process(
     app: &CPUTimeApp,
     layout: Rect,
     f: &mut Frame<'_, ZBackend>,
-    selected_section: &Section,
+    border_style: Style,
     process_message: &Option<String>,
     p: &ZProcess,
 ) {
-    let style = match selected_section {
-        Section::Process => Style::default().fg(Color::Red),
-        _ => Style::default(),
-    };
     Block::default()
-        .title(Span::styled(format!("Process: {0}", p.name), style))
+        .title(Span::styled(format!("Process: {0}", p.name), border_style))
         .borders(Borders::ALL)
-        .border_style(style)
+        .border_style(border_style)
         .render(f, layout);
     let v_sections = Layout::default()
         .direction(Direction::Vertical)
@@ -979,18 +958,14 @@ fn render_disk(
     layout: Rect,
     f: &mut Frame<'_, ZBackend>,
     view: View,
-    selected_section: &Section,
+    border_style: Style,
     file_system_index: &usize,
     file_system_display: &FileSystemDisplay,
 ) {
-    let style = match selected_section {
-        Section::Disk => Style::default().fg(Color::Red),
-        _ => Style::default(),
-    };
     Block::default()
         .title("Disk")
         .borders(Borders::ALL)
-        .border_style(style)
+        .border_style(border_style)
         .render(f, layout);
     let disk_layout = Layout::default()
         .margin(0)
@@ -1049,9 +1024,12 @@ fn render_disk(
     List::new(disks)
         .block(
             Block::default()
-                .title(Span::styled("File Systems [(a)ctivity/usage]", style))
+                .title(Span::styled(
+                    "File Systems [(a)ctivity/usage]",
+                    border_style,
+                ))
                 .borders(Borders::ALL)
-                .border_style(style),
+                .border_style(border_style),
         )
         .render(f, disk_layout[0]);
 }
@@ -1062,16 +1040,12 @@ fn render_graphics(
     f: &mut Frame<'_, ZBackend>,
     view: View,
     gfx_device_index: &usize,
-    selected_section: &Section,
+    border_style: Style,
 ) {
-    let style = match selected_section {
-        Section::Graphics => Style::default().fg(Color::Red),
-        _ => Style::default(),
-    };
     Block::default()
         .title("Graphics")
         .borders(Borders::ALL)
-        .border_style(style)
+        .border_style(border_style)
         .render(f, layout);
     let gfx_layout = Layout::default()
         .margin(0)
@@ -1179,9 +1153,9 @@ fn render_graphics(
     List::new(devices)
         .block(
             Block::default()
-                .title(Span::styled("Graphics Devices", style))
+                .title(Span::styled("Graphics Devices", border_style))
                 .borders(Borders::ALL)
-                .border_style(style),
+                .border_style(border_style),
         )
         .render(f, gfx_layout[0]);
 }
@@ -1375,16 +1349,12 @@ fn render_cpu(
     area: Rect,
     f: &mut Frame<'_, ZBackend>,
     view: View,
-    selected_section: &Section,
+    border_style: Style,
 ) {
-    let style = match selected_section {
-        Section::Cpu => Style::default().fg(Color::Red),
-        _ => Style::default(),
-    };
     Block::default()
         .title("")
         .borders(Borders::ALL)
-        .border_style(style)
+        .border_style(border_style)
         .render(f, area);
     let cpu_layout = Layout::default()
         .margin(0)
@@ -1404,7 +1374,7 @@ fn render_cpu(
         .split(cpu_layout[1]);
     render_cpu_histogram(app, cpu_mem[0], f, &view);
     render_memory_histogram(app, cpu_mem[1], f, &view);
-    render_cpu_bars(app, cpu_layout[0], LEFT_PANE_WIDTH, f, &style);
+    render_cpu_bars(app, cpu_layout[0], f, &border_style);
 }
 
 fn filter_process_table<'a>(app: &'a CPUTimeApp, filter: &str) -> Cow<'a, [i32]> {
@@ -1872,7 +1842,7 @@ impl<'a> TerminalRenderer<'_> {
             let highlighted_row = self.highlighted_row;
 
             self.terminal
-                .draw(|mut f| {
+                .draw(|f| {
                     width = f.size().width;
                     if show_help {
                         let v_sections = Layout::default()
@@ -1881,21 +1851,21 @@ impl<'a> TerminalRenderer<'_> {
                             .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
                             .split(f.size());
 
-                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        render_top_title_bar(app, v_sections[0], f, zf, offset);
                         let history_recording = match (app.writes_db_store(), disable_history) {
                             (true, _) => HistoryRecording::On,
                             (false, true) => HistoryRecording::UserDisabled,
                             (false, false) => HistoryRecording::OtherInstancePrevents,
                         };
-                        render_help(v_sections[1], &mut f, history_recording);
+                        render_help(v_sections[1], f, history_recording);
                     } else if show_section_mgr {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
                             .margin(0)
                             .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
                             .split(f.size());
-                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
-                        render_section_mgr(section_manager_options, v_sections[1], &mut f);
+                        render_top_title_bar(app, v_sections[0], f, zf, offset);
+                        render_section_mgr(section_manager_options, v_sections[1], f);
                     } else {
                         // create layouts
                         // primary vertical
@@ -1905,7 +1875,7 @@ impl<'a> TerminalRenderer<'_> {
                             .constraints(constraints.as_ref())
                             .split(f.size());
 
-                        render_top_title_bar(app, v_sections[0], &mut f, zf, offset);
+                        render_top_title_bar(app, v_sections[0], f, zf, offset);
                         let view = View {
                             zoom_factor: *zf,
                             update_number: *un,
@@ -1914,35 +1884,41 @@ impl<'a> TerminalRenderer<'_> {
                         };
                         for section_index in 0..geometry.len() {
                             let v_section = v_sections[section_index + 1];
-                            match geometry[section_index].0 {
-                                Section::Cpu => render_cpu(app, v_section, &mut f, view, &selected),
+                            let current_section = geometry[section_index].0;
+                            let border_style = if current_section == selected {
+                                Style::default().fg(Color::Red)
+                            } else {
+                                Style::default()
+                            };
+                            match current_section {
+                                Section::Cpu => render_cpu(app, v_section, f, view, border_style),
                                 Section::Network => {
-                                    render_net(app, v_section, &mut f, view, &selected)
+                                    render_net(app, v_section, f, view, border_style)
                                 }
                                 Section::Disk => render_disk(
                                     app,
                                     v_section,
-                                    &mut f,
+                                    f,
                                     view,
-                                    &selected,
+                                    border_style,
                                     file_system_index,
                                     file_system_display,
                                 ),
                                 Section::Graphics => render_graphics(
                                     app,
                                     v_section,
-                                    &mut f,
+                                    f,
                                     view,
                                     gfx_device_index,
-                                    &selected,
+                                    border_style,
                                 ),
                                 Section::Process => {
                                     if let Some(p) = app.selected_process.as_ref() {
                                         render_process(
                                             app,
                                             v_section,
-                                            &mut f,
-                                            &selected,
+                                            f,
+                                            border_style,
                                             process_message,
                                             p,
                                         );
@@ -1950,11 +1926,10 @@ impl<'a> TerminalRenderer<'_> {
                                         highlighted_process = render_process_table(
                                             app,
                                             &process_table,
-                                            width,
                                             v_section,
                                             *pst,
-                                            &mut f,
-                                            &selected,
+                                            f,
+                                            border_style,
                                             show_paths,
                                             show_find,
                                             filter,
@@ -1989,7 +1964,7 @@ impl<'a> TerminalRenderer<'_> {
                     Action::Continue
                 }
                 Event::Tick => {
-                    self.process_tick(width).await;
+                    self.process_tick().await;
                     Action::Continue
                 }
                 Event::Save => {
@@ -2009,7 +1984,7 @@ impl<'a> TerminalRenderer<'_> {
         }
     }
 
-    async fn process_tick(&mut self, width: u16) {
+    async fn process_tick(&mut self) {
         debug!("Event Tick");
 
         if self.app.selected_process.is_none() {
@@ -2023,7 +1998,7 @@ impl<'a> TerminalRenderer<'_> {
         let keep_order =
             self.app.selected_process.is_some() || self.selection_grace_start.is_some();
 
-        self.app.update(width, keep_order).await;
+        self.app.update(keep_order).await;
         self.update_number += 1;
         if self.update_number == self.zoom_factor {
             self.update_number = 0;
