@@ -324,10 +324,10 @@ fn render_process_table(
     let title = if show_find {
         format!("[ESC] Clear, Find: {:}", filter)
     } else if !filter.is_empty() {
-        format!("Filtered Results: {:}, [f] to change/clear", filter)
+        format!("Filtered Results: {:}, [/] to change/clear", filter)
     } else {
         format!(
-            "Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [/] Filter [f]",
+            "Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [;] Filter [/]",
             app.processes.len(),
             app.threads_total
         )
@@ -1512,11 +1512,11 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>, history_recording: Histo
         ["PgUp  ", "    Move view one screen up\n"],
         ["Home  ", "    Move to top\n"],
         ["End   ", "    Move to bottom\n"],
-        ["/     ", "    Change sort between ascending/descending\n"],
+        [";     ", "    Change sort between ascending/descending\n"],
         [",     ", "    Cycle columns left\n"],
         [".     ", "    Cycle columns right\n"],
         ["p     ", "    Toggle paths on/off\n"],
-        ["f     ", "    Toggle filter mode\n"],
+        ["/     ", "    Toggle filter mode\n"],
         ["<ESC> ", "    Leave filter mode\n"],
     ];
 
@@ -2239,7 +2239,7 @@ impl<'a> TerminalRenderer<'_> {
                 }
                 self.app.sort_process_table();
             }
-            Key::Char('/') => {
+            Key::Char(';') => {
                 match self.app.psortorder {
                     ProcessTableSortOrder::Ascending => {
                         self.app.psortorder = ProcessTableSortOrder::Descending
@@ -2334,7 +2334,7 @@ impl<'a> TerminalRenderer<'_> {
             Key::Char('p') => {
                 self.show_paths = !self.show_paths;
             }
-            Key::Char('f') => {
+            Key::Char('/') => {
                 self.show_find = true;
                 self.highlighted_row = 0;
                 self.process_table_row_start = 0;
