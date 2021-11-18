@@ -265,6 +265,9 @@ fn render_process_table(
                     .replace("B", "")
                 ),
             ];
+            if cfg!(target_os = "linux") {
+                row.push(format!("{:>5.1}", p.get_io_wait(&app.histogram_map.tick)));
+            }
             if !app.gfx_devices.is_empty() {
                 row.push(format!("{:>4.0}", p.gpu_usage));
                 row.push(format!("{:>4.0}", p.fb_utilization));
@@ -298,6 +301,9 @@ fn render_process_table(
         String::from("READ/s   "),
         String::from("WRITE/s  "),
     ];
+    if cfg!(target_os = "linux") {
+        header.push(String::from("IOWAIT% "));
+    }
     if !app.gfx_devices.is_empty() {
         header.push(String::from("GPU% "));
         header.push(String::from("FB%  "));
@@ -642,17 +648,12 @@ fn render_process(
     } else {
         "alive".to_string()
     };
-    let start_time = DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time));
-    let et = match p.end_time {
-        Some(t) => DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(t)),
-        None => Local::now(),
-    };
-    let d = et - start_time;
+    let run_duration = p.get_run_duration();
     let d = format!(
         "{:0>2}:{:0>2}:{:0>2}",
-        d.num_hours(),
-        d.num_minutes() % 60,
-        d.num_seconds() % 60
+        run_duration.num_hours(),
+        run_duration.num_minutes() % 60,
+        run_duration.num_seconds() % 60
     );
 
     let rhs_style = Style::default().fg(Color::Green);
@@ -678,7 +679,13 @@ fn render_process(
         ]),
         Spans::from(vec![
             Span::raw("Start Time:            "),
-            Span::styled(format!("{:}", start_time), rhs_style),
+            Span::styled(
+                format!(
+                    "{:}",
+                    DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(p.start_time))
+                ),
+                rhs_style,
+            ),
         ]),
         Spans::from(vec![
             Span::raw("Total Run Time:        "),
@@ -767,6 +774,31 @@ fn render_process(
         text.push(Spans::from(vec![
             Span::raw("Decoder Util:       "),
             Span::styled(format!("{:7.2} %", p.dec_utilization as f64), rhs_style),
+        ]));
+    }
+
+    if cfg!(target_os = "linux") {
+        text.push(Spans::from(vec![
+            Span::raw("IO Wait:               "),
+            Span::styled(
+                format!(
+                    "{:>7.2} % ({:>7.2} %)",
+                    p.get_io_wait(&app.histogram_map.tick),
+                    p.get_total_io_wait()
+                ),
+                rhs_style,
+            ),
+        ]));
+        text.push(Spans::from(vec![
+            Span::raw("Swap Wait:             "),
+            Span::styled(
+                format!(
+                    "{:>7.2} % ({:>7.2} %)",
+                    p.get_swap_wait(&app.histogram_map.tick),
+                    p.get_total_swap_wait()
+                ),
+                rhs_style,
+            ),
         ]));
     }
 

@@ -17,8 +17,10 @@
 - Performance data saved between runs
 - GPU Utilization Metrics for NVIDIA GPUs (with `--features nvidia`), including per-process GPU usage
 - Disk free space charts
+- Delay accounting (on Linux when running zenith with root permissions)
 
 <img src ="./assets/zenith_with_gpu.png" alt="zenith running on linux in iTerm2">
+
 
 ## Planned Features
 
