@@ -1055,8 +1055,9 @@ dependencies = [
 
 [[package]]
 name = "linux-taskstats"
-version = "0.1.3"
-source = "git+https://github.com/bvaisvil/linux-taskstats-rs.git?branch=fix_taskstats_size#37c7460411f689c8b36d73112921a41825b9a04f"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "284297c53a4120f74be7d144efc410b515f8a1eb13e7758ad509c9d39021b84a"
 dependencies = [
  "bindgen",
  "clap",
