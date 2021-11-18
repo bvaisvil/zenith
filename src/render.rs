@@ -265,9 +265,9 @@ fn render_process_table(
                     .replace("B", "")
                 ),
             ];
-            if cfg!(target_os = "linux") {
-                row.push(format!("{:>5.1}", p.get_io_wait(&app.histogram_map.tick)));
-            }
+            #[cfg(target_os = "linux")]
+            row.push(format!("{:>5.1}", p.get_io_wait(&app.histogram_map.tick)));
+
             if !app.gfx_devices.is_empty() {
                 row.push(format!("{:>4.0}", p.gpu_usage));
                 row.push(format!("{:>4.0}", p.fb_utilization));
@@ -301,9 +301,9 @@ fn render_process_table(
         String::from("READ/s   "),
         String::from("WRITE/s  "),
     ];
-    if cfg!(target_os = "linux") {
-        header.push(String::from("IOWAIT% "));
-    }
+    #[cfg(target_os = "linux")]
+    header.push(String::from("IOWAIT% "));
+
     if !app.gfx_devices.is_empty() {
         header.push(String::from("GPU% "));
         header.push(String::from("FB%  "));
@@ -777,30 +777,30 @@ fn render_process(
         ]));
     }
 
-    if cfg!(target_os = "linux") {
-        text.push(Spans::from(vec![
-            Span::raw("IO Wait:               "),
-            Span::styled(
-                format!(
-                    "{:>7.2} % ({:>7.2} %)",
-                    p.get_io_wait(&app.histogram_map.tick),
-                    p.get_total_io_wait()
-                ),
-                rhs_style,
+    #[cfg(target_os = "linux")]
+    text.push(Spans::from(vec![
+        Span::raw("IO Wait:               "),
+        Span::styled(
+            format!(
+                "{:>7.2} % ({:>7.2} %)",
+                p.get_io_wait(&app.histogram_map.tick),
+                p.get_total_io_wait()
             ),
-        ]));
-        text.push(Spans::from(vec![
-            Span::raw("Swap Wait:             "),
-            Span::styled(
-                format!(
-                    "{:>7.2} % ({:>7.2} %)",
-                    p.get_swap_wait(&app.histogram_map.tick),
-                    p.get_total_swap_wait()
-                ),
-                rhs_style,
+            rhs_style,
+        ),
+    ]));
+    #[cfg(target_os = "linux")]
+    text.push(Spans::from(vec![
+        Span::raw("Swap Wait:             "),
+        Span::styled(
+            format!(
+                "{:>7.2} % ({:>7.2} %)",
+                p.get_swap_wait(&app.histogram_map.tick),
+                p.get_total_swap_wait()
             ),
-        ]));
-    }
+            rhs_style,
+        ),
+    ]));
 
     if text.len() > v_sections[1].height as usize * 3 {
         let h_sections = Layout::default()

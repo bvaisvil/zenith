@@ -420,6 +420,7 @@ impl CPUTimeApp {
     fn update_process_list(&mut self, keep_order: bool) {
         debug!("Updating Process List");
         let process_list = self.system.get_processes();
+        #[cfg(target_os = "linux")]
         let client = &self.netlink_client;
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
 
@@ -479,9 +480,9 @@ impl CPUTimeApp {
                     zp.read_bytes = disk_usage.total_read_bytes;
                     zp.write_bytes = disk_usage.total_written_bytes;
                     zp.last_updated = SystemTime::now();
-                    if cfg!(target_os = "linux") {
-                        zp.update_delay(client);
-                    }
+                    #[cfg(target_os = "linux")]
+                    zp.update_delay(client);
+
                     top.update(zp, &self.histogram_map.tick);
                 } else {
                     let user_name = self
@@ -503,9 +504,9 @@ impl CPUTimeApp {
                     .map(|user| user.name().to_string_lossy().to_string())
                     .unwrap_or_default();
                 let mut zprocess = ZProcess::from_user_and_process(user_name, process);
-                if cfg!(target_os = "linux") {
-                    zprocess.update_delay(client);
-                }
+                #[cfg(target_os = "linux")]
+                zprocess.update_delay(client);
+
                 self.threads_total += zprocess.threads_total as usize;
 
                 top.update(&zprocess, &self.histogram_map.tick);
