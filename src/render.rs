@@ -35,7 +35,7 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{
-    BarChart, Block, Borders, List, ListItem, ListState, Paragraph, Row, Sparkline, Table, Wrap,
+    BarChart, Block, Borders, List, ListItem, ListState, Paragraph, Row, Sparkline, Table, Wrap, Cell
 };
 use tui::Frame;
 use unicode_width::UnicodeWidthStr;
@@ -192,7 +192,7 @@ fn render_process_table(
     highlighted_row: usize,
 ) -> Option<Box<ZProcess>> {
     // 4 for the margins and table header
-    let display_height = match area.height.saturating_sub(4) {
+    let display_height = match area.height.saturating_sub(3) {
         0 => return None,
         v => v as usize,
     };
@@ -328,7 +328,15 @@ fn render_process_table(
         ProcessTableSortOrder::Descending => '↓',
     };
     header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
-
+    let mut header_row: Vec<Cell> = header.iter().enumerate().map(|(i, c)| {
+        if i == app.psortby as usize {
+            Cell::from(c.as_str()).style(Style::default()
+                .bg(Color::Gray)
+                .fg(Color::Black).add_modifier(Modifier::BOLD))
+        } else {
+            Cell::from(c.as_str())
+        }
+    }).collect();
     let title = if show_find {
         format!("[ESC] Clear, Find: {:}", filter)
     } else if !filter.is_empty() {
@@ -351,9 +359,9 @@ fn render_process_table(
         .widths(widths.as_slice())
         .column_spacing(0)
         .header(
-            Row::new(header)
+            Row::new(header_row)
                 .style(Style::default().bg(Color::DarkGray))
-                .bottom_margin(1),
+                .bottom_margin(0),
         )
         .render(f, area);
     highlighted_process
