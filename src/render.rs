@@ -279,7 +279,8 @@ fn render_process_table(
             if i == highlighted_row {
                 row.style(
                     Style::default()
-                        .fg(Color::Magenta)
+                        .bg(Color::Gray)
+                        .fg(Color::Black)
                         .add_modifier(Modifier::BOLD),
                 )
             } else {
