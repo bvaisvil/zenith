@@ -19,7 +19,7 @@ use crossterm::{
     terminal::EnterAlternateScreen,
 };
 use num_traits::FromPrimitive;
-use std::borrow::{Cow, BorrowMut};
+use std::borrow::{Cow};
 use std::cmp::Eq;
 use std::collections::HashSet;
 use std::fmt;
@@ -355,7 +355,7 @@ fn render_process_table(
         ProcessTableSortOrder::Descending => '↓',
     };
     header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
-    let mut header_row: Vec<Cell> = header.iter().enumerate().map(|(i, c)| {
+    let header_row: Vec<Cell> = header.iter().enumerate().map(|(i, c)| {
         if i == app.psortby as usize {
             Cell::from(c.as_str()).style(Style::default()
                 .bg(Color::Gray)

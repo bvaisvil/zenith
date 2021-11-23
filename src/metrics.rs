@@ -507,6 +507,7 @@ impl CPUTimeApp {
                     .get_user_by_uid(process.uid)
                     .map(|user| user.name().to_string_lossy().to_string())
                     .unwrap_or_default();
+                #[allow(unused_mut)]
                 let mut zprocess = ZProcess::from_user_and_process(user_name, process);
                 #[cfg(target_os = "linux")]
                 zprocess.update_delay(client);
