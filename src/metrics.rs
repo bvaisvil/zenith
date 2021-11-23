@@ -220,6 +220,7 @@ pub struct CPUTimeApp {
     pub user_cache: UsersCache,
     pub cum_cpu_process: Option<ZProcess>,
     pub top_mem_pid: Option<i32>,
+    pub top_cpu_pid: Option<i32>,
     pub top_disk_writer_pid: Option<i32>,
     pub top_disk_reader_pid: Option<i32>,
     pub frequency: u64,
@@ -285,6 +286,7 @@ impl CPUTimeApp {
             max_pid_len: get_max_pid_length(),
             batteries: vec![],
             top_mem_pid: None,
+            top_cpu_pid: None,
             top_disk_reader_pid: None,
             top_disk_writer_pid: None,
             uptime: Duration::from_secs(0),
@@ -441,6 +443,7 @@ impl CPUTimeApp {
         #[derive(Default)]
         struct Top {
             cum_cpu: ValAndPid<f64>,
+            cpu: ValAndPid<f32>,
             mem: ValAndPid<u64>,
             read: ValAndPid<f64>,
             write: ValAndPid<f64>,
@@ -448,6 +451,7 @@ impl CPUTimeApp {
         impl Top {
             fn update(&mut self, zp: &ZProcess, tick_rate: &Duration) {
                 self.cum_cpu.update(zp.cum_cpu_usage, zp.pid);
+                self.cpu.update(zp.cpu_usage, zp.pid);
                 self.mem.update(zp.memory, zp.pid);
                 self.read.update(zp.get_read_bytes_sec(tick_rate), zp.pid);
                 self.write.update(zp.get_write_bytes_sec(tick_rate), zp.pid);
@@ -547,6 +551,7 @@ impl CPUTimeApp {
         self.top_mem_pid = top.mem.pid.or(self.top_mem_pid);
         self.top_disk_reader_pid = top.read.pid.or(self.top_disk_reader_pid);
         self.top_disk_writer_pid = top.write.pid.or(self.top_disk_writer_pid);
+        self.top_cpu_pid = top.cpu.pid.or(self.top_cpu_pid);
 
         // update selected process
         if let Some(p) = self.selected_process.as_mut() {

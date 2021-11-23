@@ -19,7 +19,7 @@ use crossterm::{
     terminal::EnterAlternateScreen,
 };
 use num_traits::FromPrimitive;
-use std::borrow::Cow;
+use std::borrow::{Cow, BorrowMut};
 use std::cmp::Eq;
 use std::collections::HashSet;
 use std::fmt;
@@ -179,6 +179,20 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
     )
 }
 
+fn set_process_row_style<'a>(current_pid: i32, test_pid: Option<i32>, row_content: String) -> Cell<'a>{
+    match test_pid{
+        Some(p) => {
+            if p == current_pid{
+                Cell::from(row_content).style(Style::default().fg(Color::Red))
+            }
+            else{
+                Cell::from(row_content)
+            }
+        },
+        None => Cell::from(row_content)
+    }
+}
+
 fn render_process_table(
     app: &CPUTimeApp,
     process_table: &[i32],
@@ -213,6 +227,7 @@ fn render_process_table(
     if area.height < 5 {
         return highlighted_process; // not enough space to draw anything
     }
+
     let rows: Vec<Row> = procs
         .iter()
         .enumerate()
@@ -232,47 +247,59 @@ fn render_process_table(
             } else {
                 String::from("")
             };
+            //let mut cpu_usage = Cell::from(format!("{:>5.1}", p.cpu_usage));
+            let mut cpu_usage = set_process_row_style(p.pid, app.top_cpu_pid, format!("{:>5.1}", p.cpu_usage));
+            match &app.cum_cpu_process{
+                Some(top)=> {
+                    if top.pid == p.pid{
+                        cpu_usage = cpu_usage.style(Style::default().fg(Color::Magenta));
+                    }
+                },
+                None => ()
+            };
+
             let mut row = vec![
-                format!("{: >width$}", p.pid, width = app.max_pid_len),
-                format!("{: <10}", p.user_name),
-                format!("{: <3}", p.priority),
-                format!("{: <3}", p.nice),
-                format!("{:>5.1}", p.cpu_usage),
-                format!("{:>5.1}", percent_of(p.memory, app.mem_total)),
-                format!(
-                    "{:>8}",
-                    float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
-                ),
-                format!(
+                Cell::from(format!("{: >width$}", p.pid, width = app.max_pid_len)),
+                Cell::from(format!("{: <10}", p.user_name)),
+                Cell::from(format!("{: <3}", p.priority)),
+                Cell::from(format!("{: <3}", p.nice)),
+                cpu_usage,
+                set_process_row_style(p.pid, app.top_mem_pid,
+                                      format!("{:>5.1}", percent_of(p.memory, app.mem_total))),
+                set_process_row_style(p.pid, app.top_mem_pid,
+                                      format!(
+                                          "{:>8}",
+                                          float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
+                                      )),
+                Cell::from(format!(
                     "{: >8}",
                     float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace("B", "")
-                ),
-                format!("{:1}", p.status.to_single_char()),
-                format!(
-                    "{:>8}",
-                    float_to_byte_string!(
-                        p.get_read_bytes_sec(&app.histogram_map.tick),
-                        ByteUnit::B
-                    )
-                    .replace("B", "")
-                ),
-                format!(
+                )),
+                Cell::from(format!("{:1}", p.status.to_single_char())),
+                set_process_row_style(p.pid, app.top_disk_reader_pid,
+                                      format!(
+                                          "{:>8}",
+                                          float_to_byte_string!(
+                                              p.get_read_bytes_sec(&app.histogram_map.tick),
+                                              ByteUnit::B
+                                          ).replace("B", ""))),
+                set_process_row_style(p.pid, app.top_disk_writer_pid, format!(
                     "{:>8}",
                     float_to_byte_string!(
                         p.get_write_bytes_sec(&app.histogram_map.tick),
                         ByteUnit::B
-                    )
-                    .replace("B", "")
-                ),
+                    ).replace("B", "")
+                )),
             ];
+
             #[cfg(target_os = "linux")]
-            row.push(format!("{:>5.1}", p.get_io_wait(&app.histogram_map.tick)));
+            row.push(Cell::from(format!("{:>5.1}", p.get_io_wait(&app.histogram_map.tick))));
 
             if !app.gfx_devices.is_empty() {
-                row.push(format!("{:>4.0}", p.gpu_usage));
-                row.push(format!("{:>4.0}", p.fb_utilization));
+                row.push(Cell::from(format!("{:>4.0}", p.gpu_usage)));
+                row.push(Cell::from(format!("{:>4.0}", p.fb_utilization)));
             }
-            row.push(format!("{:}{:}", p.name, cmd_string));
+            row.push(Cell::from(format!("{:}{:}", p.name, cmd_string)));
 
             let row = Row::new(row);
 
