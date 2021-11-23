@@ -19,7 +19,7 @@ use crossterm::{
     terminal::EnterAlternateScreen,
 };
 use num_traits::FromPrimitive;
-use std::borrow::{Cow};
+use std::borrow::Cow;
 use std::cmp::Eq;
 use std::collections::HashSet;
 use std::fmt;
@@ -35,7 +35,8 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{
-    BarChart, Block, Borders, List, ListItem, ListState, Paragraph, Row, Sparkline, Table, Wrap, Cell
+    BarChart, Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Sparkline, Table,
+    Wrap,
 };
 use tui::Frame;
 use unicode_width::UnicodeWidthStr;
@@ -179,17 +180,20 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
     )
 }
 
-fn set_process_row_style<'a>(current_pid: i32, test_pid: Option<i32>, row_content: String) -> Cell<'a>{
-    match test_pid{
+fn set_process_row_style<'a>(
+    current_pid: i32,
+    test_pid: Option<i32>,
+    row_content: String,
+) -> Cell<'a> {
+    match test_pid {
         Some(p) => {
-            if p == current_pid{
+            if p == current_pid {
                 Cell::from(row_content).style(Style::default().fg(Color::Red))
-            }
-            else{
+            } else {
                 Cell::from(row_content)
             }
-        },
-        None => Cell::from(row_content)
+        }
+        None => Cell::from(row_content),
     }
 }
 
@@ -248,14 +252,15 @@ fn render_process_table(
                 String::from("")
             };
             //let mut cpu_usage = Cell::from(format!("{:>5.1}", p.cpu_usage));
-            let mut cpu_usage = set_process_row_style(p.pid, app.top_cpu_pid, format!("{:>5.1}", p.cpu_usage));
-            match &app.cum_cpu_process{
-                Some(top)=> {
-                    if top.pid == p.pid{
+            let mut cpu_usage =
+                set_process_row_style(p.pid, app.top_cpu_pid, format!("{:>5.1}", p.cpu_usage));
+            match &app.cum_cpu_process {
+                Some(top) => {
+                    if top.pid == p.pid {
                         cpu_usage = cpu_usage.style(Style::default().fg(Color::Magenta));
                     }
-                },
-                None => ()
+                }
+                None => (),
             };
 
             let mut row = vec![
@@ -264,36 +269,55 @@ fn render_process_table(
                 Cell::from(format!("{: <3}", p.priority)),
                 Cell::from(format!("{: <3}", p.nice)),
                 cpu_usage,
-                set_process_row_style(p.pid, app.top_mem_pid,
-                                      format!("{:>5.1}", percent_of(p.memory, app.mem_total))),
-                set_process_row_style(p.pid, app.top_mem_pid,
-                                      format!(
-                                          "{:>8}",
-                                          float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
-                                      )),
+                set_process_row_style(
+                    p.pid,
+                    app.top_mem_pid,
+                    format!("{:>5.1}", percent_of(p.memory, app.mem_total)),
+                ),
+                set_process_row_style(
+                    p.pid,
+                    app.top_mem_pid,
+                    format!(
+                        "{:>8}",
+                        float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
+                    ),
+                ),
                 Cell::from(format!(
                     "{: >8}",
                     float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace("B", "")
                 )),
                 Cell::from(format!("{:1}", p.status.to_single_char())),
-                set_process_row_style(p.pid, app.top_disk_reader_pid,
-                                      format!(
-                                          "{:>8}",
-                                          float_to_byte_string!(
-                                              p.get_read_bytes_sec(&app.histogram_map.tick),
-                                              ByteUnit::B
-                                          ).replace("B", ""))),
-                set_process_row_style(p.pid, app.top_disk_writer_pid, format!(
-                    "{:>8}",
-                    float_to_byte_string!(
-                        p.get_write_bytes_sec(&app.histogram_map.tick),
-                        ByteUnit::B
-                    ).replace("B", "")
-                )),
+                set_process_row_style(
+                    p.pid,
+                    app.top_disk_reader_pid,
+                    format!(
+                        "{:>8}",
+                        float_to_byte_string!(
+                            p.get_read_bytes_sec(&app.histogram_map.tick),
+                            ByteUnit::B
+                        )
+                        .replace("B", "")
+                    ),
+                ),
+                set_process_row_style(
+                    p.pid,
+                    app.top_disk_writer_pid,
+                    format!(
+                        "{:>8}",
+                        float_to_byte_string!(
+                            p.get_write_bytes_sec(&app.histogram_map.tick),
+                            ByteUnit::B
+                        )
+                        .replace("B", "")
+                    ),
+                ),
             ];
 
             #[cfg(target_os = "linux")]
-            row.push(Cell::from(format!("{:>5.1}", p.get_io_wait(&app.histogram_map.tick))));
+            row.push(Cell::from(format!(
+                "{:>5.1}",
+                p.get_io_wait(&app.histogram_map.tick)
+            )));
 
             if !app.gfx_devices.is_empty() {
                 row.push(Cell::from(format!("{:>4.0}", p.gpu_usage)));
@@ -355,15 +379,22 @@ fn render_process_table(
         ProcessTableSortOrder::Descending => '↓',
     };
     header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
-    let header_row: Vec<Cell> = header.iter().enumerate().map(|(i, c)| {
-        if i == app.psortby as usize {
-            Cell::from(c.as_str()).style(Style::default()
-                .bg(Color::Gray)
-                .fg(Color::Black).add_modifier(Modifier::BOLD))
-        } else {
-            Cell::from(c.as_str())
-        }
-    }).collect();
+    let header_row: Vec<Cell> = header
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            if i == app.psortby as usize {
+                Cell::from(c.as_str()).style(
+                    Style::default()
+                        .bg(Color::Gray)
+                        .fg(Color::Black)
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Cell::from(c.as_str())
+            }
+        })
+        .collect();
     let title = if show_find {
         format!("[ESC] Clear, Find: {:}", filter)
     } else if !filter.is_empty() {
