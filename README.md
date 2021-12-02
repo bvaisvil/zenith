@@ -76,6 +76,18 @@ Change the 'stable' toolchain above to beta/nightly/... if you have some specifi
 brew install zenith
 ```
 
+### Cargo
+
+```
+cargo install --git https://github.com/bvaisvil/zenith.git
+```
+
+For NVIDIA GPU support, install with feature `nvidia`:
+
+```
+cargo install --features nvidia --git https://github.com/bvaisvil/zenith.git
+```
+
 ## Building
 
 This builds under rustc version >= 1.40.0.
