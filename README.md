@@ -90,7 +90,20 @@ cargo install --features nvidia --git https://github.com/bvaisvil/zenith.git
 
 ## Building
 
-This builds under rustc version >= 1.40.0.
+### Prerequisites
+
+Building requires rust version >= 1.40 and libclang development packages.
+
+#### Rust:
+Install from your preferred package manager or preferrably use [rustup.rs](https://rustup.rs/)
+
+#### [Clang](https://clang.llvm.org/) development packages:
+- Ubuntu/Debian:
+`sudo apt-get install libclang-dev`
+- CentOS/RHL/Fedora
+`sudo [yum/dnf] install clang`
+
+Zenith builds under rustc version >= 1.40.0.
 
 ```
 cd zenith
