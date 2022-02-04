@@ -279,12 +279,12 @@ fn render_process_table(
                     app.top_mem_pid,
                     format!(
                         "{:>8}",
-                        float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
+                        float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace('B', "")
                     ),
                 ),
                 Cell::from(format!(
                     "{: >8}",
-                    float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace("B", "")
+                    float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace('B', "")
                 )),
                 Cell::from(format!("{:1}", p.status.to_single_char())),
                 set_process_row_style(
@@ -296,7 +296,7 @@ fn render_process_table(
                             p.get_read_bytes_sec(&app.histogram_map.tick),
                             ByteUnit::B
                         )
-                        .replace("B", "")
+                        .replace('B', "")
                     ),
                 ),
                 set_process_row_style(
@@ -308,7 +308,7 @@ fn render_process_table(
                             p.get_write_bytes_sec(&app.histogram_map.tick),
                             ByteUnit::B
                         )
-                        .replace("B", "")
+                        .replace('B', "")
                     ),
                 ),
             ];
