@@ -378,7 +378,7 @@ impl CPUTimeApp {
                     }
                     let ip = match n.address() {
                         Address::Inet(n) => n.to_string(),
-                        _ => format!(""),
+                        _ => String::new(),
                     }
                     .trim_end_matches(":0")
                     .to_string();
@@ -387,7 +387,7 @@ impl CPUTimeApp {
                     }
                     let dest = match n.destination() {
                         Some(Address::Inet(d)) => d.to_string(),
-                        _ => format!(""),
+                        _ => String::new(),
                     };
                     self.network_interfaces.push(NetworkInterface {
                         name: n.name().to_owned(),

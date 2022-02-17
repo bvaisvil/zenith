@@ -279,12 +279,12 @@ fn render_process_table(
                     app.top_mem_pid,
                     format!(
                         "{:>8}",
-                        float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace("B", "")
+                        float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace('B', "")
                     ),
                 ),
                 Cell::from(format!(
                     "{: >8}",
-                    float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace("B", "")
+                    float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace('B', "")
                 )),
                 Cell::from(format!("{:1}", p.status.to_single_char())),
                 set_process_row_style(
@@ -296,7 +296,7 @@ fn render_process_table(
                             p.get_read_bytes_sec(&app.histogram_map.tick),
                             ByteUnit::B
                         )
-                        .replace("B", "")
+                        .replace('B', "")
                     ),
                 ),
                 set_process_row_style(
@@ -308,7 +308,7 @@ fn render_process_table(
                             p.get_write_bytes_sec(&app.histogram_map.tick),
                             ByteUnit::B
                         )
-                        .replace("B", "")
+                        .replace('B', "")
                     ),
                 ),
             ];
@@ -585,26 +585,12 @@ fn render_net(
     view: View,
     border_style: Style,
 ) {
-    Block::default()
-        .title("Network")
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .render(f, area);
-    let network_layout = Layout::default()
-        .margin(0)
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
-        .split(area);
+    let (network_layout, view) = split_left_right_pane("Network", area, f, view, border_style);
     let net = Layout::default()
         .margin(1)
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(network_layout[1]);
-
-    let view = View {
-        width: net[0].width as usize,
-        ..view
-    };
 
     let net_up = float_to_byte_string!(
         app.net_out as f64 / app.histogram_map.tick.as_secs_f64(),
@@ -674,6 +660,33 @@ fn render_net(
                 .border_style(border_style),
         )
         .render(f, network_layout[0]);
+}
+
+/// Returns rectangles for the left pane and right histogram, and a new view for the right histogram
+fn split_left_right_pane(
+    title: &str,
+    area: Rect,
+    f: &mut Frame<'_, ZBackend>,
+    view: View,
+    border_style: Style,
+) -> (Vec<Rect>, View) {
+    Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style)
+        .render(f, area);
+    let layout = Layout::default()
+        .margin(0)
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
+        .split(area);
+
+    let view = View {
+        width: usize::from(layout[1].width).saturating_sub(2),
+        ..view
+    };
+
+    (layout, view)
 }
 
 fn render_process(
@@ -1062,26 +1075,12 @@ fn render_disk(
     file_system_index: &usize,
     file_system_display: &FileSystemDisplay,
 ) {
-    Block::default()
-        .title("Disk")
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .render(f, layout);
-    let disk_layout = Layout::default()
-        .margin(0)
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
-        .split(layout);
+    let (disk_layout, view) = split_left_right_pane("Disk", layout, f, view, border_style);
     let area = Layout::default()
         .margin(1)
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(disk_layout[1]);
-
-    let view = View {
-        width: area[0].width as usize,
-        ..view
-    };
 
     if *file_system_display == FileSystemDisplay::Activity {
         disk_activity_histogram(app, f, view, &area);
@@ -1451,21 +1450,7 @@ fn render_cpu(
     view: View,
     border_style: Style,
 ) {
-    Block::default()
-        .title("")
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .render(f, area);
-    let cpu_layout = Layout::default()
-        .margin(0)
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(LEFT_PANE_WIDTH), Constraint::Min(10)].as_ref())
-        .split(area);
-
-    let view = View {
-        width: cpu_layout[1].width as usize,
-        ..view
-    };
+    let (cpu_layout, view) = split_left_right_pane("", area, f, view, border_style);
 
     let cpu_mem = Layout::default()
         .margin(1)
