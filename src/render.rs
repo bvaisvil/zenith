@@ -325,7 +325,7 @@ fn render_process_table(
             row.push(Cell::from(format!("{:>4.0}", p.gpu_usage)));
             #[cfg(feature = "nvidia")]
             row.push(Cell::from(format!("{:>4.0}", p.fb_utilization)));
-            
+
             row.push(Cell::from(format!("{:}{:}", p.name, cmd_string)));
 
             let row = Row::new(row);
@@ -1572,7 +1572,12 @@ fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'
     f.render_stateful_widget(list_widget, layout[1], &mut list.state);
 }
 
-fn render_help(_app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, history_recording: HistoryRecording) {
+fn render_help(
+    _app: &CPUTimeApp,
+    area: Rect,
+    f: &mut Frame<'_, ZBackend>,
+    history_recording: HistoryRecording,
+) {
     let header_style = Style::default().fg(Color::Green);
     let main_style = Style::default();
     let key_style = main_style.fg(Color::Cyan);
@@ -1654,17 +1659,19 @@ fn render_help(_app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, histo
 
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
     if let Some(ne) = &_app.nvml_error {
-        let content = match ne{
+        let content = match ne {
             NvmlError::DriverNotLoaded => "NVIDIA Error: No Driver Detected.",
             NvmlError::NoPermission => "NVIDIA Error: Permissioned denied to talk to driver.",
             NvmlError::Unknown => "NVIDIA Error: Unkown Error.",
-            _ => ""
+            _ => "",
         };
         if content.len() > 0 {
             t.push(Spans::from(vec![Span::styled("", header_style)]));
-            t.push(Spans::from(vec![Span::styled(content, Style::default().fg(Color::Yellow))]));
+            t.push(Spans::from(vec![Span::styled(
+                content,
+                Style::default().fg(Color::Yellow),
+            )]));
         }
-        
     }
 
     let help_height = t.len() as u16;
