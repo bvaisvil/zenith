@@ -18,6 +18,9 @@ use std::time::{Duration, SystemTime};
 #[cfg(target_os = "linux")]
 use linux_taskstats::{self, Client};
 
+#[cfg(all(feature = "nvidia", target_os = "linux"))]
+use nvml::error::NvmlError;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use sysinfo::{
@@ -243,6 +246,8 @@ pub struct CPUTimeApp {
     pub uptime: Duration,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
     pub nvml: Option<nvml::NVML>,
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    pub nvml_error: Option<NvmlError>,
     #[cfg(target_os = "linux")]
     pub netlink_client: Option<Client>,
 }
@@ -251,6 +256,16 @@ impl CPUTimeApp {
     pub fn new(tick: Duration, db: Option<PathBuf>) -> CPUTimeApp {
         debug!("Create Histogram Map");
         let histogram_map = HistogramMap::new(Duration::from_secs(60 * 60 * 24), tick, db);
+        #[cfg(all(target_os = "linux", feature = "nvidia"))]
+        let mut ne = None;
+        #[cfg(all(target_os = "linux", feature = "nvidia"))]
+        let nvml = match nvml::NVML::init() {
+            Ok(n) => Some(n),
+            Err(e) => {
+                ne = Some(e);
+                None
+            }
+        };
         let mut s = CPUTimeApp {
             histogram_map,
             cpus: vec![],
@@ -293,13 +308,9 @@ impl CPUTimeApp {
             gfx_devices: vec![],
 
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
-            nvml: match nvml::NVML::init() {
-                Ok(n) => Some(n),
-                Err(e) => {
-                    error!("Couldn't init NVML: {:?}", e);
-                    None
-                }
-            },
+            nvml: nvml,
+            #[cfg(all(target_os = "linux", feature = "nvidia"))]
+            nvml_error: ne,
             #[cfg(target_os = "linux")]
             netlink_client: match Client::open() {
                 Ok(c) => Some(c),

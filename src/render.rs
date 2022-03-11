@@ -41,6 +41,9 @@ use tui::widgets::{
 use tui::Frame;
 use unicode_width::UnicodeWidthStr;
 
+#[cfg(all(target_os = "linux", feature = "nvidia"))]
+use nvml::error::NvmlError;
+
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 const LEFT_PANE_WIDTH: u16 = 34u16;
 
@@ -318,11 +321,11 @@ fn render_process_table(
                 "{:>5.1}",
                 p.get_io_wait(&app.histogram_map.tick)
             )));
-
-            if !app.gfx_devices.is_empty() {
-                row.push(Cell::from(format!("{:>4.0}", p.gpu_usage)));
-                row.push(Cell::from(format!("{:>4.0}", p.fb_utilization)));
-            }
+            #[cfg(feature = "nvidia")]
+            row.push(Cell::from(format!("{:>4.0}", p.gpu_usage)));
+            #[cfg(feature = "nvidia")]
+            row.push(Cell::from(format!("{:>4.0}", p.fb_utilization)));
+            
             row.push(Cell::from(format!("{:}{:}", p.name, cmd_string)));
 
             let row = Row::new(row);
@@ -355,11 +358,10 @@ fn render_process_table(
     ];
     #[cfg(target_os = "linux")]
     header.push(String::from("IOWAIT% "));
-
-    if !app.gfx_devices.is_empty() {
-        header.push(String::from("GPU% "));
-        header.push(String::from("FB%  "));
-    }
+    #[cfg(feature = "nvidia")]
+    header.push(String::from("GPU% "));
+    #[cfg(feature = "nvidia")]
+    header.push(String::from("FB%  "));
     //figure column widths
     let mut widths = Vec::with_capacity(header.len() + 1);
     let mut used_width = 0;
@@ -1570,7 +1572,7 @@ fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'
     f.render_stateful_widget(list_widget, layout[1], &mut list.state);
 }
 
-fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>, history_recording: HistoryRecording) {
+fn render_help(_app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, history_recording: HistoryRecording) {
     let header_style = Style::default().fg(Color::Green);
     let main_style = Style::default();
     let key_style = main_style.fg(Color::Cyan);
@@ -1648,6 +1650,21 @@ fn render_help(area: Rect, f: &mut Frame<'_, ZBackend>, history_recording: Histo
                 Style::default().fg(Color::Yellow),
             )]));
         }
+    }
+
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    if let Some(ne) = &_app.nvml_error {
+        let content = match ne{
+            NvmlError::DriverNotLoaded => "NVIDIA Error: No Driver Detected.",
+            NvmlError::NoPermission => "NVIDIA Error: Permissioned denied to talk to driver.",
+            NvmlError::Unknown => "NVIDIA Error: Unkown Error.",
+            _ => ""
+        };
+        if content.len() > 0 {
+            t.push(Spans::from(vec![Span::styled("", header_style)]));
+            t.push(Spans::from(vec![Span::styled(content, Style::default().fg(Color::Yellow))]));
+        }
+        
     }
 
     let help_height = t.len() as u16;
@@ -1942,7 +1959,7 @@ impl<'a> TerminalRenderer<'_> {
                             (false, true) => HistoryRecording::UserDisabled,
                             (false, false) => HistoryRecording::OtherInstancePrevents,
                         };
-                        render_help(v_sections[1], f, history_recording);
+                        render_help(app, v_sections[1], f, history_recording);
                     } else if show_section_mgr {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
