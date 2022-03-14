@@ -1848,7 +1848,7 @@ impl<'a> TerminalRenderer<'_> {
         let constraints = get_constraints(section_geometry, terminal_size().1);
         let mut section_geometry = section_geometry.to_vec();
         app.update_gfx_devices();
-        if app.gfx_devices.len() == 0{
+        if app.gfx_devices.len() == 0 {
             section_geometry.retain(|(section, _)| *section != Section::Graphics);
         }
         TerminalRenderer {
