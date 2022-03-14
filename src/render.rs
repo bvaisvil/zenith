@@ -1,3 +1,4 @@
+use crate::graphics::GraphicsExt;
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
@@ -1832,7 +1833,7 @@ impl<'a> TerminalRenderer<'_> {
         disable_history: bool,
     ) -> TerminalRenderer {
         debug!("Create Metrics App");
-        let app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
+        let mut app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
         debug!("Create Event Loop");
         let events = Events::new(app.histogram_map.tick);
 
@@ -1845,7 +1846,11 @@ impl<'a> TerminalRenderer<'_> {
         terminal.hide_cursor().ok();
 
         let constraints = get_constraints(section_geometry, terminal_size().1);
-        let section_geometry = section_geometry.to_vec();
+        let mut section_geometry = section_geometry.to_vec();
+        app.update_gfx_devices();
+        if app.gfx_devices.len() == 0{
+            section_geometry.retain(|(section, _)| *section != Section::Graphics);
+        }
         TerminalRenderer {
             terminal,
             app,
