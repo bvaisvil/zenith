@@ -1181,17 +1181,28 @@ fn render_graphics(
     } else {
         String::from("")
     };
+
+    #[cfg(not(all(target_os = "linux", feature = "nvidia")))]
+    let version = "";
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    let version = if let (Some(dv), Some(cv), Some(nv)) = (&app.nvml_driver_version, &app.nvml_cuda_version, &app.nvml_version){
+        format!(" Ver [Driver: {:} Cuda: {:} NVML: {:}]", dv, cv, nv)
+    }
+    else{
+        format!("")
+    };
     Sparkline::default()
         .block(
             Block::default().title(
                 format!(
-                    "GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:}/{:} Mhz]",
+                    "GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:}/{:} Mhz]{:}",
                     gd.gpu_utilization,
                     gd.encoder_utilization,
                     gd.decoder_utilization,
                     gd.processes.len(),
                     gd.clock,
-                    gd.max_clock
+                    gd.max_clock,
+                    version
                 )
                 .as_str(),
             ),

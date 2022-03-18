@@ -20,6 +20,8 @@ use linux_taskstats::{self, Client};
 
 #[cfg(all(feature = "nvidia", target_os = "linux"))]
 use nvml::error::NvmlError;
+#[cfg(all(feature = "nvidia", target_os = "linux"))]
+use nvml::{cuda_driver_version_major, cuda_driver_version_minor};
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -248,6 +250,12 @@ pub struct CPUTimeApp {
     pub nvml: Option<nvml::NVML>,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
     pub nvml_error: Option<NvmlError>,
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    pub nvml_driver_version: Option<String>,
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    pub nvml_version: Option<String>,
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    pub nvml_cuda_version: Option<String>,
     #[cfg(target_os = "linux")]
     pub netlink_client: Option<Client>,
 }
@@ -259,8 +267,28 @@ impl CPUTimeApp {
         #[cfg(all(target_os = "linux", feature = "nvidia"))]
         let mut ne = None;
         #[cfg(all(target_os = "linux", feature = "nvidia"))]
+        let mut nvml_cuda_version = None;
+        #[cfg(all(target_os = "linux", feature = "nvidia"))]
+        let mut nvml_version = None;
+        #[cfg(all(target_os = "linux", feature = "nvidia"))]
+        let mut nvml_driver_version = None;
+        #[cfg(all(target_os = "linux", feature = "nvidia"))]
         let nvml = match nvml::NVML::init() {
-            Ok(n) => Some(n),
+            Ok(n) => {
+                nvml_driver_version = match n.sys_driver_version(){
+                    Ok(v) => Some(v),
+                    Err(_) => None
+                };
+                nvml_version = match n.sys_nvml_version(){
+                    Ok(v) => Some(v),
+                    Err(_) => None
+                };
+                nvml_cuda_version = match n.sys_cuda_driver_version(){
+                    Ok(v) => Some(format!("{:}.{:}",cuda_driver_version_major(v), cuda_driver_version_minor(v))),
+                    Err(_) => None
+                };
+                Some(n)
+            },
             Err(e) => {
                 ne = Some(e);
                 None
@@ -311,6 +339,12 @@ impl CPUTimeApp {
             nvml: nvml,
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
             nvml_error: ne,
+            #[cfg(all(target_os = "linux", feature = "nvidia"))]
+            nvml_driver_version: nvml_driver_version,
+            #[cfg(all(target_os = "linux", feature = "nvidia"))]
+            nvml_version: nvml_version,
+            #[cfg(all(target_os = "linux", feature = "nvidia"))]
+            nvml_cuda_version: nvml_cuda_version,
             #[cfg(target_os = "linux")]
             netlink_client: match Client::open() {
                 Ok(c) => Some(c),
