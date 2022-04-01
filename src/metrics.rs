@@ -275,20 +275,24 @@ impl CPUTimeApp {
         #[cfg(all(target_os = "linux", feature = "nvidia"))]
         let nvml = match nvml::NVML::init() {
             Ok(n) => {
-                nvml_driver_version = match n.sys_driver_version(){
+                nvml_driver_version = match n.sys_driver_version() {
                     Ok(v) => Some(v),
-                    Err(_) => None
+                    Err(_) => None,
                 };
-                nvml_version = match n.sys_nvml_version(){
+                nvml_version = match n.sys_nvml_version() {
                     Ok(v) => Some(v),
-                    Err(_) => None
+                    Err(_) => None,
                 };
-                nvml_cuda_version = match n.sys_cuda_driver_version(){
-                    Ok(v) => Some(format!("{:}.{:}",cuda_driver_version_major(v), cuda_driver_version_minor(v))),
-                    Err(_) => None
+                nvml_cuda_version = match n.sys_cuda_driver_version() {
+                    Ok(v) => Some(format!(
+                        "{:}.{:}",
+                        cuda_driver_version_major(v),
+                        cuda_driver_version_minor(v)
+                    )),
+                    Err(_) => None,
                 };
                 Some(n)
-            },
+            }
             Err(e) => {
                 ne = Some(e);
                 None

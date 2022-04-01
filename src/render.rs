@@ -1185,10 +1185,13 @@ fn render_graphics(
     #[cfg(not(all(target_os = "linux", feature = "nvidia")))]
     let version = "";
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
-    let version = if let (Some(dv), Some(cv), Some(nv)) = (&app.nvml_driver_version, &app.nvml_cuda_version, &app.nvml_version){
+    let version = if let (Some(dv), Some(cv), Some(nv)) = (
+        &app.nvml_driver_version,
+        &app.nvml_cuda_version,
+        &app.nvml_version,
+    ) {
         format!(" Ver [Driver: {:} Cuda: {:} NVML: {:}]", dv, cv, nv)
-    }
-    else{
+    } else {
         format!("")
     };
     Sparkline::default()
