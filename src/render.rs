@@ -1198,7 +1198,7 @@ fn render_graphics(
         .block(
             Block::default().title(
                 format!(
-                    "GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:}/{:} Mhz]{:}",
+                    "GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:} Mhz / {:} Mhz]{:}",
                     gd.gpu_utilization,
                     gd.encoder_utilization,
                     gd.decoder_utilization,
@@ -1223,24 +1223,28 @@ fn render_graphics(
         None => return,
     };
 
+    let max_style = Style::default().fg(Color::Red).add_modifier(Modifier::BOLD);
+    let ok_style = Style::default().fg(Color::Green);
+
     Sparkline::default()
-        .block(
-            Block::default().title(
-                format!(
-                    "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:} Pwr [{:} W / {:} W] Tmp [{:} C / {:} C]",
-                    gd.mem_utilization,
-                    float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
-                    float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
-                    percent_of(gd.used_memory, gd.total_memory) as u64,
-                    fan,
-                    gd.power_usage / 1000,
-                    gd.max_power / 1000,
-                    gd.temperature,
-                    gd.temperature_max
-                )
-                .as_str(),
-            ),
-        )
+        .block(Block::default().title(Spans(vec![
+                    Span::raw(
+                        format!(
+                            "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:}",
+                            gd.mem_utilization,
+                            float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
+                            float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+                            percent_of(gd.used_memory, gd.total_memory) as u64,
+                            fan,
+                        )
+                        .as_str()
+                    ),
+                    Span::raw(" Pwr ["),
+                    Span::styled(format!("{:} W / {:} W", gd.power_usage / 1000, gd.max_power / 1000), if gd.power_usage > gd.max_power {max_style} else {ok_style}),
+                    Span::raw("] Tmp ["),
+                    Span::styled(format!("{:} C / {:} C",  gd.temperature, gd.temperature_max), if gd.temperature > gd.temperature_max {max_style} else {ok_style}),
+                    Span::raw("]"),
+                     ])))
         .data(h_mem.data())
         .style(Style::default().fg(Color::LightMagenta))
         .max(100)
@@ -1250,7 +1254,7 @@ fn render_graphics(
         .iter()
         .enumerate()
         .map(|(i, d)| {
-            let indicator = if i == *gfx_device_index { ">" } else { " " };
+            let indicator = if i == *gfx_device_index { "→" } else { " " };
             let style = if d.gpu_utilization > 90 {
                 Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
             } else {
