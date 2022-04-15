@@ -1227,8 +1227,7 @@ fn render_graphics(
     let ok_style = Style::default().fg(Color::Green);
 
     Sparkline::default()
-        .block(
-            Block::default().title(Spans(vec![
+        .block(Block::default().title(Spans(vec![
                 Span::raw(
                     format!(
                         "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:}",
@@ -1259,8 +1258,7 @@ fn render_graphics(
                     },
                 ),
                 Span::raw("]"),
-            ])),
-        )
+            ])))
         .data(h_mem.data())
         .style(Style::default().fg(Color::LightMagenta))
         .max(100)
