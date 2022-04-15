@@ -1,3 +1,6 @@
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
@@ -9,9 +12,6 @@ use std::io::prelude::*;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
-use flate2::Compression;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -69,16 +69,15 @@ pub fn load_zenith_store(path: &Path, current_time: &SystemTime) -> Option<Histo
     let mut data = std::fs::read(path).expect(DB_ERROR);
     debug!("Attempting to decompress database...");
     let mut gz = GzDecoder::new(&data[..]);
-    if let Some(_) = gz.header(){
+    if let Some(_) = gz.header() {
         let mut udata = Vec::new();
         debug!("Decompressing...");
         let result = gz.read_to_end(&mut udata);
-        if let Ok(_) = result{
+        if let Ok(_) = result {
             data = udata;
             debug!("Decompressed");
         }
-    }
-    else{
+    } else {
         debug!("Not a gzip file.");
     }
     let mut hm: HistogramMap = match bincode::deserialize(&data) {
@@ -224,10 +223,14 @@ impl HistogramMap {
                     .expect("Couldn't Open DB");
                 let mut gz = GzEncoder::new(database, Compression::default());
                 gz.write_all(&bincode::serialize(self).expect(SER_ERROR))
-                  .expect("Failed to compress/write to file.");
-                match gz.finish(){
-                    Ok(_r) => {debug!("Write Finished.");},
-                    Err(_e) => {error!("Couldn't complete database write.");}
+                    .expect("Failed to compress/write to file.");
+                match gz.finish() {
+                    Ok(_r) => {
+                        debug!("Write Finished.");
+                    }
+                    Err(_e) => {
+                        error!("Couldn't complete database write.");
+                    }
                 };
                 // database
                 //     .write_all(&bincode::serialize(self).expect(SER_ERROR))
