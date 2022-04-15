@@ -5,9 +5,13 @@ use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
+use std::io::prelude::*;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
 const DB_ERROR: &str = "Couldn't open database.";
@@ -62,7 +66,21 @@ pub struct HistogramMap {
 
 pub fn load_zenith_store(path: &Path, current_time: &SystemTime) -> Option<HistogramMap> {
     // need to fill in time between when it was last stored and now, like the sled DB
-    let data = std::fs::read(path).expect(DB_ERROR);
+    let mut data = std::fs::read(path).expect(DB_ERROR);
+    debug!("Attempting to decompress database...");
+    let mut gz = GzDecoder::new(&data[..]);
+    if let Some(_) = gz.header(){
+        let mut udata = Vec::new();
+        debug!("Decompressing...");
+        let result = gz.read_to_end(&mut udata);
+        if let Ok(_) = result{
+            data = udata;
+            debug!("Decompressed");
+        }
+    }
+    else{
+        debug!("Not a gzip file.");
+    }
     let mut hm: HistogramMap = match bincode::deserialize(&data) {
         Ok(hm) => hm,
         Err(e) => {
@@ -195,21 +213,30 @@ impl HistogramMap {
     pub(crate) fn save_histograms(&mut self) {
         match &self.db {
             Some(db) => {
-                debug!("Saving Histograms");
+                debug!("Saving Histograms...");
                 self.previous_stop = Some(SystemTime::now());
                 let dbfile = db.join("store");
-                let mut database = fs::OpenOptions::new()
+                let database = fs::OpenOptions::new()
                     .create(true)
                     .write(true)
+                    .truncate(true)
                     .open(dbfile)
                     .expect("Couldn't Open DB");
-                database
-                    .write_all(&bincode::serialize(self).expect(SER_ERROR))
-                    .expect("Failed to write file.");
+                let mut gz = GzEncoder::new(database, Compression::default());
+                gz.write_all(&bincode::serialize(self).expect(SER_ERROR))
+                  .expect("Failed to compress/write to file.");
+                match gz.finish(){
+                    Ok(_r) => {debug!("Write Finished.");},
+                    Err(_e) => {error!("Couldn't complete database write.");}
+                };
+                // database
+                //     .write_all(&bincode::serialize(self).expect(SER_ERROR))
+                //     .expect("Failed to write file.");
                 let configuration = db.join(".configuration");
                 let mut configuration = fs::OpenOptions::new()
                     .create(true)
                     .write(true)
+                    .truncate(true)
                     .open(configuration)
                     .expect("Couldn't open Configuration");
                 configuration
