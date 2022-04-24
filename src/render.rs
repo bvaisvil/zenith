@@ -2018,7 +2018,7 @@ impl<'a> TerminalRenderer<'_> {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
                             .margin(0)
-                            .constraints(constraints.as_ref())
+                            .constraints(constraints.as_slice())
                             .split(f.size());
 
                         render_top_title_bar(app, v_sections[0], f, zf, offset);
