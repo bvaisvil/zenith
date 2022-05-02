@@ -1,4 +1,4 @@
-use crate::graphics::GraphicsExt;
+use crate::graphics::device::GraphicsExt;
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */

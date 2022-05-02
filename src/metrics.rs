@@ -1,7 +1,7 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-use crate::graphics::{GraphicsDevice, GraphicsExt};
+use crate::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::histogram::{HistogramKind, HistogramMap};
 use crate::util::percent_of;
 use crate::zprocess::*;
