@@ -69,11 +69,11 @@ pub fn load_zenith_store(path: &Path, current_time: &SystemTime) -> Option<Histo
     let mut data = std::fs::read(path).expect(DB_ERROR);
     debug!("Attempting to decompress database...");
     let mut gz = GzDecoder::new(&data[..]);
-    if let Some(_) = gz.header() {
+    if gz.header().is_some() {
         let mut udata = Vec::new();
         debug!("Decompressing...");
         let result = gz.read_to_end(&mut udata);
-        if let Ok(_) = result {
+        if result.is_ok() {
             data = udata;
             debug!("Decompressed");
         }
