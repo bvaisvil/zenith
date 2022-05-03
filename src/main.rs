@@ -10,16 +10,15 @@ extern crate log;
 extern crate nvml_wrapper as nvml;
 
 mod constants;
-mod metrics;
 mod graphics;
 mod histogram;
-mod render;
+mod metrics;
+mod renderer;
 mod util;
 mod zprocess;
 
-use crate::render::sum_section_heights;
-use crate::render::Section;
-use crate::render::TerminalRenderer;
+use crate::renderer::section::{sum_section_heights, Section};
+use crate::renderer::TerminalRenderer;
 use gumdrop::Options;
 
 use crossterm::{
