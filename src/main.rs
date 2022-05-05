@@ -10,12 +10,9 @@ extern crate log;
 extern crate nvml_wrapper as nvml;
 
 mod constants;
-mod graphics;
-mod histogram;
 mod metrics;
 mod renderer;
 mod util;
-mod zprocess;
 
 use crate::renderer::section::{sum_section_heights, Section};
 use crate::renderer::TerminalRenderer;
@@ -29,7 +26,7 @@ use crossterm::{
     },
 };
 use futures::executor::block_on;
-use histogram::load_zenith_store;
+use metrics::histogram::load_zenith_store;
 use std::error::Error;
 use std::fs;
 use std::io::stdout;

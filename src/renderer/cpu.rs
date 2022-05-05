@@ -2,8 +2,8 @@
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
 use crate::float_to_byte_string;
-use crate::histogram::{HistogramKind, View};
-use crate::metrics::*;
+use crate::metrics::histogram::{HistogramKind, View};
+use crate::metrics::CPUTimeApp;
 use crate::renderer::{percent_of, split_left_right_pane, Render, ZBackend};
 use byte_unit::{Byte, ByteUnit};
 use tui::layout::{Constraint, Direction, Layout, Rect};

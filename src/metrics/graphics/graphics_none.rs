@@ -1,7 +1,7 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-use crate::graphics::device::GraphicsExt;
+use crate::metrics::graphics::device::GraphicsExt;
 use crate::metrics::CPUTimeApp;
 
 impl GraphicsExt for CPUTimeApp {

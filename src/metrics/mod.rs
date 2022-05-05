@@ -1,10 +1,15 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-use crate::graphics::device::{GraphicsDevice, GraphicsExt};
-use crate::histogram::{HistogramKind, HistogramMap};
+
+pub mod histogram;
+pub mod zprocess;
+pub mod graphics;
+
+use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
+use crate::metrics::histogram::{HistogramKind, HistogramMap};
+use crate::metrics::zprocess::ZProcess;
 use crate::util::percent_of;
-use crate::zprocess::*;
 
 use futures::StreamExt;
 use heim::host;
