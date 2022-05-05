@@ -1,8 +1,8 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-use crate::graphics::device::*;
-use crate::histogram::HistogramKind;
+use crate::metrics::graphics::device::*;
+use crate::metrics::histogram::HistogramKind;
 use crate::metrics::CPUTimeApp;
 use nvml::device::Device;
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
