@@ -1,10 +1,9 @@
+pub mod graphics;
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-
 pub mod histogram;
 pub mod zprocess;
-pub mod graphics;
 
 use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::metrics::histogram::{HistogramKind, HistogramMap};

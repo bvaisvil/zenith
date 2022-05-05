@@ -12,10 +12,10 @@ pub mod section;
 mod title;
 use crate::metrics::graphics::device::GraphicsExt;
 use crate::metrics::histogram::View;
+use crate::metrics::zprocess::*;
 use crate::metrics::*;
 use crate::renderer::section::{sum_section_heights, Section, SectionMGRList};
 use crate::util::*;
-use crate::metrics::zprocess::*;
 use crossterm::{
     event::{KeyCode as Key, KeyEvent, KeyModifiers},
     execute,

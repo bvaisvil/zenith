@@ -3,8 +3,8 @@
  */
 use super::{percent_of, Render, ZBackend};
 use crate::float_to_byte_string;
-use crate::metrics::{CPUTimeApp, ProcessTableSortOrder};
 use crate::metrics::zprocess::{ProcessStatusExt, ZProcess};
+use crate::metrics::{CPUTimeApp, ProcessTableSortOrder};
 use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
 use chrono::Local;
