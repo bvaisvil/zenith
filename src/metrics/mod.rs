@@ -1,13 +1,15 @@
-pub mod graphics;
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
+pub mod graphics;
 pub mod histogram;
 pub mod zprocess;
+pub mod disk;
 
 use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::metrics::histogram::{HistogramKind, HistogramMap};
 use crate::metrics::zprocess::ZProcess;
+use crate::metrics::disk::{ZDisk, get_disk_io_metrics};
 use crate::util::percent_of;
 
 use futures::StreamExt;
@@ -171,45 +173,6 @@ fn get_max_pid_length() -> usize {
     format!("{:}", get_max_pid()).len()
 }
 
-pub struct ZDisk {
-    pub mount_point: PathBuf,
-    pub available_bytes: u64,
-    pub size_bytes: u64,
-    pub name: String,
-    pub file_system: String,
-}
-
-impl ZDisk {
-    fn from_disk(d: &Disk) -> ZDisk {
-        ZDisk {
-            mount_point: d.get_mount_point().to_path_buf(),
-            available_bytes: d.get_available_space(),
-            size_bytes: d.get_total_space(),
-            name: d.get_name().to_string_lossy().to_string(),
-            file_system: String::from_utf8_lossy(d.get_file_system()).into_owned(),
-        }
-    }
-
-    pub fn get_perc_free_space(&self) -> f32 {
-        if self.size_bytes < 1 {
-            return 0.0;
-        }
-        percent_of(self.available_bytes, self.size_bytes)
-    }
-
-    pub fn get_used_bytes(&self) -> u64 {
-        self.size_bytes.saturating_sub(self.available_bytes)
-    }
-
-    pub fn get_perc_used_space(&self) -> f32 {
-        if self.size_bytes < 1 {
-            0.0
-        } else {
-            percent_of(self.get_used_bytes(), self.size_bytes)
-        }
-    }
-}
-
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
     pub cpu_utilization: u64,
@@ -217,7 +180,7 @@ pub struct CPUTimeApp {
     pub mem_total: u64,
     pub swap_utilization: u64,
     pub swap_total: u64,
-    pub disks: Vec<ZDisk>,
+    pub disks: HashMap<String, ZDisk>,
     pub disk_write: u64,
     pub disk_read: u64,
     pub cpus: Vec<(String, u64)>,
@@ -311,7 +274,7 @@ impl CPUTimeApp {
             mem_total: 0,
             swap_total: 0,
             swap_utilization: 0,
-            disks: vec![],
+            disks: HashMap::with_capacity(10),
             net_in: 0,
             net_out: 0,
             processes: Vec::with_capacity(400),
@@ -647,9 +610,8 @@ impl CPUTimeApp {
         }
     }
 
-    fn update_disk(&mut self) {
+    async fn update_disk(&mut self) {
         debug!("Updating Disks");
-        self.disks.clear();
 
         static IGNORED_FILE_SYSTEMS: &[&[u8]] = &[
             b"sysfs",
@@ -663,6 +625,10 @@ impl CPUTimeApp {
         ];
 
         self.system.refresh_disks_list();
+        let mut updated : HashMap<String, bool> = HashMap::with_capacity(self.disks.len());
+        for k in self.disks.keys(){
+            updated.insert(k.to_string(), false);
+        }
         for d in self.system.get_disks().iter() {
             let name = d.get_name().to_string_lossy();
             let mp = d.get_mount_point().to_string_lossy();
@@ -682,11 +648,29 @@ impl CPUTimeApp {
                 }
             }
             let zd = ZDisk::from_disk(d);
-            self.histogram_map.add_value_to(
-                &HistogramKind::FileSystemUsedSpace(name.to_string()),
-                zd.get_used_bytes(),
-            );
-            self.disks.push(zd);
+            if let Some(zd) = self.disks.get_mut(&zd.name){
+                zd.size_bytes = d.get_total_space();
+                zd.available_bytes = d.get_available_space();
+                updated.insert(zd.name.to_string(), true);
+                self.histogram_map.add_value_to(
+                    &HistogramKind::FileSystemUsedSpace(zd.name.to_string()),
+                    zd.get_used_bytes(),
+                );
+            }
+            else{
+                self.histogram_map.add_value_to(
+                    &HistogramKind::FileSystemUsedSpace(zd.name.to_string()),
+                    zd.get_used_bytes(),
+                );
+                updated.insert(zd.name.to_string(), true);
+                self.disks.insert(zd.name.to_string(), zd);
+            }
+            
+        }
+        for (k, v) in updated.iter(){
+            if !v{
+                self.disks.remove(k);
+            }
         }
 
         self.disk_read = self
@@ -699,6 +683,8 @@ impl CPUTimeApp {
             .iter()
             .map(|(_pid, p)| p.get_write_bytes_sec(&self.histogram_map.tick) as u64)
             .sum();
+
+        get_disk_io_metrics(&mut self.disks).await;
 
         self.histogram_map
             .add_value_to(&HistogramKind::IoRead, self.disk_read);
@@ -769,7 +755,7 @@ impl CPUTimeApp {
         self.update_networks().await;
         self.update_process_list(keep_order);
         self.update_frequency().await;
-        self.update_disk();
+        self.update_disk().await;
         self.get_platform().await;
         self.get_nics().await;
         self.get_batteries();

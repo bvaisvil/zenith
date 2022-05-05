@@ -34,10 +34,8 @@ pub fn render_disk(
     } else {
         disk_usage(app, f, view, &area, file_system_index);
     }
-
-    let disks: Vec<_> = app
-        .disks
-        .iter()
+    let disk_list: Vec<_> = app.disks.values().collect();
+    let disks: Vec<_> = disk_list.iter()
         .enumerate()
         .map(|(i, d)| {
             let style = if d.get_perc_free_space() < 10.0 {
@@ -162,7 +160,8 @@ fn disk_usage(
     area: &[Rect],
     file_system_index: &usize,
 ) {
-    if let Some(fs) = app.disks.get(*file_system_index) {
+    let disk_list: Vec<_> = app.disks.values().collect();
+    if let Some(fs) = disk_list.get(*file_system_index) {
         let h_used = match app
             .histogram_map
             .get_zoomed(&HistogramKind::FileSystemUsedSpace(fs.name.clone()), &view)
@@ -204,12 +203,16 @@ fn disk_usage(
                 Span::styled(fs.name.to_string(), rhs_style),
             ]),
             Spans::from(vec![
-                Span::raw("File System            ".to_string()),
+                Span::raw("File System:           ".to_string()),
                 Span::styled(fs.file_system.to_string(), rhs_style),
             ]),
             Spans::from(vec![
                 Span::raw("Mount Point:           ".to_string()),
                 Span::styled(fs.mount_point.to_string_lossy(), rhs_style),
+            ]),
+            Spans::from(vec![
+                Span::raw("Read:                  ".to_string()),
+                Span::styled(float_to_byte_string!(fs.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B), rhs_style),
             ]),
         ];
         Paragraph::new(text).render(f, columns[0]);
@@ -219,12 +222,16 @@ fn disk_usage(
                 Span::styled(size, rhs_style),
             ]),
             Spans::from(vec![
-                Span::raw("Used                   ".to_string()),
+                Span::raw("Used:                  ".to_string()),
                 Span::styled(used, rhs_style),
             ]),
             Spans::from(vec![
                 Span::raw("Free:                  ".to_string()),
                 Span::styled(free, rhs_style),
+            ]),
+            Spans::from(vec![
+                Span::raw("Write:                 ".to_string()),
+                Span::styled(float_to_byte_string!(fs.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B), rhs_style),
             ]),
         ];
         Paragraph::new(text).render(f, columns[1]);
