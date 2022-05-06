@@ -688,11 +688,19 @@ impl CPUTimeApp {
         let mut previous_io = IoMetrics { read_bytes: 0, write_bytes: 0};
         let mut current_io = IoMetrics { read_bytes: 0, write_bytes: 0};
 
+        #[cfg(target_os = "linux")]
         for d in self.disks.values(){
             if d.mount_point.to_string_lossy() != "Total"{
                 previous_io += d.previous_io;
                 current_io += d.current_io;
             }
+        }
+        #[cfg(not(target_os = "linux"))]
+        for p in self.process_map.values(){
+            previous_io.read_bytes += p.prev_read_bytes;
+            previous_io.write_bytes += p.prev_write_bytes;
+            current_io.read_bytes += p.read_bytes;
+            current_io.write_bytes += p.write_bytes;
         }
 
         self.update_disk_histograms(total_available, total_space, previous_io, current_io).await;
