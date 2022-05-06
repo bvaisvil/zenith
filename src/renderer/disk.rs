@@ -30,12 +30,14 @@ pub fn render_disk(
         .split(disk_layout[1]);
 
     if *file_system_display == FileSystemDisplay::Activity {
-        disk_activity_histogram(app, f, view, &area);
+        disk_activity_histogram(app, f, view, &area, file_system_index);
     } else {
         disk_usage(app, f, view, &area, file_system_index);
     }
-    let disk_list: Vec<_> = app.disks.values().collect();
-    let disks: Vec<_> = disk_list.iter()
+    let mut disk_list: Vec<_> = app.disks.values().collect();
+    disk_list.sort_by(|a, b| b.mount_point.cmp(&a.mount_point));
+    let disks: Vec<_> = disk_list
+        .iter()
         .enumerate()
         .map(|(i, d)| {
             let style = if d.get_perc_free_space() < 10.0 {
@@ -82,75 +84,81 @@ fn disk_activity_histogram(
     f: &mut Frame<'_, ZBackend>,
     view: View,
     area: &[Rect],
+    file_system_index: &usize,
 ) {
-    let read_up = float_to_byte_string!(app.disk_read as f64, ByteUnit::B);
-    let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead, &view) {
-        Some(h) => h,
-        None => return,
-    };
-
-    let read_max: u64 = match h_read.data().iter().max() {
-        Some(x) => *x,
-        None => 1,
-    };
-    let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
-
-    let top_reader = match app.top_disk_reader_pid {
-        Some(pid) => match app.process_map.get(&pid) {
-            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+    let mut disk_list: Vec<_> = app.disks.values().collect();
+    disk_list.sort_by(|a, b| b.mount_point.cmp(&a.mount_point));
+    if let Some(fs) = disk_list.get(*file_system_index) {
+        let read_up = float_to_byte_string!(fs.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
+        let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead(fs.name.to_string()), &view) {
+            Some(h) => h,
+            None => return,
+        };
+    
+        let read_max: u64 = match h_read.data().iter().max() {
+            Some(x) => *x,
+            None => 1,
+        };
+        let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
+    
+        let top_reader = match app.top_disk_reader_pid {
+            Some(pid) => match app.process_map.get(&pid) {
+                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+                None => String::from(""),
+            },
             None => String::from(""),
-        },
-        None => String::from(""),
-    };
-
-    let write_down = float_to_byte_string!(app.disk_write as f64, ByteUnit::B);
-    let h_write = match app.histogram_map.get_zoomed(&HistogramKind::IoWrite, &view) {
-        Some(h) => h,
-        None => return,
-    };
-
-    let write_max: u64 = match h_write.data().iter().max() {
-        Some(x) => *x,
-        None => 1,
-    };
-    let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
-
-    let top_writer = match app.top_disk_writer_pid {
-        Some(pid) => match app.process_map.get(&pid) {
-            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+        };
+    
+        let write_down = float_to_byte_string!(fs.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
+        let h_write = match app.histogram_map.get_zoomed(&HistogramKind::IoWrite(fs.name.to_string()), &view) {
+            Some(h) => h,
+            None => return,
+        };
+    
+        let write_max: u64 = match h_write.data().iter().max() {
+            Some(x) => *x,
+            None => 1,
+        };
+        let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
+    
+        let top_writer = match app.top_disk_writer_pid {
+            Some(pid) => match app.process_map.get(&pid) {
+                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+                None => String::from(""),
+            },
             None => String::from(""),
-        },
-        None => String::from(""),
-    };
-    Sparkline::default()
-        .block(
-            Block::default().title(
-                format!(
-                    "R [{:^10}/s] Max [{:^10}/s] {:}",
-                    read_up, read_max_bytes, top_reader
-                )
-                .as_str(),
-            ),
-        )
-        .data(h_read.data())
-        .style(Style::default().fg(Color::LightYellow))
-        .max(read_max)
-        .render(f, area[0]);
-
-    Sparkline::default()
-        .block(
-            Block::default().title(
-                format!(
-                    "W [{:^10}/s] Max [{:^10}/s] {:}",
-                    write_down, write_max_bytes, top_writer
-                )
-                .as_str(),
-            ),
-        )
-        .data(h_write.data())
-        .style(Style::default().fg(Color::LightMagenta))
-        .max(write_max)
-        .render(f, area[1]);
+        };
+        Sparkline::default()
+            .block(
+                Block::default().title(
+                    format!(
+                        "R [{:^10}/s] Max [{:^10}/s] {:}",
+                        read_up, read_max_bytes, top_reader
+                    )
+                    .as_str(),
+                ),
+            )
+            .data(h_read.data())
+            .style(Style::default().fg(Color::LightYellow))
+            .max(read_max)
+            .render(f, area[0]);
+    
+        Sparkline::default()
+            .block(
+                Block::default().title(
+                    format!(
+                        "W [{:^10}/s] Max [{:^10}/s] {:}",
+                        write_down, write_max_bytes, top_writer
+                    )
+                    .as_str(),
+                ),
+            )
+            .data(h_write.data())
+            .style(Style::default().fg(Color::LightMagenta))
+            .max(write_max)
+            .render(f, area[1]);
+    }
+    
 }
 
 fn disk_usage(
@@ -160,7 +168,8 @@ fn disk_usage(
     area: &[Rect],
     file_system_index: &usize,
 ) {
-    let disk_list: Vec<_> = app.disks.values().collect();
+    let mut disk_list: Vec<_> = app.disks.values().collect();
+    disk_list.sort_by(|a, b| b.mount_point.cmp(&a.mount_point));
     if let Some(fs) = disk_list.get(*file_system_index) {
         let h_used = match app
             .histogram_map
@@ -212,7 +221,19 @@ fn disk_usage(
             ]),
             Spans::from(vec![
                 Span::raw("Read:                  ".to_string()),
-                Span::styled(float_to_byte_string!(fs.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B), rhs_style),
+                Span::styled(
+                    format!("{:} /s ({:})",
+                    float_to_byte_string!(
+                        fs.get_read_bytes_sec(&app.histogram_map.tick),
+                        ByteUnit::B
+                    ),
+                    float_to_byte_string!(
+                        fs.current_io.read_bytes as f64,
+                        ByteUnit::B
+                    ),
+                ),
+                    rhs_style,
+                ),
             ]),
         ];
         Paragraph::new(text).render(f, columns[0]);
@@ -231,7 +252,19 @@ fn disk_usage(
             ]),
             Spans::from(vec![
                 Span::raw("Write:                 ".to_string()),
-                Span::styled(float_to_byte_string!(fs.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B), rhs_style),
+                Span::styled(
+                    format!("{:} /s ({:})",
+                    float_to_byte_string!(
+                        fs.get_write_bytes_sec(&app.histogram_map.tick),
+                        ByteUnit::B
+                    ),
+                    float_to_byte_string!(
+                        fs.current_io.write_bytes as f64,
+                        ByteUnit::B
+                    ),
+                ),
+                    rhs_style,
+                ),
             ]),
         ];
         Paragraph::new(text).render(f, columns[1]);
