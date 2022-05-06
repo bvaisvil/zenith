@@ -701,7 +701,7 @@ impl CPUTimeApp {
 
     pub async fn update_disk_histograms(&mut self,total_available: u64, total_space: u64, previous_io: IoMetrics, current_io: IoMetrics){
         let mut overall = self.disks.entry("Total".to_string())
-                                               .or_insert(ZDisk::new_with_mount_point("Total"));
+                                               .or_insert(ZDisk::new_total());
         overall.available_bytes = total_available;
         overall.size_bytes = total_space;
         overall.previous_io = previous_io;

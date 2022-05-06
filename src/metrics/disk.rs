@@ -59,15 +59,15 @@ pub struct ZDisk {
 
 impl ZDisk {
 
-    pub fn new() -> ZDisk{
+    pub fn new_total() -> ZDisk{
         let mut mock_mp = PathBuf::new();
-        mock_mp.push("NA");
+        mock_mp.push("Total");
         ZDisk {
             mount_point: mock_mp,
             available_bytes: 0,
             size_bytes: 0,
-            name: "NA".to_string(),
-            file_system: "NA".to_string(),
+            name: "Total".to_string(),
+            file_system: "Total".to_string(),
             previous_io: IoMetrics {
                 read_bytes: 0,
                 write_bytes: 0,
@@ -77,14 +77,6 @@ impl ZDisk {
                 write_bytes: 0,
             },
         }
-    }
-
-    pub fn new_with_mount_point(mp_name: &str) -> ZDisk{
-        let mut zd = ZDisk::new();
-        let mut mp = PathBuf::new();
-        mp.push(mp_name);
-        zd.mount_point = mp;
-        zd
     }
 
     pub fn from_disk(d: &Disk) -> ZDisk {
