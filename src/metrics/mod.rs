@@ -211,7 +211,7 @@ pub struct CPUTimeApp {
     pub started: chrono::DateTime<chrono::Local>,
     pub selected_process: Option<Box<ZProcess>>,
     pub max_pid_len: usize,
-    pub batteries: Vec<battery::Battery>,
+    pub batteries: Vec<starship_battery::Battery>,
     pub uptime: Duration,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
     pub nvml: Option<nvml::NVML>,
@@ -359,7 +359,7 @@ impl CPUTimeApp {
 
     fn get_batteries(&mut self) {
         debug!("Updating Batteries.");
-        let manager = battery::Manager::new().expect("Couldn't create battery manager");
+        let manager = starship_battery::Manager::new().expect("Couldn't create battery manager");
         self.batteries = manager
             .batteries()
             .expect("Couldn't get batteries")

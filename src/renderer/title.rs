@@ -3,9 +3,9 @@
  */
 use super::{Render, ZBackend};
 use crate::metrics::*;
-use battery::units::power::watt;
-use battery::units::ratio::percent;
-use battery::units::time::second;
+use starship_battery::units::power::watt;
+use starship_battery::units::ratio::percent;
+use starship_battery::units::time::second;
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
 use chrono::{Datelike, Local, Timelike};
@@ -44,28 +44,28 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
 }
 
 fn render_battery_widget(
-    batteries: &[battery::Battery],
+    batteries: &[starship_battery::Battery],
 ) -> (Span<'_>, Span<'_>, Span<'_>, Span<'_>) {
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
     if !batteries.is_empty() {
-        let b: &battery::Battery = batteries.get(0).expect("no battery");
+        let b: &starship_battery::Battery = batteries.get(0).expect("no battery");
         let charge_state = match b.state() {
-            battery::State::Unknown => " ",
-            battery::State::Charging => "⚡︎",
-            battery::State::Discharging => "🁢",
-            battery::State::Empty => "🁢",
-            battery::State::Full => "🁢",
+            starship_battery::State::Unknown => " ",
+            starship_battery::State::Charging => "⚡︎",
+            starship_battery::State::Discharging => "🁢",
+            starship_battery::State::Empty => "🁢",
+            starship_battery::State::Full => "🁢",
             _ => "",
         };
         let charge_state_color = match b.state() {
-            battery::State::Charging => Color::Green,
-            battery::State::Discharging => Color::Yellow,
-            battery::State::Empty => Color::Red,
-            battery::State::Full => Color::Green,
+            starship_battery::State::Charging => Color::Green,
+            starship_battery::State::Discharging => Color::Yellow,
+            starship_battery::State::Empty => Color::Red,
+            starship_battery::State::Full => Color::Green,
             _ => Color::White,
         };
         let t = match b.state() {
-            battery::State::Charging => match b.time_to_full() {
+            starship_battery::State::Charging => match b.time_to_full() {
                 Some(t) => {
                     let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64))
                         .expect("Duration out of range.");
@@ -73,7 +73,7 @@ fn render_battery_widget(
                 }
                 None => String::from(""),
             },
-            battery::State::Discharging => match b.time_to_empty() {
+            starship_battery::State::Discharging => match b.time_to_empty() {
                 Some(t) => {
                     let t = CDuration::from_std(Duration::from_secs(t.get::<second>() as u64))
                         .expect("Duration out of range.");
