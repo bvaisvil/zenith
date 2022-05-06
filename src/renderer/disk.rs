@@ -199,7 +199,7 @@ fn disk_usage(
         let rhs_style = Style::default().fg(Color::Green);
         let text = vec![
             Spans::from(vec![
-                Span::raw("Name:                  ".to_string()),
+                Span::raw("Device:                ".to_string()),
                 Span::styled(fs.name.to_string(), rhs_style),
             ]),
             Spans::from(vec![

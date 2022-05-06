@@ -158,7 +158,7 @@ pub fn render_top_title_bar(
     let not_recording_warning = if app.writes_db_store() {
         ""
     } else {
-        "History not recording, more info: (h) "
+        " History not recording, more info: (h) "
     };
 
     let mut line = vec![
@@ -187,6 +187,7 @@ pub fn render_top_title_bar(
         Span::styled("]", default_style),
         Span::styled(" (h)elp", default_style),
         Span::styled(" (q)uit", default_style),
+        Span::styled(" sect(i)ons", default_style),
     ];
 
     let used_width: usize = line.iter().map(|s| s.content.width()).sum();

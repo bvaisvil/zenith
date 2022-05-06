@@ -106,7 +106,7 @@ pub fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Fra
     let header_style = Style::default().fg(Color::Green);
     let t = vec![Span::styled("Options", header_style)];
     let help = vec![Span::styled(
-        "Navigate [↑/↓] Toggle [Space] Return [F1]",
+        "Navigate [↑/↓] Toggle [Space] Return [F1/i]",
         header_style,
     )];
     Paragraph::new(Spans::from(t))

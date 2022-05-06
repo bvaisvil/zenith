@@ -827,7 +827,7 @@ impl<'a> TerminalRenderer<'_> {
             Key::Char(' ') => {
                 self.toggle_section();
             }
-            Key::F(1) => {
+            Key::F(1) | Key::Char('i') => {
                 self.toggle_section_mgr();
             }
             Key::Char('m') => {
