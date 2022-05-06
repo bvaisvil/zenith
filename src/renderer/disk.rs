@@ -89,18 +89,22 @@ fn disk_activity_histogram(
     let mut disk_list: Vec<_> = app.disks.values().collect();
     disk_list.sort_by(|a, b| b.mount_point.cmp(&a.mount_point));
     if let Some(fs) = disk_list.get(*file_system_index) {
-        let read_up = float_to_byte_string!(fs.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
-        let h_read = match app.histogram_map.get_zoomed(&HistogramKind::IoRead(fs.name.to_string()), &view) {
+        let read_up =
+            float_to_byte_string!(fs.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
+        let h_read = match app
+            .histogram_map
+            .get_zoomed(&HistogramKind::IoRead(fs.name.to_string()), &view)
+        {
             Some(h) => h,
             None => return,
         };
-    
+
         let read_max: u64 = match h_read.data().iter().max() {
             Some(x) => *x,
             None => 1,
         };
         let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
-    
+
         let top_reader = match app.top_disk_reader_pid {
             Some(pid) => match app.process_map.get(&pid) {
                 Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
@@ -108,19 +112,23 @@ fn disk_activity_histogram(
             },
             None => String::from(""),
         };
-    
-        let write_down = float_to_byte_string!(fs.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
-        let h_write = match app.histogram_map.get_zoomed(&HistogramKind::IoWrite(fs.name.to_string()), &view) {
+
+        let write_down =
+            float_to_byte_string!(fs.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
+        let h_write = match app
+            .histogram_map
+            .get_zoomed(&HistogramKind::IoWrite(fs.name.to_string()), &view)
+        {
             Some(h) => h,
             None => return,
         };
-    
+
         let write_max: u64 = match h_write.data().iter().max() {
             Some(x) => *x,
             None => 1,
         };
         let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
-    
+
         let top_writer = match app.top_disk_writer_pid {
             Some(pid) => match app.process_map.get(&pid) {
                 Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
@@ -142,7 +150,7 @@ fn disk_activity_histogram(
             .style(Style::default().fg(Color::LightYellow))
             .max(read_max)
             .render(f, area[0]);
-    
+
         Sparkline::default()
             .block(
                 Block::default().title(
@@ -158,7 +166,6 @@ fn disk_activity_histogram(
             .max(write_max)
             .render(f, area[1]);
     }
-    
 }
 
 fn disk_usage(
@@ -222,16 +229,14 @@ fn disk_usage(
             Spans::from(vec![
                 Span::raw("Read:                  ".to_string()),
                 Span::styled(
-                    format!("{:} /s ({:})",
-                    float_to_byte_string!(
-                        fs.get_read_bytes_sec(&app.histogram_map.tick),
-                        ByteUnit::B
+                    format!(
+                        "{:} /s ({:})",
+                        float_to_byte_string!(
+                            fs.get_read_bytes_sec(&app.histogram_map.tick),
+                            ByteUnit::B
+                        ),
+                        float_to_byte_string!(fs.current_io.read_bytes as f64, ByteUnit::B),
                     ),
-                    float_to_byte_string!(
-                        fs.current_io.read_bytes as f64,
-                        ByteUnit::B
-                    ),
-                ),
                     rhs_style,
                 ),
             ]),
@@ -253,16 +258,14 @@ fn disk_usage(
             Spans::from(vec![
                 Span::raw("Write:                 ".to_string()),
                 Span::styled(
-                    format!("{:} /s ({:})",
-                    float_to_byte_string!(
-                        fs.get_write_bytes_sec(&app.histogram_map.tick),
-                        ByteUnit::B
+                    format!(
+                        "{:} /s ({:})",
+                        float_to_byte_string!(
+                            fs.get_write_bytes_sec(&app.histogram_map.tick),
+                            ByteUnit::B
+                        ),
+                        float_to_byte_string!(fs.current_io.write_bytes as f64, ByteUnit::B),
                     ),
-                    float_to_byte_string!(
-                        fs.current_io.write_bytes as f64,
-                        ByteUnit::B
-                    ),
-                ),
                     rhs_style,
                 ),
             ]),

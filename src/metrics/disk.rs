@@ -5,10 +5,10 @@ use crate::util::percent_of;
 use futures::StreamExt;
 use heim::disk::{io_counters, IoCounters};
 use heim::units::information::byte;
-use std::ops;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::{canonicalize, read_link};
+use std::ops;
 use std::path::PathBuf;
 use std::time::Duration;
 use sysinfo::{Disk, DiskExt};
@@ -28,22 +28,23 @@ impl IoMetrics {
     }
 }
 
-impl ops::Add for IoMetrics{
+impl ops::Add for IoMetrics {
     type Output = IoMetrics;
-    fn add(self, rhs: Self) -> Self{
-        IoMetrics {read_bytes: rhs.read_bytes, write_bytes: rhs.write_bytes}
-    }
-
-}
-
-impl ops::AddAssign<IoMetrics> for IoMetrics{
-    fn add_assign(&mut self, rhs: IoMetrics){
-        *self = IoMetrics{
-            read_bytes: self.read_bytes + rhs.read_bytes,
-            write_bytes: self.write_bytes + rhs.write_bytes
+    fn add(self, rhs: Self) -> Self {
+        IoMetrics {
+            read_bytes: rhs.read_bytes,
+            write_bytes: rhs.write_bytes,
         }
     }
+}
 
+impl ops::AddAssign<IoMetrics> for IoMetrics {
+    fn add_assign(&mut self, rhs: IoMetrics) {
+        *self = IoMetrics {
+            read_bytes: self.read_bytes + rhs.read_bytes,
+            write_bytes: self.write_bytes + rhs.write_bytes,
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -58,8 +59,7 @@ pub struct ZDisk {
 }
 
 impl ZDisk {
-
-    pub fn new_total() -> ZDisk{
+    pub fn new_total() -> ZDisk {
         let mut mock_mp = PathBuf::new();
         mock_mp.push("Total");
         ZDisk {
@@ -160,7 +160,7 @@ pub async fn get_disk_io_metrics(disks: &mut HashMap<String, ZDisk>) {
                     let io_metrics = IoMetrics::from_io_counters(&i);
                     d.previous_io = d.current_io;
                     d.current_io = io_metrics;
-                    if d.previous_io.write_bytes == 0 && d.previous_io.read_bytes == 0{
+                    if d.previous_io.write_bytes == 0 && d.previous_io.read_bytes == 0 {
                         d.previous_io.write_bytes = d.current_io.write_bytes;
                         d.previous_io.read_bytes = d.current_io.read_bytes;
                     }

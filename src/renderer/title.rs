@@ -3,12 +3,12 @@
  */
 use super::{Render, ZBackend};
 use crate::metrics::*;
-use starship_battery::units::power::watt;
-use starship_battery::units::ratio::percent;
-use starship_battery::units::time::second;
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
 use chrono::{Datelike, Local, Timelike};
+use starship_battery::units::power::watt;
+use starship_battery::units::ratio::percent;
+use starship_battery::units::time::second;
 use std::ops::Mul;
 use std::time::Duration;
 use tui::layout::Rect;

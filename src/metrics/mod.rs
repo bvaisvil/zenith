@@ -6,7 +6,7 @@ pub mod graphics;
 pub mod histogram;
 pub mod zprocess;
 
-use crate::metrics::disk::{get_device_name, get_disk_io_metrics, ZDisk, IoMetrics};
+use crate::metrics::disk::{get_device_name, get_disk_io_metrics, IoMetrics, ZDisk};
 use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::metrics::histogram::{HistogramKind, HistogramMap};
 use crate::metrics::zprocess::ZProcess;
@@ -685,31 +685,45 @@ impl CPUTimeApp {
 
         get_disk_io_metrics(&mut self.disks).await;
 
-        let mut previous_io = IoMetrics { read_bytes: 0, write_bytes: 0};
-        let mut current_io = IoMetrics { read_bytes: 0, write_bytes: 0};
+        let mut previous_io = IoMetrics {
+            read_bytes: 0,
+            write_bytes: 0,
+        };
+        let mut current_io = IoMetrics {
+            read_bytes: 0,
+            write_bytes: 0,
+        };
 
         #[cfg(target_os = "linux")]
-        for d in self.disks.values(){
-            if d.mount_point.to_string_lossy() != "Total"{
+        for d in self.disks.values() {
+            if d.mount_point.to_string_lossy() != "Total" {
                 previous_io += d.previous_io;
                 current_io += d.current_io;
             }
         }
         #[cfg(not(target_os = "linux"))]
-        for p in self.process_map.values(){
+        for p in self.process_map.values() {
             previous_io.read_bytes += p.prev_read_bytes;
             previous_io.write_bytes += p.prev_write_bytes;
             current_io.read_bytes += p.read_bytes;
             current_io.write_bytes += p.write_bytes;
         }
 
-        self.update_disk_histograms(total_available, total_space, previous_io, current_io).await;
-        
+        self.update_disk_histograms(total_available, total_space, previous_io, current_io)
+            .await;
     }
 
-    pub async fn update_disk_histograms(&mut self,total_available: u64, total_space: u64, previous_io: IoMetrics, current_io: IoMetrics){
-        let mut overall = self.disks.entry("Total".to_string())
-                                               .or_insert(ZDisk::new_total());
+    pub async fn update_disk_histograms(
+        &mut self,
+        total_available: u64,
+        total_space: u64,
+        previous_io: IoMetrics,
+        current_io: IoMetrics,
+    ) {
+        let mut overall = self
+            .disks
+            .entry("Total".to_string())
+            .or_insert(ZDisk::new_total());
         overall.available_bytes = total_available;
         overall.size_bytes = total_space;
         overall.previous_io = previous_io;
@@ -717,13 +731,17 @@ impl CPUTimeApp {
         self.histogram_map.add_value_to(
             &HistogramKind::FileSystemUsedSpace(overall.name.to_string()),
             overall.get_used_bytes(),
-        );        
+        );
 
-        for disk in self.disks.values(){
-            self.histogram_map
-            .add_value_to(&HistogramKind::IoRead(disk.name.to_string()), disk.get_read_bytes_sec(&self.histogram_map.tick) as u64);
-        self.histogram_map
-            .add_value_to(&HistogramKind::IoWrite(disk.name.to_string()), disk.get_write_bytes_sec(&self.histogram_map.tick) as u64);
+        for disk in self.disks.values() {
+            self.histogram_map.add_value_to(
+                &HistogramKind::IoRead(disk.name.to_string()),
+                disk.get_read_bytes_sec(&self.histogram_map.tick) as u64,
+            );
+            self.histogram_map.add_value_to(
+                &HistogramKind::IoWrite(disk.name.to_string()),
+                disk.get_write_bytes_sec(&self.histogram_map.tick) as u64,
+            );
         }
     }
 
