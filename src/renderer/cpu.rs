@@ -50,7 +50,7 @@ fn mem_title(app: &CPUTimeApp) -> String {
     let mem = percent_of(app.mem_utilization, app.mem_total) as u64;
     let swp = percent_of(app.swap_utilization, app.swap_total) as u64;
 
-    let top_mem_proc = match app.top_mem_pid {
+    let top_mem_proc = match app.top_pids.mem.pid {
         Some(pid) => match app.process_map.get(&pid) {
             Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
             None => String::from(""),

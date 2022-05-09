@@ -71,7 +71,7 @@ pub fn render_process_table(
                 String::from("")
             };
             let mut cpu_usage =
-                set_process_row_style(p.pid, app.top_cpu_pid, format!("{:>5.1}", p.cpu_usage));
+                set_process_row_style(p.pid, app.top_pids.cpu.pid, format!("{:>5.1}", p.cpu_usage));
             match &app.cum_cpu_process {
                 Some(top) => {
                     if top.pid == p.pid {
@@ -89,25 +89,29 @@ pub fn render_process_table(
                 cpu_usage,
                 set_process_row_style(
                     p.pid,
-                    app.top_mem_pid,
+                    app.top_pids.mem.pid,
                     format!("{:>5.1}", percent_of(p.memory, app.mem_total)),
                 ),
                 set_process_row_style(
                     p.pid,
-                    app.top_mem_pid,
+                    app.top_pids.mem.pid,
                     format!(
                         "{:>8}",
                         float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace('B', "")
                     ),
                 ),
-                Cell::from(format!(
-                    "{: >8}",
-                    float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace('B', "")
-                )),
+                set_process_row_style(
+                    p.pid,
+                    app.top_pids.virt.pid,
+                    format!(
+                        "{:>8}",
+                        float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace('B', "")
+                    ),
+                ),
                 Cell::from(format!("{:1}", p.status.to_single_char())),
                 set_process_row_style(
                     p.pid,
-                    app.top_disk_reader_pid,
+                    app.top_pids.read.pid,
                     format!(
                         "{:>8}",
                         float_to_byte_string!(
@@ -119,7 +123,7 @@ pub fn render_process_table(
                 ),
                 set_process_row_style(
                     p.pid,
-                    app.top_disk_writer_pid,
+                    app.top_pids.write.pid,
                     format!(
                         "{:>8}",
                         float_to_byte_string!(
@@ -132,14 +136,32 @@ pub fn render_process_table(
             ];
 
             #[cfg(target_os = "linux")]
-            row.push(Cell::from(format!(
-                "{:>5.1}",
-                p.get_io_wait(&app.histogram_map.tick)
-            )));
+            row.push(set_process_row_style(
+                p.pid,
+                app.top_pids.iowait.pid,
+                format!(
+                    "{:>5.1}",
+                    p.get_io_wait(&app.histogram_map.tick)
+                ),
+            ));
             #[cfg(feature = "nvidia")]
-            row.push(Cell::from(format!("{:>4.0}", p.gpu_usage)));
+            row.push(set_process_row_style(
+                p.pid,
+                app.top_pids.gpu.pid,
+                format!(
+                    "{:>4.0}",
+                    p.gpu_usage
+                ),
+            ));
             #[cfg(feature = "nvidia")]
-            row.push(Cell::from(format!("{:>4.0}", p.fb_utilization)));
+            row.push(set_process_row_style(
+                p.pid,
+                app.top_pids.frame_buffer.pid,
+                format!(
+                    "{:>4.0}",
+                    p.fb_utilization
+                ),
+            ));
 
             row.push(Cell::from(format!("{:}{:}", p.name, cmd_string)));
 

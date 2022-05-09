@@ -173,6 +173,52 @@ fn get_max_pid_length() -> usize {
     format!("{:}", get_max_pid()).len()
 }
 
+#[derive(Default, Debug)]
+pub struct ValAndPid<T> {
+    pub val: T,
+    pub pid: Option<i32>,
+}
+impl<T: PartialOrd> ValAndPid<T> {
+    fn update(&mut self, new: T, pid: i32) {
+        if new > self.val {
+            self.val = new;
+            self.pid = Some(pid);
+        }
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct Top {
+    pub cum_cpu: ValAndPid<f64>,
+    pub cpu: ValAndPid<f32>,
+    pub mem: ValAndPid<u64>,
+    pub virt: ValAndPid<u64>,
+    pub read: ValAndPid<f64>,
+    pub write: ValAndPid<f64>,
+    #[cfg(target_os = "linux")]
+    pub iowait: ValAndPid<f64>,
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    pub gpu: ValAndPid<u64>,
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    pub frame_buffer: ValAndPid<u64>,
+}
+impl Top {
+    fn update(&mut self, zp: &ZProcess, tick_rate: &Duration) {
+        self.cum_cpu.update(zp.cum_cpu_usage, zp.pid);
+        self.cpu.update(zp.cpu_usage, zp.pid);
+        self.mem.update(zp.memory, zp.pid);
+        self.virt.update(zp.virtual_memory, zp.pid);
+        self.read.update(zp.get_read_bytes_sec(tick_rate), zp.pid);
+        self.write.update(zp.get_write_bytes_sec(tick_rate), zp.pid);
+        #[cfg(target_os = "linux")]
+        self.iowait.update(zp.get_io_wait(tick_rate), zp.pid);
+        #[cfg(all(target_os = "linux", feature = "nvidia"))]
+        self.gpu.update(zp.gpu_usage, zp.pid);
+        #[cfg(all(target_os = "linux", feature = "nvidia"))]
+        self.frame_buffer.update(zp.fb_utilization, zp.pid);
+    }
+}
+
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
     pub cpu_utilization: u64,
@@ -191,10 +237,7 @@ pub struct CPUTimeApp {
     pub process_map: HashMap<i32, ZProcess>,
     pub user_cache: UsersCache,
     pub cum_cpu_process: Option<ZProcess>,
-    pub top_mem_pid: Option<i32>,
-    pub top_cpu_pid: Option<i32>,
-    pub top_disk_writer_pid: Option<i32>,
-    pub top_disk_reader_pid: Option<i32>,
+    pub top_pids: Top,
     pub frequency: u64,
     pub threads_total: usize,
     pub psortby: ProcessTableSortBy,
@@ -299,10 +342,7 @@ impl CPUTimeApp {
             selected_process: None,
             max_pid_len: get_max_pid_length(),
             batteries: vec![],
-            top_mem_pid: None,
-            top_cpu_pid: None,
-            top_disk_reader_pid: None,
-            top_disk_writer_pid: None,
+            top_pids: Top::default(),
             uptime: Duration::from_secs(0),
             gfx_devices: vec![],
 
@@ -441,37 +481,6 @@ impl CPUTimeApp {
         let client = &self.netlink_client;
         let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
 
-        #[derive(Default)]
-        struct ValAndPid<T> {
-            val: T,
-            pid: Option<i32>,
-        }
-        impl<T: PartialOrd> ValAndPid<T> {
-            fn update(&mut self, new: T, pid: i32) {
-                if new > self.val {
-                    self.val = new;
-                    self.pid = Some(pid);
-                }
-            }
-        }
-
-        #[derive(Default)]
-        struct Top {
-            cum_cpu: ValAndPid<f64>,
-            cpu: ValAndPid<f32>,
-            mem: ValAndPid<u64>,
-            read: ValAndPid<f64>,
-            write: ValAndPid<f64>,
-        }
-        impl Top {
-            fn update(&mut self, zp: &ZProcess, tick_rate: &Duration) {
-                self.cum_cpu.update(zp.cum_cpu_usage, zp.pid);
-                self.cpu.update(zp.cpu_usage, zp.pid);
-                self.mem.update(zp.memory, zp.pid);
-                self.read.update(zp.get_read_bytes_sec(tick_rate), zp.pid);
-                self.write.update(zp.get_write_bytes_sec(tick_rate), zp.pid);
-            }
-        }
         let mut top = Top::default();
         top.cum_cpu.val = match &self.cum_cpu_process {
             Some(p) => p.cum_cpu_usage,
@@ -563,11 +572,7 @@ impl CPUTimeApp {
             }
         }
 
-        // update top mem / disk reader & writer
-        self.top_mem_pid = top.mem.pid.or(self.top_mem_pid);
-        self.top_disk_reader_pid = top.read.pid.or(self.top_disk_reader_pid);
-        self.top_disk_writer_pid = top.write.pid.or(self.top_disk_writer_pid);
-        self.top_cpu_pid = top.cpu.pid.or(self.top_cpu_pid);
+        self.top_pids = top;
 
         // update selected process
         if let Some(p) = self.selected_process.as_mut() {

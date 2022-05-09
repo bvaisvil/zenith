@@ -105,7 +105,7 @@ fn disk_activity_histogram(
         };
         let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
 
-        let top_reader = match app.top_disk_reader_pid {
+        let top_reader = match app.top_pids.read.pid {
             Some(pid) => match app.process_map.get(&pid) {
                 Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
                 None => String::from(""),
@@ -129,7 +129,7 @@ fn disk_activity_histogram(
         };
         let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
 
-        let top_writer = match app.top_disk_writer_pid {
+        let top_writer = match app.top_pids.write.pid {
             Some(pid) => match app.process_map.get(&pid) {
                 Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
                 None => String::from(""),
