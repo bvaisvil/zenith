@@ -517,7 +517,7 @@ impl CPUTimeApp {
                         .user_cache
                         .get_user_by_uid(process.uid)
                         .map(|user| user.name().to_string_lossy().to_string())
-                        .unwrap_or_default();
+                        .unwrap_or(format!("{:}", process.uid));
                     let zprocess = ZProcess::from_user_and_process(user_name, process);
                     self.threads_total += zprocess.threads_total as usize;
 
@@ -530,7 +530,7 @@ impl CPUTimeApp {
                     .user_cache
                     .get_user_by_uid(process.uid)
                     .map(|user| user.name().to_string_lossy().to_string())
-                    .unwrap_or_default();
+                    .unwrap_or(format!("{:}", process.uid));
                 #[allow(unused_mut)]
                 let mut zprocess = ZProcess::from_user_and_process(user_name, process);
                 #[cfg(target_os = "linux")]
