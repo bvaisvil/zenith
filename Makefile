@@ -1,4 +1,4 @@
-.PHONY: platform all base nvidia clean install install-base install-nvidia install-both install-desktop uninstall linux-static
+.PHONY: platform all base nvidia clean install install-base install-nvidia install-both install-desktop uninstall linux-static install-static
 
 DESTDIR =
 PREFIX = /usr/local
@@ -60,8 +60,10 @@ install:
 	  else \
 	    $(MAKE) install-nvidia; \
 	  fi \
-	else \
+	elif [ -x build/dynamic/zenith.base ]; then \
 	  $(MAKE) install-base; \
+	else \
+	  $(MAKE) install-static; \
 	fi
 	@if [ $(UNAME) = "Linux" ]; then \
 	  $(MAKE) install-desktop; \
@@ -69,6 +71,9 @@ install:
 
 install-base:
 	install -m 755 build/$(TARGET_TYPE)/zenith.base "$(DESTDIR)$(PREFIX)/bin/zenith"
+
+install-static:
+	install -m 755 build/static/zenith.base "$(DESTDIR)$(PREFIX)/bin/zenith"
 
 install-nvidia:
 	install -m 755 build/$(TARGET_TYPE)/zenith.nvidia "$(DESTDIR)$(PREFIX)/bin/zenith"
