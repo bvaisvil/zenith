@@ -105,7 +105,8 @@ pub fn render_process_table(
                     app.top_pids.virt.pid,
                     format!(
                         "{:>8}",
-                        float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB).replace('B', "")
+                        float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB)
+                            .replace('B', "")
                     ),
                 ),
                 Cell::from(format!("{:1}", p.status.to_single_char())),
@@ -139,28 +140,19 @@ pub fn render_process_table(
             row.push(set_process_row_style(
                 p.pid,
                 app.top_pids.iowait.pid,
-                format!(
-                    "{:>5.1}",
-                    p.get_io_wait(&app.histogram_map.tick)
-                ),
+                format!("{:>5.1}", p.get_io_wait(&app.histogram_map.tick)),
             ));
             #[cfg(feature = "nvidia")]
             row.push(set_process_row_style(
                 p.pid,
                 app.top_pids.gpu.pid,
-                format!(
-                    "{:>4.0}",
-                    p.gpu_usage
-                ),
+                format!("{:>4.0}", p.gpu_usage),
             ));
             #[cfg(feature = "nvidia")]
             row.push(set_process_row_style(
                 p.pid,
                 app.top_pids.frame_buffer.pid,
-                format!(
-                    "{:>4.0}",
-                    p.fb_utilization
-                ),
+                format!("{:>4.0}", p.fb_utilization),
             ));
 
             row.push(Cell::from(format!("{:}{:}", p.name, cmd_string)));
