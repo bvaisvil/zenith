@@ -9,7 +9,7 @@ use crate::metrics::CPUTimeApp;
 use byte_unit::{Byte, ByteUnit};
 use std::borrow::Cow;
 use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
+use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, Borders, List, ListItem, Sparkline};
 use tui::Frame;
