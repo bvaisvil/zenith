@@ -139,7 +139,7 @@ fn disk_activity_histogram(
 
         let top_io_waiter = match app.top_pids.iowait.pid {
             Some(pid) => match app.process_map.get(&pid) {
-                Some(p) => format!("Io Wait [{:3.0}% {:} - {:} - {:}]", p.get_io_wait(&app.histogram_map.tick), p.pid, p.name, p.user_name),
+                Some(p) => format!("IO WAIT [{:3.0}% {:} - {:} - {:}]", p.get_io_wait(&app.histogram_map.tick), p.pid, p.name, p.user_name),
                 None => String::from(""),
             },
             None => String::from("")
@@ -149,7 +149,7 @@ fn disk_activity_histogram(
             .block(
                 Block::default().title(
                     format!(
-                        "R [{:^10}/s] Max [{:^10}/s] Top {:} {:}",
+                        "R [{:^10}/s] MAX [{:^10}/s] TOP {:} {:}",
                         read_up, read_max_bytes, top_reader, top_io_waiter
                     )
                     .as_str(),
@@ -164,7 +164,7 @@ fn disk_activity_histogram(
             .block(
                 Block::default().title(
                     format!(
-                        "W [{:^10}/s] Max [{:^10}/s] Top {:}",
+                        "W [{:^10}/s] MAX [{:^10}/s] TOP {:}",
                         write_down, write_max_bytes, top_writer
                     )
                     .as_str(),
@@ -201,7 +201,7 @@ fn disk_usage(
             .block(
                 Block::default().title(
                     format!(
-                        "{}  ↓Used [{:^10} ({:.1}%)] Free [{:^10} ({:.1}%)] Size [{:^10}]",
+                        "{}  ↓USED [{:^10} ({:.1}%)] FREE [{:^10} ({:.1}%)] SIZE [{:^10}]",
                         fs.name,
                         used,
                         fs.get_perc_used_space(),

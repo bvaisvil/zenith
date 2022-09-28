@@ -54,7 +54,7 @@ pub fn render_graphics(
         None => return,
     };
     let fan = if !gd.fans.is_empty() {
-        format!("Fan [{:3.0}%]", gd.fans[0])
+        format!("FAN [{:3.0}%]", gd.fans[0])
     } else {
         String::from("")
     };
@@ -67,7 +67,7 @@ pub fn render_graphics(
         &app.nvml_cuda_version,
         &app.nvml_version,
     ) {
-        format!(" Ver [Driver: {:} Cuda: {:} NVML: {:}]", dv, cv, nv)
+        format!(" VER [DRIVER: {:} CUDA: {:} NVML: {:}]", dv, cv, nv)
     } else {
         format!("")
     };
@@ -75,7 +75,7 @@ pub fn render_graphics(
         .block(
             Block::default().title(
                 format!(
-                    "GPU [{:3.0}%] Enc [{:3.0}%] Dec [{:3.0}%] Proc [{:}] Clock [{:} Mhz / {:} Mhz]{:}",
+                    "GPU [{:3.0}%] ENC [{:3.0}%] DEC [{:3.0}%] PROC [{:}] CLOCK [{:} Mhz / {:} Mhz]{:}",
                     gd.gpu_utilization,
                     gd.encoder_utilization,
                     gd.decoder_utilization,
@@ -116,7 +116,7 @@ pub fn render_graphics(
                     )
                     .as_str(),
                 ),
-                Span::raw(" Pwr ["),
+                Span::raw(" PWR ["),
                 Span::styled(
                     format!("{:} W / {:} W", gd.power_usage / 1000, gd.max_power / 1000),
                     if gd.power_usage > gd.max_power {
@@ -125,7 +125,7 @@ pub fn render_graphics(
                         ok_style
                     },
                 ),
-                Span::raw("] Tmp ["),
+                Span::raw("] TEMP ["),
                 Span::styled(
                     format!("{:} C / {:} C", gd.temperature, gd.temperature_max),
                     if gd.temperature > gd.temperature_max {
