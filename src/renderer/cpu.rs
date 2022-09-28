@@ -1,7 +1,7 @@
-use super::style::{max_style, ok_style};
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
+use super::style::{max_style, ok_style, MAX_COLOR, OK_COLOR};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
@@ -158,7 +158,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, st
                 .take(cols.into())
                 .for_each(|(label, load)| {
                     items.push(Span::raw(format!("{:<2} ", label)));
-                    let color = if *load < 90 { Color::Green } else { Color::Red };
+                    let color = if *load < 90 { OK_COLOR } else { MAX_COLOR };
                     items.push(Span::styled(
                         format!("{:3}", load),
                         Style::default().fg(color),
