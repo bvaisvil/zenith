@@ -2,13 +2,14 @@
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
 use super::{split_left_right_pane, FileSystemDisplay, Render, ZBackend};
+use super::style::{max_style, ok_style};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
 use byte_unit::{Byte, ByteUnit};
 use std::borrow::Cow;
 use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
+use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, Borders, List, ListItem, Paragraph, Sparkline};
 use tui::Frame;
@@ -41,9 +42,9 @@ pub fn render_disk(
         .enumerate()
         .map(|(i, d)| {
             let style = if d.get_perc_free_space() < 10.0 {
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                max_style()
             } else {
-                Style::default().fg(Color::Green)
+                ok_style()
             };
             if *file_system_index == i {
                 Span::styled(
@@ -107,7 +108,7 @@ fn disk_activity_histogram(
 
         let top_reader = match app.top_pids.read.pid {
             Some(pid) => match app.process_map.get(&pid) {
-                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+                Some(p) => format!("TOP [{:} - {:} - {:}]", p.pid, p.name, p.user_name),
                 None => String::from(""),
             },
             None => String::from(""),
@@ -131,15 +132,22 @@ fn disk_activity_histogram(
 
         let top_writer = match app.top_pids.write.pid {
             Some(pid) => match app.process_map.get(&pid) {
-                Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+                Some(p) => format!("TOP [{:} - {:} - {:}]", p.pid, p.name, p.user_name),
                 None => String::from(""),
             },
             None => String::from(""),
         };
 
+        let mut top_io_waiter_style = ok_style();
         let top_io_waiter = match app.top_pids.iowait.pid {
             Some(pid) => match app.process_map.get(&pid) {
-                Some(p) => format!("IO WAIT [{:3.0}% {:} - {:} - {:}]", p.get_io_wait(&app.histogram_map.tick), p.pid, p.name, p.user_name),
+                Some(p) => {
+                    let iow =  p.get_io_wait(&app.histogram_map.tick);
+                    if iow > 95.0{
+                        top_io_waiter_style = max_style();
+                    }
+                    format!("{:3.0}% {:} - {:} - {:}",iow, p.pid, p.name, p.user_name)
+                },
                 None => String::from(""),
             },
             None => String::from("")
@@ -147,12 +155,15 @@ fn disk_activity_histogram(
 
         Sparkline::default()
             .block(
-                Block::default().title(
-                    format!(
-                        "R [{:^10}/s] MAX [{:^10}/s] TOP {:} {:}",
-                        read_up, read_max_bytes, top_reader, top_io_waiter
-                    )
-                    .as_str(),
+                Block::default().title(Spans(vec![
+                        Span::raw(format!(
+                            "R [{:^10}/s] MAX [{:^10}/s] {:} ",
+                            read_up, read_max_bytes, top_reader
+                        ).as_str()),
+                        Span::raw("IO WAIT ["),
+                        Span::styled(top_io_waiter, top_io_waiter_style),
+                        Span::raw("]"),
+                    ])
                 ),
             )
             .data(h_read.data())
@@ -164,7 +175,7 @@ fn disk_activity_histogram(
             .block(
                 Block::default().title(
                     format!(
-                        "W [{:^10}/s] MAX [{:^10}/s] TOP {:}",
+                        "W [{:^10}/s] MAX [{:^10}/s] {:}",
                         write_down, write_max_bytes, top_writer
                     )
                     .as_str(),

@@ -10,6 +10,7 @@ mod network;
 mod process;
 pub mod section;
 mod title;
+pub mod style;
 use crate::metrics::graphics::device::GraphicsExt;
 use crate::metrics::histogram::View;
 use crate::metrics::zprocess::*;

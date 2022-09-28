@@ -5,6 +5,7 @@ use super::{percent_of, Render, ZBackend, LEFT_PANE_WIDTH};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
+use super::style::{max_style, ok_style};
 use byte_unit::{Byte, ByteUnit};
 use std::borrow::Cow;
 use tui::layout::{Constraint, Direction, Layout, Rect};
@@ -100,9 +101,6 @@ pub fn render_graphics(
         None => return,
     };
 
-    let max_style = Style::default().fg(Color::Red).add_modifier(Modifier::BOLD);
-    let ok_style = Style::default().fg(Color::Green);
-
     Sparkline::default()
         .block(Block::default().title(Spans(vec![
                 Span::raw(
@@ -120,18 +118,18 @@ pub fn render_graphics(
                 Span::styled(
                     format!("{:} W / {:} W", gd.power_usage / 1000, gd.max_power / 1000),
                     if gd.power_usage > gd.max_power {
-                        max_style
+                        max_style()
                     } else {
-                        ok_style
+                        ok_style()
                     },
                 ),
                 Span::raw("] TEMP ["),
                 Span::styled(
                     format!("{:} C / {:} C", gd.temperature, gd.temperature_max),
                     if gd.temperature > gd.temperature_max {
-                        max_style
+                        max_style()
                     } else {
-                        ok_style
+                        ok_style()
                     },
                 ),
                 Span::raw("]"),
