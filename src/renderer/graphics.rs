@@ -1,3 +1,4 @@
+use super::style::{max_style, ok_style};
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
@@ -5,7 +6,6 @@ use super::{percent_of, Render, ZBackend, LEFT_PANE_WIDTH};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
-use super::style::{max_style, ok_style};
 use byte_unit::{Byte, ByteUnit};
 use std::borrow::Cow;
 use tui::layout::{Constraint, Direction, Layout, Rect};
@@ -145,9 +145,9 @@ pub fn render_graphics(
         .map(|(i, d)| {
             let indicator = if i == *gfx_device_index { "→" } else { " " };
             let style = if d.gpu_utilization > 90 {
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                max_style()
             } else {
-                Style::default().fg(Color::Green)
+                ok_style()
             };
             Span::styled(
                 Cow::Owned(format!(

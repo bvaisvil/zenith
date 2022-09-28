@@ -1,3 +1,4 @@
+use super::style::{max_style, ok_style};
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
@@ -46,7 +47,7 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
     )
 }
 
-fn mem_title(app: &CPUTimeApp) -> String {
+fn mem_title(app: &CPUTimeApp) -> Spans {
     let mem = percent_of(app.mem_utilization, app.mem_total) as u64;
     let swp = percent_of(app.swap_utilization, app.swap_total) as u64;
 
@@ -58,16 +59,30 @@ fn mem_title(app: &CPUTimeApp) -> String {
         None => String::from(""),
     };
 
-    format!(
-        "MEM [{} / {} - {:}%] SWP [{} / {} - {:}%] {:}",
-        float_to_byte_string!(app.mem_utilization as f64, ByteUnit::KB),
-        float_to_byte_string!(app.mem_total as f64, ByteUnit::KB),
-        mem,
-        float_to_byte_string!(app.swap_utilization as f64, ByteUnit::KB),
-        float_to_byte_string!(app.swap_total as f64, ByteUnit::KB),
-        swp,
-        top_mem_proc
-    )
+    Spans(vec![
+        Span::raw("MEM ["),
+        Span::styled(
+            format!(
+                "{} / {} - {:}%",
+                float_to_byte_string!(app.mem_utilization as f64, ByteUnit::KB),
+                float_to_byte_string!(app.mem_total as f64, ByteUnit::KB),
+                mem
+            ),
+            if mem > 95 { max_style() } else { ok_style() },
+        ),
+        Span::raw("] SWP ["),
+        Span::styled(
+            format!(
+                "{} / {} - {:}%",
+                float_to_byte_string!(app.swap_utilization as f64, ByteUnit::KB),
+                float_to_byte_string!(app.swap_total as f64, ByteUnit::KB),
+                swp,
+            ),
+            if swp > 20 { max_style() } else { ok_style() },
+        ),
+        Span::raw("] "),
+        Span::raw(top_mem_proc),
+    ])
 }
 
 fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, view: &View) {
@@ -91,7 +106,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBack
     };
     let title2 = mem_title(app);
     Sparkline::default()
-        .block(Block::default().title(title2.as_str()))
+        .block(Block::default().title(title2))
         .data(h.data())
         .style(Style::default().fg(Color::Cyan))
         .max(100)

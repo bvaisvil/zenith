@@ -1,8 +1,8 @@
+use super::style::{max_style, ok_style};
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
 use super::{split_left_right_pane, FileSystemDisplay, Render, ZBackend};
-use super::style::{max_style, ok_style};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
@@ -142,20 +142,19 @@ fn disk_activity_histogram(
         let top_io_waiter = match app.top_pids.iowait.pid {
             Some(pid) => match app.process_map.get(&pid) {
                 Some(p) => {
-                    let iow =  p.get_io_wait(&app.histogram_map.tick);
-                    if iow > 95.0{
+                    let iow = p.get_io_wait(&app.histogram_map.tick);
+                    if iow > 95.0 {
                         top_io_waiter_style = max_style();
                     }
-                    format!("{:3.0}% {:} - {:} - {:}",iow, p.pid, p.name, p.user_name)
-                },
+                    format!("{:3.0}% {:} - {:} - {:}", iow, p.pid, p.name, p.user_name)
+                }
                 None => String::from(""),
             },
-            None => String::from("")
+            None => String::from(""),
         };
 
         Sparkline::default()
-            .block(
-                Block::default().title(Spans(vec![
+            .block(Block::default().title(Spans(vec![
                         Span::raw(format!(
                             "R [{:^10}/s] MAX [{:^10}/s] {:} ",
                             read_up, read_max_bytes, top_reader
@@ -163,9 +162,7 @@ fn disk_activity_histogram(
                         Span::raw("IO WAIT ["),
                         Span::styled(top_io_waiter, top_io_waiter_style),
                         Span::raw("]"),
-                    ])
-                ),
-            )
+                    ])))
             .data(h_read.data())
             .style(Style::default().fg(Color::LightYellow))
             .max(read_max)
