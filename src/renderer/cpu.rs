@@ -13,7 +13,7 @@ use tui::text::{Span, Spans};
 use tui::widgets::{BarChart, Block, Borders, Paragraph, Sparkline, Wrap};
 use tui::Frame;
 
-fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
+fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
     let top_process_name = match &app.cum_cpu_process {
         Some(p) => p.name.as_str(),
         None => "",
@@ -41,10 +41,23 @@ fn cpu_title(app: &CPUTimeApp, histogram: &[u64]) -> String {
     } else {
         String::from("")
     };
-    format!(
-        "CPU [{: >3}%]{:} MEAN [{: >3.2}%] TOP [{} - {} - {}]",
-        app.cpu_utilization, temp, mean, top_pid, top_process_name, top_process_amt
-    )
+    Spans(vec![
+        Span::raw("CPU ["),
+        Span::styled(
+            format!("{: >3}%", app.cpu_utilization),
+            if app.cpu_utilization > 90 {
+                max_style()
+            } else {
+                ok_style()
+            },
+        ),
+        Span::raw("] "),
+        Span::raw(temp),
+        Span::raw(format!(
+            "MEAN [{: >3.2}%] TOP [{} - {} - {}]",
+            mean, top_pid, top_process_name, top_process_amt
+        )),
+    ])
 }
 
 fn mem_title(app: &CPUTimeApp) -> Spans {
@@ -92,7 +105,7 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend
     };
     let title = cpu_title(app, h.data());
     Sparkline::default()
-        .block(Block::default().title(title.as_str()))
+        .block(Block::default().title(title))
         .data(h.data())
         .style(Style::default().fg(Color::Blue))
         .max(100)
