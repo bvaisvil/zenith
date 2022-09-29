@@ -156,7 +156,7 @@ fn disk_activity_histogram(
         Sparkline::default()
             .block(Block::default().title(Spans(vec![
                         Span::raw(format!(
-                            "R [{:^10}/s] MAX [{:^10}/s] {:} ",
+                            "R [{:^10}/s] PEAK [{:^10}/s] {:} ",
                             read_up, read_max_bytes, top_reader
                         ).as_str()),
                         Span::raw("IO WAIT ["),
@@ -172,7 +172,7 @@ fn disk_activity_histogram(
             .block(
                 Block::default().title(
                     format!(
-                        "W [{:^10}/s] MAX [{:^10}/s] {:}",
+                        "W [{:^10}/s] PEAK [{:^10}/s] {:}",
                         write_down, write_max_bytes, top_writer
                     )
                     .as_str(),

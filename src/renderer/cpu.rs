@@ -81,7 +81,7 @@ fn mem_title(app: &CPUTimeApp) -> Spans {
 
     let top_mem_proc = match app.top_pids.mem.pid {
         Some(pid) => match app.process_map.get(&pid) {
-            Some(p) => format!("[{:} - {:} - {:}]", p.pid, p.name, p.user_name),
+            Some(p) => format!("TOP [{:} - {:} - {:}]", p.pid, p.name, p.user_name),
             None => String::from(""),
         },
         None => String::from(""),
