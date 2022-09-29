@@ -33,7 +33,7 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
 
     let peak: u64 = match histogram.len() {
         0 => 0,
-        _ => histogram.iter().max().unwrap_or(&0).to_owned()
+        _ => histogram.iter().max().unwrap_or(&0).to_owned(),
     };
     let temp = if !app.sensors.is_empty() {
         let t = app
