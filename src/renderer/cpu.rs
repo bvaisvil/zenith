@@ -30,6 +30,11 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
         0 => 0.0,
         _ => histogram.iter().sum::<u64>() as f64 / histogram.len() as f64,
     };
+
+    let peak: u64 = match histogram.len() {
+        0 => 0,
+        _ => histogram.iter().max().unwrap_or(&0).to_owned()
+    };
     let temp = if !app.sensors.is_empty() {
         let t = app
             .sensors
@@ -53,9 +58,19 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
         ),
         Span::raw("] "),
         Span::raw(temp),
+        Span::raw("MEAN ["),
+        Span::styled(
+            format!("{: >3.2}%", mean,),
+            if mean > 90.0 { max_style() } else { ok_style() },
+        ),
+        Span::raw("] PEAK ["),
+        Span::styled(
+            format!("{: >3.2}%", peak,),
+            if peak > 90 { max_style() } else { ok_style() },
+        ),
         Span::raw(format!(
-            "MEAN [{: >3.2}%] TOP [{} - {} - {}]",
-            mean, top_pid, top_process_name, top_process_amt
+            "] TOP [{} - {} - {}]",
+            top_pid, top_process_name, top_process_amt
         )),
     ])
 }
