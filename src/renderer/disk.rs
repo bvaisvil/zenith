@@ -138,31 +138,40 @@ fn disk_activity_histogram(
             None => String::from(""),
         };
 
-        let mut top_io_waiter_style = ok_style();
-        let top_io_waiter = match app.top_pids.iowait.pid {
-            Some(pid) => match app.process_map.get(&pid) {
-                Some(p) => {
-                    let iow = p.get_io_wait(&app.histogram_map.tick);
-                    if iow > 95.0 {
-                        top_io_waiter_style = max_style();
+        #[cfg(target_os = "linux")]
+        let mut spans = vec![Span::raw(format!(
+            "R [{:^10}/s] PEAK [{:^10}/s] {:} ",
+            read_up, read_max_bytes, top_reader
+        ))];
+        #[cfg(target_os = "macos")]
+        let spans = vec![Span::raw(format!(
+            "R [{:^10}/s] PEAK [{:^10}/s] {:} ",
+            read_up, read_max_bytes, top_reader
+        ))];
+
+        #[cfg(target_os = "linux")]
+        {
+            let mut top_io_waiter_style = ok_style();
+            let top_io_waiter = match app.top_pids.iowait.pid {
+                Some(pid) => match app.process_map.get(&pid) {
+                    Some(p) => {
+                        let iow = p.get_io_wait(&app.histogram_map.tick);
+                        if iow > 95.0 {
+                            top_io_waiter_style = max_style();
+                        }
+                        format!("{:3.0}% {:} - {:} - {:}", iow, p.pid, p.name, p.user_name)
                     }
-                    format!("{:3.0}% {:} - {:} - {:}", iow, p.pid, p.name, p.user_name)
-                }
+                    None => String::from(""),
+                },
                 None => String::from(""),
-            },
-            None => String::from(""),
-        };
+            };
+            spans.push(Span::raw("IO WAIT [").to_owned());
+            spans.push(Span::styled(top_io_waiter, top_io_waiter_style));
+            spans.push(Span::raw("]"));
+        }
 
         Sparkline::default()
-            .block(Block::default().title(Spans(vec![
-                        Span::raw(format!(
-                            "R [{:^10}/s] PEAK [{:^10}/s] {:} ",
-                            read_up, read_max_bytes, top_reader
-                        ).as_str()),
-                        Span::raw("IO WAIT ["),
-                        Span::styled(top_io_waiter, top_io_waiter_style),
-                        Span::raw("]"),
-                    ])))
+            .block(Block::default().title(Spans::from(spans)))
             .data(h_read.data())
             .style(Style::default().fg(Color::LightYellow))
             .max(read_max)

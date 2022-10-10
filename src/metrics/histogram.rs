@@ -10,7 +10,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::io::prelude::*;
-use std::io::{Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::time::{Duration, SystemTime};
