@@ -209,9 +209,20 @@ fn start_zenith(
         //check lock
         let (db, lock) = if use_history {
             let db_path = Path::new(db_path);
+
             if !db_path.exists() {
                 debug!("Creating DB dir.");
                 fs::create_dir_all(db_path).expect("Couldn't Create DB dir.");
+            } else {
+                if !db_path.is_dir() {
+                    exit_with_message!(
+                        format!(
+                            "Expected the path to be a directory not a file: {}",
+                            db_path.to_string_lossy()
+                        ),
+                        1
+                    );
+                }
             }
             debug!("Creating Lock");
 

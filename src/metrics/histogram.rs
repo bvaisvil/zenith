@@ -1,16 +1,18 @@
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use flate2::Compression;
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
+use crate::restore_terminal;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::io::prelude::*;
-use std::io::Write;
+use std::io::{Write};
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::time::{Duration, SystemTime};
 
 const ONE_WEEK: u64 = 60 * 60 * 24 * 7;
@@ -62,6 +64,14 @@ pub struct HistogramMap {
     pub tick: Duration,
     db: Option<PathBuf>,
     previous_stop: Option<SystemTime>,
+}
+
+macro_rules! exit_with_message {
+    ($msg:expr, $code:expr) => {
+        restore_terminal();
+        println!("{}", $msg);
+        exit($code);
+    };
 }
 
 pub fn load_zenith_store(path: &Path, current_time: &SystemTime) -> Option<HistogramMap> {
@@ -215,36 +225,48 @@ impl HistogramMap {
                 debug!("Saving Histograms...");
                 self.previous_stop = Some(SystemTime::now());
                 let dbfile = db.join("store");
-                let database = fs::OpenOptions::new()
+                let database_open = fs::OpenOptions::new()
                     .create(true)
                     .write(true)
                     .truncate(true)
-                    .open(dbfile)
-                    .expect("Couldn't Open DB");
-                let mut gz = GzEncoder::new(database, Compression::default());
-                gz.write_all(&bincode::serialize(self).expect(SER_ERROR))
-                    .expect("Failed to compress/write to file.");
-                match gz.finish() {
-                    Ok(_r) => {
-                        debug!("Write Finished.");
+                    .open(dbfile);
+                match database_open {
+                    Ok(database) => {
+                        let mut gz = GzEncoder::new(database, Compression::default());
+                        gz.write_all(&bincode::serialize(self).expect(SER_ERROR))
+                            .expect("Failed to compress/write to file.");
+                        match gz.finish() {
+                            Ok(_r) => {
+                                debug!("Write Finished.");
+                            }
+                            Err(_e) => {
+                                error!("Couldn't complete database write.");
+                            }
+                        };
+                        let configuration = db.join(".configuration");
+                        let mut configuration = fs::OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .truncate(true)
+                            .open(configuration)
+                            .expect("Couldn't open Configuration");
+                        configuration
+                            .write_all(
+                                format!("version={:}\n", env!("CARGO_PKG_VERSION")).as_bytes(),
+                            )
+                            .expect("Failed to write file.");
                     }
-                    Err(_e) => {
-                        error!("Couldn't complete database write.");
+                    Err(e) => {
+                        exit_with_message!(
+                            format!(
+                                "Couldn't write to {}, error: {}",
+                                db.join("store").to_string_lossy(),
+                                e.to_string()
+                            ),
+                            1
+                        );
                     }
-                };
-                // database
-                //     .write_all(&bincode::serialize(self).expect(SER_ERROR))
-                //     .expect("Failed to write file.");
-                let configuration = db.join(".configuration");
-                let mut configuration = fs::OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .truncate(true)
-                    .open(configuration)
-                    .expect("Couldn't open Configuration");
-                configuration
-                    .write_all(format!("version={:}\n", env!("CARGO_PKG_VERSION")).as_bytes())
-                    .expect("Failed to write file.");
+                }
             }
             None => {}
         }

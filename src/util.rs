@@ -118,6 +118,7 @@ impl Lockfile {
     /// Fails if zenith is already running using the same lockfile
     pub async fn new(main_pid: u32, path: &Path) -> Option<Self> {
         if is_zenith_running(path).await {
+            debug!("{}", path.to_string_lossy());
             return None;
         }
 
