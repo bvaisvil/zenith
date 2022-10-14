@@ -56,6 +56,21 @@ Download one of the compiled [releases](https://github.com/bvaisvil/zenith/relea
 
 The latest 64-bit deb packages are available [here](https://github.com/bvaisvil/zenith/releases) and require distributions based on Debian >= 9 or Ubuntu >= 16.04
 
+You can also install and update the `.deb` packages we publish in our GitHub releases page using [deb-get](https://github.com/wimpysworld/deb-get).
+First install `deb-get` using these commands in a terminal:
+```bash
+sudo apt install curl
+curl -sL https://raw.githubusercontent.com/wimpysworld/deb-get/main/deb-get | sudo -E bash -s install deb-get
+```
+Then install zenith using the following command in terminal:
+```bash
+deb-get install zenith
+```
+Once zenith is installed it can be kept upto date using:
+```bash
+deb-get update
+deb-get upgrade
+```
 ### Arch Linux
 
 Three packages for zenith are available in AUR: zenith, zenith-git and zenith-bin
