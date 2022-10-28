@@ -220,7 +220,7 @@ pub struct TerminalRenderer<'a> {
     selection_grace_start: Option<Instant>,
     section_manager_options: SectionMGRList<'a>,
     disable_history: bool,
-    recompute_constraints_on_start_up: bool
+    recompute_constraints_on_start_up: bool,
 }
 
 impl<'a> TerminalRenderer<'_> {
@@ -276,7 +276,7 @@ impl<'a> TerminalRenderer<'_> {
             selection_grace_start: None,
             section_manager_options: SectionMGRList::with_geometry(section_geometry),
             disable_history,
-            recompute_constraints_on_start_up
+            recompute_constraints_on_start_up,
         }
     }
 
@@ -327,7 +327,7 @@ impl<'a> TerminalRenderer<'_> {
     pub async fn start(&mut self) {
         debug!("Starting Main Loop.");
         let disable_history = self.disable_history;
-        if self.recompute_constraints_on_start_up{
+        if self.recompute_constraints_on_start_up {
             self.recompute_constraints();
             self.recompute_constraints_on_start_up = false;
         }
