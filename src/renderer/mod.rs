@@ -220,6 +220,7 @@ pub struct TerminalRenderer<'a> {
     selection_grace_start: Option<Instant>,
     section_manager_options: SectionMGRList<'a>,
     disable_history: bool,
+    recompute_constraints_on_start_up: bool
 }
 
 impl<'a> TerminalRenderer<'_> {
@@ -244,9 +245,11 @@ impl<'a> TerminalRenderer<'_> {
 
         let constraints = get_constraints(section_geometry, terminal_size().1);
         let mut section_geometry = section_geometry.to_vec();
+        let mut recompute_constraints_on_start_up = false;
         app.update_gfx_devices();
         if app.gfx_devices.is_empty() {
             section_geometry.retain(|(section, _)| *section != Section::Graphics);
+            recompute_constraints_on_start_up = true;
         }
         TerminalRenderer {
             terminal,
@@ -273,6 +276,7 @@ impl<'a> TerminalRenderer<'_> {
             selection_grace_start: None,
             section_manager_options: SectionMGRList::with_geometry(section_geometry),
             disable_history,
+            recompute_constraints_on_start_up
         }
     }
 
@@ -323,6 +327,10 @@ impl<'a> TerminalRenderer<'_> {
     pub async fn start(&mut self) {
         debug!("Starting Main Loop.");
         let disable_history = self.disable_history;
+        if self.recompute_constraints_on_start_up{
+            self.recompute_constraints();
+            self.recompute_constraints_on_start_up = false;
+        }
         loop {
             let app = &self.app;
             let pst = &self.process_table_row_start;
