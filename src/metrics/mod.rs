@@ -257,7 +257,7 @@ pub struct CPUTimeApp {
     pub batteries: Vec<starship_battery::Battery>,
     pub uptime: Duration,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
-    pub nvml: Option<nvml::NVML>,
+    pub nvml: Option<nvml::Nvml>,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
     pub nvml_error: Option<NvmlError>,
     #[cfg(all(target_os = "linux", feature = "nvidia"))]
@@ -283,7 +283,7 @@ impl CPUTimeApp {
         #[cfg(all(target_os = "linux", feature = "nvidia"))]
         let mut nvml_driver_version = None;
         #[cfg(all(target_os = "linux", feature = "nvidia"))]
-        let nvml = match nvml::NVML::init() {
+        let nvml = match nvml::Nvml::init() {
             Ok(n) => {
                 nvml_driver_version = match n.sys_driver_version() {
                     Ok(v) => Some(v),
