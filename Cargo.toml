@@ -21,10 +21,10 @@ byte-unit = "~4.0.17"
 users = "0.11.0"
 num-derive = "0.3.3"
 num-traits = "0.2"
-heim = {git = "https://github.com/heim-rs/heim", rev = "0cc1540", features = ["full"]}
+heim = {git = "https://github.com/bvaisvil/heim.git", branch="zenith_changes", features = ["full"]}
 futures = "0.3.21"
 gumdrop = { version = "~0.8.1", features = ["default_expr"] }
-chrono = "0.4.*"
+chrono = "~0.4.22"
 sysinfo = {git = "https://github.com/bvaisvil/sysinfo.git", branch="zenith_changes_15.1"}
 dirs-next = "2.0.0"
 serde = { version = "~1.0.147", features = ["derive"] }
