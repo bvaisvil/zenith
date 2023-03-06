@@ -82,7 +82,8 @@ fn use_db_history(db_path: &Path, tick_rate: u64) -> Option<bool> {
         let tick = Duration::from_millis(tick_rate);
         if map.tick != tick {
             println!(
-                "Database tick: {} does not match supplied tick: {}.",
+                "Using Database:{:?}\nDatabase tick: {} does not match supplied tick: {}.",
+                db_path,
                 map.tick.as_millis(),
                 tick.as_millis()
             );
