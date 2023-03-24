@@ -73,7 +73,13 @@ deb-get upgrade
 ```
 ### Arch Linux
 
-Three packages for zenith are available in AUR: zenith, zenith-git and zenith-bin
+zenith is available in the [community repository](https://archlinux.org/packages/community/x86_64/zenith/) and can be installed with [pacman](https://wiki.archlinux.org/title/Pacman):
+
+```bash
+pacman -S zenith
+```
+
+There are also packages available in the AUR: zenith-git and zenith-bin
 
 The zenith-bin package uses the deb package mentioned in previous section and can be used to avoid building the package from source. The first two depend on rust/cargo and it is recommended to install the rustup package from AUR instead of the rust package from official repositories. This allows for easy installation of rust components as per what rust officially documents. You will need to install a toolchain separately with rustup so use something like:
 
@@ -83,7 +89,7 @@ rustup toolchain install stable
 rustup default stable
 ```
 
-Change the 'stable' toolchain above to beta/nightly/... if you have some specific preference. After this install the zenith or zenith-git package (latter will track the latest git revision): ```yay -S zenith```
+Change the 'stable' toolchain above to beta/nightly/... if you have some specific preference. After this install the preferred AUR package: ```yay -S zenith-git``` (will track the latest git revision)
 
 ### Homebrew
 
