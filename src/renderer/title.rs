@@ -32,11 +32,11 @@ fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
     }
     format!(
         " ({:} {:02}:{:02}:{:02} - {:} {:02}:{:02}:{:02})",
-        start.date(),
+        start.date_naive(),
         start.hour(),
         start.minute(),
         start.second(),
-        end.date(),
+        end.date_naive(),
         end.hour(),
         end.minute(),
         end.second()
