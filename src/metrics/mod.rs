@@ -660,7 +660,7 @@ impl CPUTimeApp {
                 }
             }
             let name = get_device_name(d.get_name());
-            let mut zd = self.disks.entry(name).or_insert(ZDisk::from_disk(&d));
+            let zd = self.disks.entry(name).or_insert(ZDisk::from_disk(&d));
             zd.size_bytes = d.get_total_space();
             zd.available_bytes = d.get_available_space();
             total_available += zd.available_bytes;
@@ -725,7 +725,7 @@ impl CPUTimeApp {
         previous_io: IoMetrics,
         current_io: IoMetrics,
     ) {
-        let mut overall = self
+        let overall = self
             .disks
             .entry("Total".to_string())
             .or_insert(ZDisk::new_total());
