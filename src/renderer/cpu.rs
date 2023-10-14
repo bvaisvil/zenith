@@ -56,9 +56,9 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
                 ok_style()
             },
         ),
-        Span::raw("] "),
+        Span::raw("]"),
         Span::raw(temp),
-        Span::raw("MEAN ["),
+        Span::raw(" MEAN ["),
         Span::styled(
             format!("{: >3.2}%", mean,),
             if mean > 90.0 { max_style() } else { ok_style() },
