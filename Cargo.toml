@@ -17,26 +17,26 @@ nvidia = ["nvml-wrapper"]
 [dependencies]
 ratatui = { version = "0.23.*", features = ["crossterm"], default-features = false }
 crossterm = "0.27.*"
-byte-unit = "~4.0.17"
+byte-unit = "~4.0.19"
 users = "0.11.0"
-num-derive = "0.3.3"
+num-derive = "0.4.1"
 num-traits = "0.2"
 heim = {git = "https://github.com/bvaisvil/heim.git", branch="zenith_changes", features = ["full"]}
-futures = "0.3.21"
+futures = "0.3.28"
 gumdrop = { version = "~0.8.1", features = ["default_expr"] }
-chrono = "~0.4.22"
+chrono = "~0.4.31"
 sysinfo = {git = "https://github.com/bvaisvil/sysinfo.git", branch="zenith_changes_15.1"}
 dirs-next = "2.0.0"
-serde = { version = "~1.0.147", features = ["derive"] }
-serde_derive = "~1.0.147"
-flate2 = "1.0.22"
+serde = { version = "~1.0.189", features = ["derive"] }
+serde_derive = "~1.0.189"
+flate2 = "1.0.28"
 bincode = "1.3.3"
-starship-battery = "0.7.*"
-signal-hook = "~0.3.14"
-log = "~0.4.17"
+starship-battery = "0.8.*"
+signal-hook = "~0.3.17"
+log = "~0.4.20"
 env_logger = { version = "~0.10.0", default-features = false }
 libc = "0.2"
-nvml-wrapper = { version = "0.8.0", optional = true }
-unicode-width = "0.1.9"
+nvml-wrapper = { version = "0.9.0", optional = true }
+unicode-width = "0.1.11"
 [target.'cfg(target_os = "linux")'.dependencies]
 linux-taskstats = { version = "0.4.0", default-features = false }
