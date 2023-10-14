@@ -55,7 +55,6 @@ fn render_battery_widget(
             starship_battery::State::Discharging => "🁢",
             starship_battery::State::Empty => "🁢",
             starship_battery::State::Full => "🁢",
-            _ => "",
         };
         let charge_state_color = match b.state() {
             starship_battery::State::Charging => Color::Green,

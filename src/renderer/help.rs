@@ -104,7 +104,7 @@ pub fn render_help(
             NvmlError::Unknown => "NVIDIA Error: Unkown Error.",
             _ => "",
         };
-        if content.len() > 0 {
+        if !content.is_empty() {
             t.push(Line::from(vec![Span::styled("", header_style)]));
             t.push(Line::from(vec![Span::styled(
                 content,

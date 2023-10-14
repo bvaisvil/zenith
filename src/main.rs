@@ -214,16 +214,14 @@ fn start_zenith(
             if !db_path.exists() {
                 debug!("Creating DB dir.");
                 fs::create_dir_all(db_path).expect("Couldn't Create DB dir.");
-            } else {
-                if !db_path.is_dir() {
-                    exit_with_message!(
-                        format!(
-                            "Expected the path to be a directory not a file: {}",
-                            db_path.to_string_lossy()
-                        ),
-                        1
-                    );
-                }
+            } else if !db_path.is_dir() {
+                exit_with_message!(
+                    format!(
+                        "Expected the path to be a directory not a file: {}",
+                        db_path.to_string_lossy()
+                    ),
+                    1
+                );
             }
             debug!("Creating Lock");
 

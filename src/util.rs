@@ -84,7 +84,7 @@ impl Events {
         let sig_handle = {
             let tx = tx;
             let mut signals =
-                Signals::new(&[SIGINT, SIGTERM, SIGABRT]).expect("Couldn't create signal handler");
+                Signals::new([SIGINT, SIGTERM, SIGABRT]).expect("Couldn't create signal handler");
             thread::spawn(move || {
                 let tx = tx.clone();
                 for _sig in signals.forever() {

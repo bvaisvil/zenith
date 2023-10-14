@@ -70,7 +70,7 @@ pub fn render_graphics(
     ) {
         format!(" VER [DRIVER: {:} CUDA: {:} NVML: {:}]", dv, cv, nv)
     } else {
-        format!("")
+        String::new()
     };
     Sparkline::default()
         .block(
