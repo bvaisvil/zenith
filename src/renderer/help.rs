@@ -5,11 +5,11 @@ use crate::metrics::*;
 use crate::renderer::{HistoryRecording, Render, ZBackend};
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::error::NvmlError;
-use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, Paragraph, Wrap};
-use tui::Frame;
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::Frame;
 
 pub fn render_help(
     _app: &CPUTimeApp,
@@ -51,26 +51,26 @@ pub fn render_help(
         ["<ESC> ", "    Leave filter mode\n"],
     ];
 
-    let mut t = vec![Spans::from(vec![Span::styled(
+    let mut t = vec![Line::from(vec![Span::styled(
         "Primary Interface",
         header_style,
     )])];
 
     for [key, text] in GLOBAL_KEYS {
-        t.push(Spans::from(vec![
+        t.push(Line::from(vec![
             Span::styled(*key, key_style),
             Span::styled(*text, main_style),
         ]));
     }
 
-    t.push(Spans::from(vec![Span::styled("", header_style)]));
-    t.push(Spans::from(vec![Span::styled(
+    t.push(Line::from(vec![Span::styled("", header_style)]));
+    t.push(Line::from(vec![Span::styled(
         "Process Table\n",
         header_style,
     )]));
 
     for [key, text] in PROCESS_TABLE_KEYS {
-        t.push(Spans::from(vec![
+        t.push(Line::from(vec![
             Span::styled(*key, key_style),
             Span::styled(*text, main_style),
         ]));
@@ -87,9 +87,9 @@ pub fn render_help(
     };
 
     if let Some(reason) = not_recording_reason {
-        t.push(Spans::from(vec![Span::styled("", header_style)]));
+        t.push(Line::from(vec![Span::styled("", header_style)]));
         for s in ["Recorded data is not being saved to the database\n", reason].iter() {
-            t.push(Spans::from(vec![Span::styled(
+            t.push(Line::from(vec![Span::styled(
                 *s,
                 Style::default().fg(Color::Yellow),
             )]));
@@ -105,8 +105,8 @@ pub fn render_help(
             _ => "",
         };
         if content.len() > 0 {
-            t.push(Spans::from(vec![Span::styled("", header_style)]));
-            t.push(Spans::from(vec![Span::styled(
+            t.push(Line::from(vec![Span::styled("", header_style)]));
+            t.push(Line::from(vec![Span::styled(
                 content,
                 Style::default().fg(Color::Yellow),
             )]));
@@ -140,7 +140,7 @@ pub fn render_help(
         concat!("zenith v", env!("CARGO_PKG_VERSION")),
         header_style,
     )];
-    Paragraph::new(Spans::from(t))
+    Paragraph::new(Line::from(t))
         .wrap(Wrap { trim: true })
         .alignment(Alignment::Center)
         .render(f, title_area);

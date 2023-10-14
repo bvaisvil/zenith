@@ -8,13 +8,13 @@ use crate::metrics::{CPUTimeApp, ProcessTableSortOrder};
 use byte_unit::{Byte, ByteUnit};
 use chrono::prelude::DateTime;
 use chrono::Local;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, Wrap};
+use ratatui::Frame;
 use std::borrow::Cow;
 use std::time::{Duration, UNIX_EPOCH};
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, Wrap};
-use tui::Frame;
 
 pub fn render_process_table(
     app: &CPUTimeApp,
@@ -305,26 +305,26 @@ pub fn render_process(
 
     let rhs_style = Style::default().fg(Color::Green);
     let mut text = vec![
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Name:                  "),
             Span::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("PID:                   "),
             Span::styled(
                 format!("{:>width$}", &p.pid, width = app.max_pid_len),
                 rhs_style,
             ),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Command:               "),
             Span::styled(p.command.join(" "), rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("User:                  "),
             Span::styled(&p.user_name, rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Start Time:            "),
             Span::styled(
                 format!(
@@ -334,38 +334,38 @@ pub fn render_process(
                 rhs_style,
             ),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Total Run Time:        "),
             Span::styled(d, rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("CPU Usage:             "),
             Span::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Threads:               "),
             Span::styled(format!("{:>7}", &p.threads_total), rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Status:                "),
             Span::styled(format!("{:}", p.status), rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Priority:              "),
             Span::styled(format!("{:>7}", p.priority), rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Nice:                  "),
             Span::styled(format!("{:>7}", p.nice), rhs_style),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("MEM Usage:             "),
             Span::styled(
                 format!("{:>7.2} %", percent_of(p.memory, app.mem_total)),
                 rhs_style,
             ),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Total Memory:          "),
             Span::styled(
                 format!(
@@ -375,7 +375,7 @@ pub fn render_process(
                 rhs_style,
             ),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Disk Read:             "),
             Span::styled(
                 format!(
@@ -389,7 +389,7 @@ pub fn render_process(
                 rhs_style,
             ),
         ]),
-        Spans::from(vec![
+        Line::from(vec![
             Span::raw("Disk Write:            "),
             Span::styled(
                 format!(
@@ -406,26 +406,26 @@ pub fn render_process(
     ];
 
     if !app.gfx_devices.is_empty() {
-        text.push(Spans::from(vec![
+        text.push(Line::from(vec![
             Span::raw("SM Util:            "),
             Span::styled(format!("{:7.2} %", p.sm_utilization as f64), rhs_style),
         ]));
-        text.push(Spans::from(vec![
+        text.push(Line::from(vec![
             Span::raw("Frame Buffer:       "),
             Span::styled(format!("{:7.2} %", p.fb_utilization as f64), rhs_style),
         ]));
-        text.push(Spans::from(vec![
+        text.push(Line::from(vec![
             Span::raw("Encoder Util:       "),
             Span::styled(format!("{:7.2} %", p.enc_utilization as f64), rhs_style),
         ]));
-        text.push(Spans::from(vec![
+        text.push(Line::from(vec![
             Span::raw("Decoder Util:       "),
             Span::styled(format!("{:7.2} %", p.dec_utilization as f64), rhs_style),
         ]));
     }
 
     #[cfg(target_os = "linux")]
-    text.push(Spans::from(vec![
+    text.push(Line::from(vec![
         Span::raw("IO Wait:               "),
         Span::styled(
             format!(
@@ -437,7 +437,7 @@ pub fn render_process(
         ),
     ]));
     #[cfg(target_os = "linux")]
-    text.push(Spans::from(vec![
+    text.push(Line::from(vec![
         Span::raw("Swap Wait:             "),
         Span::styled(
             format!(

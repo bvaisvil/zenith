@@ -7,13 +7,13 @@ use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
 use crate::renderer::{percent_of, split_left_right_pane, Render, ZBackend};
 use byte_unit::{Byte, ByteUnit};
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{BarChart, Block, Borders, Paragraph, Sparkline, Wrap};
-use tui::Frame;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{BarChart, Block, Borders, Paragraph, Sparkline, Wrap};
+use ratatui::Frame;
 
-fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
+fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
     let top_process_name = match &app.cum_cpu_process {
         Some(p) => p.name.as_str(),
         None => "",
@@ -46,7 +46,7 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
     } else {
         String::from("")
     };
-    Spans(vec![
+    Line::from(vec![
         Span::raw("CPU ["),
         Span::styled(
             format!("{: >3}%", app.cpu_utilization),
@@ -75,7 +75,7 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Spans<'a> {
     ])
 }
 
-fn mem_title(app: &CPUTimeApp) -> Spans {
+fn mem_title(app: &CPUTimeApp) -> Line {
     let mem = percent_of(app.mem_utilization, app.mem_total) as u64;
     let swp = percent_of(app.swap_utilization, app.swap_total) as u64;
 
@@ -87,7 +87,7 @@ fn mem_title(app: &CPUTimeApp) -> Spans {
         None => String::from(""),
     };
 
-    Spans(vec![
+    Line::from(vec![
         Span::raw("MEM ["),
         Span::styled(
             format!(
@@ -195,7 +195,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, st
                 });
         }
 
-        Paragraph::new(Spans::from(items))
+        Paragraph::new(Line::from(items))
             .wrap(Wrap { trim: false })
             .render(f, layout[0]);
 

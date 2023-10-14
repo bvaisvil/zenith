@@ -1,4 +1,4 @@
-use tui::style::{Color, Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 
 pub const MAX_COLOR: Color = Color::Red;
 pub const OK_COLOR: Color = Color::Green;
