@@ -594,7 +594,9 @@ impl<'a> TerminalRenderer<'_> {
                 None => self.section_manager_options.state.select(Some(0)),
             }
         } else if selected == Section::Graphics {
-            if self.gfx_device_index > 0 {
+            if self.app.gfx_devices.len() == 0 {
+                self.gfx_device_index = 0;
+            } else if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
             }
         } else if selected == Section::Disk {
@@ -633,7 +635,9 @@ impl<'a> TerminalRenderer<'_> {
                 None => self.section_manager_options.state.select(Some(0)),
             }
         } else if selected == Section::Graphics {
-            if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
+            if self.app.gfx_devices.len() == 0 {
+                self.gfx_device_index = 0;
+            } else if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;
             }
         } else if selected == Section::Disk {
