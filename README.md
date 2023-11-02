@@ -251,7 +251,7 @@ In zenith 'h' key will show this help:
 
 ## Built using these great crates
 
-- [tui-rs](https://github.com/fdehau/tui-rs)
+- [ratatui](https://github.com/ratatui-org/ratatui)
 - [sysinfo](https://github.com/GuillaumeGomez/sysinfo)
 - [heim](https://github.com/heim-rs/heim)
 - [battery](https://github.com/svartalf/rust-battery)
