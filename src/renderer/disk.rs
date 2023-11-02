@@ -7,12 +7,12 @@ use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
 use byte_unit::{Byte, ByteUnit};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Sparkline};
+use ratatui::Frame;
 use std::borrow::Cow;
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, List, ListItem, Paragraph, Sparkline};
-use tui::Frame;
 
 pub fn render_disk(
     app: &CPUTimeApp,
@@ -171,7 +171,7 @@ fn disk_activity_histogram(
         }
 
         Sparkline::default()
-            .block(Block::default().title(Spans::from(spans)))
+            .block(Block::default().title(Line::from(spans)))
             .data(h_read.data())
             .style(Style::default().fg(Color::LightYellow))
             .max(read_max)
@@ -240,19 +240,19 @@ fn disk_usage(
             .split(area[1]);
         let rhs_style = Style::default().fg(Color::Green);
         let text = vec![
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Device:                ".to_string()),
                 Span::styled(fs.name.to_string(), rhs_style),
             ]),
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("File System:           ".to_string()),
                 Span::styled(fs.file_system.to_string(), rhs_style),
             ]),
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Mount Point:           ".to_string()),
                 Span::styled(fs.mount_point.to_string_lossy(), rhs_style),
             ]),
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Read:                  ".to_string()),
                 Span::styled(
                     format!(
@@ -269,19 +269,19 @@ fn disk_usage(
         ];
         Paragraph::new(text).render(f, columns[0]);
         let text = vec![
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Size:                  ".to_string()),
                 Span::styled(size, rhs_style),
             ]),
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Used:                  ".to_string()),
                 Span::styled(used, rhs_style),
             ]),
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Free:                  ".to_string()),
                 Span::styled(free, rhs_style),
             ]),
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Write:                 ".to_string()),
                 Span::styled(
                     format!(

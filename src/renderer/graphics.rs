@@ -7,12 +7,12 @@ use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
 use byte_unit::{Byte, ByteUnit};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, List, ListItem, Sparkline};
+use ratatui::Frame;
 use std::borrow::Cow;
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, List, ListItem, Sparkline};
-use tui::Frame;
 
 pub fn render_graphics(
     app: &CPUTimeApp,
@@ -70,7 +70,7 @@ pub fn render_graphics(
     ) {
         format!(" VER [DRIVER: {:} CUDA: {:} NVML: {:}]", dv, cv, nv)
     } else {
-        format!("")
+        String::new()
     };
     Sparkline::default()
         .block(
@@ -102,7 +102,7 @@ pub fn render_graphics(
     };
 
     Sparkline::default()
-        .block(Block::default().title(Spans(vec![
+        .block(Block::default().title(Line::from(vec![
                 Span::raw(
                     format!(
                         "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:}",

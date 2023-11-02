@@ -129,7 +129,8 @@ impl HistogramMap {
             Some(db) => {
                 debug!("Opening DB");
                 let dbfile = db.join("store");
-                let hm = if dbfile.exists() {
+
+                if dbfile.exists() {
                     debug!("Zenith store exists, opening...");
                     load_zenith_store(&dbfile, &current_time)
                 } else {
@@ -147,8 +148,7 @@ impl HistogramMap {
                         db: Some(db),
                         previous_stop: None,
                     }
-                });
-                hm
+                })
             }
             None => {
                 debug!("Starting with no DB.");

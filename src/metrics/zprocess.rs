@@ -427,7 +427,7 @@ impl ProcessStatusExt for ProcessStatus {
         }
     }
 
-    #[cfg(all(any(unix), not(target_os = "macos")))]
+    #[cfg(all(unix, not(target_os = "macos")))]
     fn to_single_char(&self) -> &str {
         match *self {
             ProcessStatus::Idle => "I",

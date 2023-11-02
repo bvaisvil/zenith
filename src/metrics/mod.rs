@@ -157,7 +157,7 @@ fn get_max_pid() -> u64 {
     if cfg!(target_os = "macos") {
         99999
     } else if cfg!(target_os = "linux") {
-        match fs::read(&Path::new("/proc/sys/kernel/pid_max")) {
+        match fs::read(Path::new("/proc/sys/kernel/pid_max")) {
             Ok(data) => {
                 let r = String::from_utf8_lossy(data.as_slice());
                 r.trim().parse::<u64>().unwrap_or(32768)
@@ -347,15 +347,15 @@ impl CPUTimeApp {
             gfx_devices: vec![],
 
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
-            nvml: nvml,
+            nvml,
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
             nvml_error: ne,
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
-            nvml_driver_version: nvml_driver_version,
+            nvml_driver_version,
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
-            nvml_version: nvml_version,
+            nvml_version,
             #[cfg(all(target_os = "linux", feature = "nvidia"))]
-            nvml_cuda_version: nvml_cuda_version,
+            nvml_cuda_version,
             #[cfg(target_os = "linux")]
             netlink_client: match Client::open() {
                 Ok(c) => Some(c),
@@ -660,7 +660,7 @@ impl CPUTimeApp {
                 }
             }
             let name = get_device_name(d.get_name());
-            let zd = self.disks.entry(name).or_insert(ZDisk::from_disk(&d));
+            let zd = self.disks.entry(name).or_insert(ZDisk::from_disk(d));
             zd.size_bytes = d.get_total_space();
             zd.available_bytes = d.get_available_space();
             total_available += zd.available_bytes;
@@ -679,13 +679,13 @@ impl CPUTimeApp {
 
         self.disk_read = self
             .process_map
-            .iter()
-            .map(|(_pid, p)| p.get_read_bytes_sec(&self.histogram_map.tick) as u64)
+            .values()
+            .map(|p| p.get_read_bytes_sec(&self.histogram_map.tick) as u64)
             .sum();
         self.disk_write = self
             .process_map
-            .iter()
-            .map(|(_pid, p)| p.get_write_bytes_sec(&self.histogram_map.tick) as u64)
+            .values()
+            .map(|p| p.get_write_bytes_sec(&self.histogram_map.tick) as u64)
             .sum();
 
         get_disk_io_metrics(&mut self.disks).await;

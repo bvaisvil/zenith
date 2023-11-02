@@ -1,11 +1,11 @@
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
-use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
-use tui::Frame;
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui::Frame;
 
 use super::{FromPrimitive, Render, ZBackend};
 use std::collections::HashSet;
@@ -109,11 +109,11 @@ pub fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Fra
         "Navigate [↑/↓] Toggle [Space] Return [F1/i]",
         header_style,
     )];
-    Paragraph::new(Spans::from(t))
+    Paragraph::new(Line::from(t))
         .wrap(Wrap { trim: false })
         .alignment(Alignment::Center)
         .render(f, layout[0]);
-    Paragraph::new(Spans::from(help))
+    Paragraph::new(Line::from(help))
         .wrap(Wrap { trim: false })
         .alignment(Alignment::Center)
         .render(f, layout[2]);

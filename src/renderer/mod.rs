@@ -23,18 +23,19 @@ use crossterm::{
     terminal::EnterAlternateScreen,
 };
 use num_traits::FromPrimitive;
+use ratatui::{backend::CrosstermBackend, Terminal};
 use std::cmp::Eq;
 use std::io;
 use std::io::Stdout;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
-use tui::{backend::CrosstermBackend, Terminal};
 
-use tui::backend::Backend;
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders};
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Style};
+use ratatui::widgets::{Block, Borders};
+use ratatui::Frame;
 
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 const LEFT_PANE_WIDTH: u16 = 34u16;
@@ -53,7 +54,7 @@ where
 
 impl<T, B> Render<B> for T
 where
-    T: tui::widgets::Widget,
+    T: ratatui::widgets::Widget,
     B: Backend,
 {
     fn render(self, f: &mut Frame<B>, area: Rect) {
@@ -85,7 +86,7 @@ fn split_left_right_pane(
     f: &mut Frame<'_, ZBackend>,
     view: View,
     border_style: Style,
-) -> (Vec<Rect>, View) {
+) -> (Rc<[Rect]>, View) {
     Block::default()
         .title(title)
         .borders(Borders::ALL)

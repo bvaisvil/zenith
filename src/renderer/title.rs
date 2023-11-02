@@ -6,16 +6,16 @@ use crate::metrics::*;
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
 use chrono::{Datelike, Local, Timelike};
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::Paragraph;
+use ratatui::Frame;
 use starship_battery::units::power::watt;
 use starship_battery::units::ratio::percent;
 use starship_battery::units::time::second;
 use std::ops::Mul;
 use std::time::Duration;
-use tui::layout::Rect;
-use tui::style::{Color, Modifier, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::Paragraph;
-use tui::Frame;
 use unicode_width::UnicodeWidthStr;
 
 fn display_time(start: DateTime<Local>, end: DateTime<Local>) -> String {
@@ -55,7 +55,6 @@ fn render_battery_widget(
             starship_battery::State::Discharging => "🁢",
             starship_battery::State::Empty => "🁢",
             starship_battery::State::Full => "🁢",
-            _ => "",
         };
         let charge_state_color = match b.state() {
             starship_battery::State::Charging => Color::Green,
@@ -200,5 +199,5 @@ pub fn render_top_title_bar(
         default_style.fg(Color::Red).add_modifier(Modifier::BOLD),
     ));
 
-    Paragraph::new(Spans::from(line)).render(f, area);
+    Paragraph::new(Line::from(line)).render(f, area);
 }

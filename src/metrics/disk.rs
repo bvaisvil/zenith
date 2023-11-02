@@ -133,7 +133,7 @@ pub fn get_device_name(dev: &OsStr) -> String {
             path.to_string_lossy().to_string()
         } else {
             let mut np = PathBuf::new();
-            np.push(&dev);
+            np.push(dev);
             np.pop();
             np.push(path);
             if let Ok(cp) = canonicalize(np) {
@@ -165,7 +165,6 @@ pub async fn get_disk_io_metrics(disks: &mut HashMap<String, ZDisk>) {
                         d.previous_io.read_bytes = d.current_io.read_bytes;
                     }
                     debug!("{:?}", d);
-                } else {
                 }
             } else {
                 debug!("Couldn't get counters for a disk, skipping.")
