@@ -73,7 +73,7 @@ deb-get upgrade
 ```
 ### Arch Linux
 
-zenith is available in the [community repository](https://archlinux.org/packages/community/x86_64/zenith/) and can be installed with [pacman](https://wiki.archlinux.org/title/Pacman):
+zenith is available in the [extra repository](https://archlinux.org/packages/extra/x86_64/zenith/) and can be installed with [pacman](https://wiki.archlinux.org/title/Pacman):
 
 ```bash
 pacman -S zenith
