@@ -18,7 +18,7 @@ nvidia = ["nvml-wrapper"]
 ratatui = { version = "0.23.*", features = ["crossterm"], default-features = false }
 crossterm = "0.27.*"
 byte-unit = "~4.0.19"
-users = "0.11.0"
+uzers = "0.11.3"
 num-derive = "0.4.1"
 num-traits = "0.2"
 heim = {git = "https://github.com/bvaisvil/heim.git", branch="zenith_changes", features = ["full"]}
