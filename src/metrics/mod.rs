@@ -34,7 +34,7 @@ use std::path::{Path, PathBuf};
 use sysinfo::{
     Component, ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt,
 };
-use users::{Users, UsersCache};
+use uzers::{Users, UsersCache};
 
 #[cfg(all(feature = "nvidia", not(target_os = "linux")))]
 #[derive(FromPrimitive, PartialEq, Copy, Clone)]
