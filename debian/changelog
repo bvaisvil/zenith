@@ -1,9 +1,8 @@
-
 zenith (0.14.1-1) unstable; urgency=high
 
   * Update dependency which had a security fix.
 
- -- Benjamin Vaisvil <benjamini@gmail.com> Fri, 29 Mar 2024 17:09:00 +0600
+ -- Benjamin Vaisvil <benjamini@gmail.com>  Fri, 29 Mar 2024 17:09:00 +0600
 
 zenith (0.14.0-1) unstable; urgency=medium
   
