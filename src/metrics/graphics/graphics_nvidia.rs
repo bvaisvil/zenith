@@ -100,6 +100,8 @@ impl GraphicsExt for CPUTimeApp {
         self.gfx_devices.clear();
 
         let count = n.device_count().unwrap_or(0);
+        let mut total = GraphicsDevice::new("total".to_string());
+        total.name = "Total".to_string();
         for i in 0..count {
             let d = match n.device_by_index(i) {
                 Ok(d) => d,
@@ -119,11 +121,20 @@ impl GraphicsExt for CPUTimeApp {
                 &HistogramKind::GpuUse(gd.uuid.clone()),
                 gd.gpu_utilization as u64,
             );
+            total.gpu_utilization += gd.gpu_utilization;
             self.histogram_map.add_value_to(
                 &HistogramKind::GpuMem(gd.uuid.clone()),
                 gd.mem_utilization as u64,
             );
-
+            total.mem_utilization += gd.mem_utilization;
+            total.encoder_utilization += gd.encoder_utilization;
+            total.decoder_utilization += gd.decoder_utilization;
+            total.power_usage += gd.power_usage;
+            total.max_power += gd.max_power;
+            total.used_memory += gd.used_memory;
+            total.total_memory += gd.total_memory;
+            total.temperature += gd.temperature;
+            total.temperature_max += gd.temperature_max;
             debug!("{:}", gd);
             // mock device code to test multiple cards.
             //let mut gd2 = gd.clone();
@@ -133,10 +144,33 @@ impl GraphicsExt for CPUTimeApp {
             //gd2.max_clock = 1000;
             //self.gfx_devices.push(gd2);
         }
+
+        if self.gfx_devices.len() > 0 {
+            let count = self.gfx_devices.len() as u32;
+            total.gpu_utilization /= count;
+            total.mem_utilization /= count;
+            total.encoder_utilization /= count;
+            total.decoder_utilization /= count;
+            total.power_usage /= count;
+            total.max_power /= count;
+            total.used_memory /= count as u64;
+            total.total_memory /= count as u64;
+            total.temperature /= count;
+            total.temperature_max /= count;
+            self.histogram_map.add_value_to(
+                &HistogramKind::GpuUse(total.uuid.clone()),
+                total.gpu_utilization as u64,
+            );
+            self.histogram_map.add_value_to(
+                &HistogramKind::GpuMem(total.uuid.clone()),
+                total.mem_utilization as u64,
+            );
+        }
+        self.gfx_devices.insert(0, total);
     }
 
     fn update_gpu_utilization(&mut self) {
-        for d in &mut self.gfx_devices {
+        for d in &mut self.gfx_devices.iter().skip(1) {
             for p in &d.processes {
                 let proc = self.process_map.get_mut(&p.pid);
                 if let Some(proc) = proc {

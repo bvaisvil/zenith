@@ -72,22 +72,25 @@ pub fn render_graphics(
     } else {
         String::new()
     };
-    Sparkline::default()
-        .block(
-            Block::default().title(
-                format!(
-                    "GPU [{:3.0}%] ENC [{:3.0}%] DEC [{:3.0}%] PROC [{:}] CLOCK [{:} Mhz / {:} Mhz]{:}",
-                    gd.gpu_utilization,
-                    gd.encoder_utilization,
-                    gd.decoder_utilization,
-                    gd.processes.len(),
-                    gd.clock,
-                    gd.max_clock,
-                    version
-                )
-                .as_str(),
-            ),
+    let title = if gd.name == "Total" {
+        format!(
+            "AVG GPU [{:3.0}%] AVG ENC [{:3.0}%] AVG DEC [{:3.0}%]{:}",
+            gd.gpu_utilization, gd.encoder_utilization, gd.decoder_utilization, version
         )
+    } else {
+        format!(
+            "GPU [{:3.0}%] ENC [{:3.0}%] DEC [{:3.0}%] PROC [{:}] CLOCK [{:} Mhz / {:} Mhz]{:}",
+            gd.gpu_utilization,
+            gd.encoder_utilization,
+            gd.decoder_utilization,
+            gd.processes.len(),
+            gd.clock,
+            gd.max_clock,
+            version
+        )
+    };
+    Sparkline::default()
+        .block(Block::default().title(title.as_str()))
         .data(h_gpu.data())
         .style(Style::default().fg(Color::LightYellow))
         .max(100)
@@ -100,40 +103,51 @@ pub fn render_graphics(
         Some(h) => h,
         None => return,
     };
-
+    let title2 = if gd.name == "Total" {
+        format!(
+            "AVG FB [{:3.0}%] AVG MEM [{:} / {:} - {:}%]",
+            gd.mem_utilization,
+            float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
+            float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+            percent_of(gd.used_memory, gd.total_memory) as u64,
+        )
+    } else {
+        format!(
+            "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:}",
+            gd.mem_utilization,
+            float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
+            float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+            percent_of(gd.used_memory, gd.total_memory) as u64,
+            fan,
+        )
+    };
     Sparkline::default()
         .block(Block::default().title(Line::from(vec![
-                Span::raw(
-                    format!(
-                        "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:}",
-                        gd.mem_utilization,
-                        float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
-                        float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
-                        percent_of(gd.used_memory, gd.total_memory) as u64,
-                        fan,
-                    )
-                    .as_str(),
-                ),
-                Span::raw(" PWR ["),
-                Span::styled(
-                    format!("{:} W / {:} W", gd.power_usage / 1000, gd.max_power / 1000),
-                    if gd.power_usage > gd.max_power {
-                        max_style()
-                    } else {
-                        ok_style()
-                    },
-                ),
-                Span::raw("] TEMP ["),
-                Span::styled(
-                    format!("{:} C / {:} C", gd.temperature, gd.temperature_max),
-                    if gd.temperature > gd.temperature_max {
-                        max_style()
-                    } else {
-                        ok_style()
-                    },
-                ),
-                Span::raw("]"),
-            ])))
+            Span::raw(title2.as_str()),
+            Span::raw(if gd.name == "Total" {
+                " AVG PWR ["
+            } else {
+                " PWR ["
+            }),
+            Span::styled(
+                format!("{:} W / {:} W", gd.power_usage / 1000, gd.max_power / 1000),
+                if gd.power_usage > gd.max_power {
+                    max_style()
+                } else {
+                    ok_style()
+                },
+            ),
+            Span::raw("] TEMP ["),
+            Span::styled(
+                format!("{:} C / {:} C", gd.temperature, gd.temperature_max),
+                if gd.temperature > gd.temperature_max {
+                    max_style()
+                } else {
+                    ok_style()
+                },
+            ),
+            Span::raw("]"),
+        ])))
         .data(h_mem.data())
         .style(Style::default().fg(Color::LightMagenta))
         .max(100)
