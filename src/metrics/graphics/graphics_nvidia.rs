@@ -102,14 +102,13 @@ impl GraphicsExt for CPUTimeApp {
         let count = n.device_count().unwrap_or(0);
         let mut total: Option<GraphicsDevice> = None;
 
-        if count > 0{
+        if count > 0 {
             total = Some(GraphicsDevice::new("total".to_string()));
-            if let Some(t) = total.as_mut(){
+            if let Some(t) = total.as_mut() {
                 t.name = "Total".to_string();
             }
-            
         }
-        
+
         for i in 0..count {
             let d = match n.device_by_index(i) {
                 Ok(d) => d,
@@ -129,13 +128,14 @@ impl GraphicsExt for CPUTimeApp {
                 &HistogramKind::GpuUse(gd.uuid.clone()),
                 gd.gpu_utilization as u64,
             );
-            
+
             self.histogram_map.add_value_to(
                 &HistogramKind::GpuMem(gd.uuid.clone()),
                 gd.mem_utilization as u64,
             );
-            
-            if let Some(t) = total.as_mut(){
+
+            if let Some(t) = total.as_mut() {
+                // Updates the Total "device", if present.
                 t.gpu_utilization += gd.gpu_utilization;
                 t.mem_utilization += gd.mem_utilization;
                 t.encoder_utilization += gd.encoder_utilization;
@@ -147,20 +147,27 @@ impl GraphicsExt for CPUTimeApp {
                 t.temperature += gd.temperature;
                 t.temperature_max += gd.temperature_max;
             }
-            
+
             debug!("{:}", gd);
             // mock device code to test multiple cards.
-            //let mut gd2 = gd.clone();
+            // let mut gd2 = gd.clone();
+            // mock device code continues after next statement.
             self.gfx_devices.push(gd);
-            //
-            //gd2.name = String::from("Card2");
-            //gd2.max_clock = 1000;
-            //self.gfx_devices.push(gd2);
+            // mock device code continues.
+            // gd2.name = String::from("Card2");
+            // gd2.max_clock = 1000;
+            // self.gfx_devices.push(gd2);
+            // mock device code ends.
         }
 
+        self.update_total(total);
+    }
+
+    fn update_total(&mut self, mut total: Option<GraphicsDevice>) {
         if self.gfx_devices.len() > 0 {
+            // Update the Total "device".
             let count = self.gfx_devices.len() as u32;
-            if let Some(t) = total.as_mut(){
+            if let Some(t) = total.as_mut() {
                 t.gpu_utilization /= count;
                 t.mem_utilization /= count;
                 t.encoder_utilization /= count;
@@ -180,12 +187,13 @@ impl GraphicsExt for CPUTimeApp {
                     t.mem_utilization as u64,
                 );
             }
-            if count > 1{
-                self.gfx_devices.insert(0, total.expect("Multiple gfx cards present, total should have been created."));
+            if count > 1 {
+                self.gfx_devices.insert(
+                    0,
+                    total.expect("Multiple gfx cards present, total should have been created."),
+                );
             }
-            
         }
-        
     }
 
     fn update_gpu_utilization(&mut self) {

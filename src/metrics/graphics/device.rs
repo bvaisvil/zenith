@@ -4,6 +4,7 @@
 
 pub trait GraphicsExt {
     fn update_gfx_devices(&mut self);
+    fn update_total(&mut self, total: Option<GraphicsDevice>);
     fn update_gpu_utilization(&mut self);
 }
 
