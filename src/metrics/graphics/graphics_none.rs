@@ -1,6 +1,7 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
+use crate::metrics::graphics::device::GraphicsDevice;
 use crate::metrics::graphics::device::GraphicsExt;
 use crate::metrics::CPUTimeApp;
 
