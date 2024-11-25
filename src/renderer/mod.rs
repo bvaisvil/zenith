@@ -248,7 +248,11 @@ impl<'a> TerminalRenderer<'_> {
         let mut section_geometry = section_geometry.to_vec();
         let mut recompute_constraints_on_start_up = false;
         app.update_gfx_devices();
-        if app.gfx_devices.is_empty() {
+        if app.gfx_devices.is_empty()
+            && section_geometry
+                .iter()
+                .any(|(s, _)| *s == Section::Graphics)
+        {
             section_geometry.retain(|(section, _)| *section != Section::Graphics);
             recompute_constraints_on_start_up = true;
         }
