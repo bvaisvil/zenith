@@ -4,10 +4,12 @@
 
 pub trait GraphicsExt {
     fn update_gfx_devices(&mut self);
+    #[allow(dead_code)]
     fn update_total(&mut self, total: Option<GraphicsDevice>);
     fn update_gpu_utilization(&mut self);
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct GraphicsDeviceProcess {
     pub pid: i32,

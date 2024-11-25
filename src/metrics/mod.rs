@@ -117,6 +117,7 @@ pub enum ProcessTableSortOrder {
 }
 
 pub trait DiskFreeSpaceExt {
+    #[allow(dead_code)]
     fn get_perc_free_space(&self) -> f32;
 }
 
@@ -128,13 +129,13 @@ impl DiskFreeSpaceExt for Disk {
         percent_of(self.get_available_space(), self.get_total_space())
     }
 }
-
+#[allow(dead_code)]
 pub struct NetworkInterface {
     pub name: String,
     pub ip: String,
     pub dest: String,
 }
-
+#[allow(dead_code)]
 pub struct Sensor {
     pub name: String,
     pub current_temp: f32,
@@ -219,6 +220,7 @@ impl Top {
     }
 }
 
+#[allow(dead_code)]
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
     pub cpu_utilization: u64,

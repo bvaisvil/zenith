@@ -31,13 +31,13 @@ use std::error::Error;
 use std::fs;
 use std::io::stdout;
 use std::panic;
-use std::panic::PanicInfo;
+use std::panic::PanicHookInfo;
 use std::path::Path;
 use std::process::exit;
 use std::time::Duration;
 use std::time::SystemTime;
 
-fn panic_hook(info: &PanicInfo<'_>) {
+fn panic_hook(info: &PanicHookInfo<'_>) {
     let location = info.location().unwrap(); // The current implementation always returns Some
     let msg = match info.payload().downcast_ref::<&'static str>() {
         Some(s) => *s,

@@ -41,6 +41,7 @@ macro_rules! convert_error_to_string {
     };
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct ZProcess {
     pub pid: i32,
