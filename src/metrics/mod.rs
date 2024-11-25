@@ -220,6 +220,7 @@ impl Top {
     }
 }
 
+#[allow(dead_code)]
 pub struct CPUTimeApp {
     pub histogram_map: HistogramMap,
     pub cpu_utilization: u64,
