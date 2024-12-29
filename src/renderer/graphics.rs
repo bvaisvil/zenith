@@ -2,11 +2,11 @@ use super::style::{max_style, ok_style};
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
-use super::{percent_of, Render, ZBackend, LEFT_PANE_WIDTH};
+use super::{percent_of, Render, LEFT_PANE_WIDTH};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
-use byte_unit::{Byte, ByteUnit};
+use byte_unit::{Byte, Unit};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
@@ -17,7 +17,7 @@ use std::borrow::Cow;
 pub fn render_graphics(
     app: &CPUTimeApp,
     layout: Rect,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     view: View,
     gfx_device_index: &usize,
     border_style: Style,
@@ -107,16 +107,16 @@ pub fn render_graphics(
         format!(
             "AVG FB [{:3.0}%] AVG MEM [{:} / {:} - {:}%]",
             gd.mem_utilization,
-            float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
-            float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+            float_to_byte_string!(gd.used_memory as f64, Unit::B),
+            float_to_byte_string!(gd.total_memory as f64, Unit::B),
             percent_of(gd.used_memory, gd.total_memory) as u64,
         )
     } else {
         format!(
             "FB [{:3.0}%] MEM [{:} / {:} - {:}%] {:}",
             gd.mem_utilization,
-            float_to_byte_string!(gd.used_memory as f64, ByteUnit::B),
-            float_to_byte_string!(gd.total_memory as f64, ByteUnit::B),
+            float_to_byte_string!(gd.used_memory as f64, Unit::B),
+            float_to_byte_string!(gd.total_memory as f64, Unit::B),
             percent_of(gd.used_memory, gd.total_memory) as u64,
             fan,
         )

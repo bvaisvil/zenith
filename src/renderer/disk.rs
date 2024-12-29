@@ -2,11 +2,11 @@ use super::style::{max_style, ok_style};
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
-use super::{split_left_right_pane, FileSystemDisplay, Render, ZBackend};
+use super::{split_left_right_pane, FileSystemDisplay, Render};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
-use byte_unit::{Byte, ByteUnit};
+use byte_unit::{Byte, Unit};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
@@ -17,7 +17,7 @@ use std::borrow::Cow;
 pub fn render_disk(
     app: &CPUTimeApp,
     layout: Rect,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     view: View,
     border_style: Style,
     file_system_index: &usize,
@@ -82,7 +82,7 @@ pub fn render_disk(
 }
 fn disk_activity_histogram(
     app: &CPUTimeApp,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     view: View,
     area: &[Rect],
     file_system_index: &usize,
@@ -91,7 +91,7 @@ fn disk_activity_histogram(
     disk_list.sort_by(|a, b| b.mount_point.cmp(&a.mount_point));
     if let Some(fs) = disk_list.get(*file_system_index) {
         let read_up =
-            float_to_byte_string!(fs.get_read_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
+            float_to_byte_string!(fs.get_read_bytes_sec(&app.histogram_map.tick), Unit::B);
         let h_read = match app
             .histogram_map
             .get_zoomed(&HistogramKind::IoRead(fs.name.to_string()), &view)
@@ -104,7 +104,7 @@ fn disk_activity_histogram(
             Some(x) => *x,
             None => 1,
         };
-        let read_max_bytes = float_to_byte_string!(read_max as f64, ByteUnit::B);
+        let read_max_bytes = float_to_byte_string!(read_max as f64, Unit::B);
 
         let top_reader = match app.top_pids.read.pid {
             Some(pid) => match app.process_map.get(&pid) {
@@ -115,7 +115,7 @@ fn disk_activity_histogram(
         };
 
         let write_down =
-            float_to_byte_string!(fs.get_write_bytes_sec(&app.histogram_map.tick), ByteUnit::B);
+            float_to_byte_string!(fs.get_write_bytes_sec(&app.histogram_map.tick), Unit::B);
         let h_write = match app
             .histogram_map
             .get_zoomed(&HistogramKind::IoWrite(fs.name.to_string()), &view)
@@ -128,7 +128,7 @@ fn disk_activity_histogram(
             Some(x) => *x,
             None => 1,
         };
-        let write_max_bytes = float_to_byte_string!(write_max as f64, ByteUnit::B);
+        let write_max_bytes = float_to_byte_string!(write_max as f64, Unit::B);
 
         let top_writer = match app.top_pids.write.pid {
             Some(pid) => match app.process_map.get(&pid) {
@@ -196,7 +196,7 @@ fn disk_activity_histogram(
 
 fn disk_usage(
     app: &CPUTimeApp,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     view: View,
     area: &[Rect],
     file_system_index: &usize,
@@ -211,9 +211,9 @@ fn disk_usage(
             Some(h) => h,
             None => return,
         };
-        let free = float_to_byte_string!(fs.available_bytes as f64, ByteUnit::B);
-        let used = float_to_byte_string!(fs.get_used_bytes() as f64, ByteUnit::B);
-        let size = float_to_byte_string!(fs.size_bytes as f64, ByteUnit::B);
+        let free = float_to_byte_string!(fs.available_bytes as f64, Unit::B);
+        let used = float_to_byte_string!(fs.get_used_bytes() as f64, Unit::B);
+        let size = float_to_byte_string!(fs.size_bytes as f64, Unit::B);
         Sparkline::default()
             .block(
                 Block::default().title(
@@ -259,9 +259,9 @@ fn disk_usage(
                         "{:} /s ({:})",
                         float_to_byte_string!(
                             fs.get_read_bytes_sec(&app.histogram_map.tick),
-                            ByteUnit::B
+                            Unit::B
                         ),
-                        float_to_byte_string!(fs.current_io.read_bytes as f64, ByteUnit::B),
+                        float_to_byte_string!(fs.current_io.read_bytes as f64, Unit::B),
                     ),
                     rhs_style,
                 ),
@@ -288,9 +288,9 @@ fn disk_usage(
                         "{:} /s ({:})",
                         float_to_byte_string!(
                             fs.get_write_bytes_sec(&app.histogram_map.tick),
-                            ByteUnit::B
+                            Unit::B
                         ),
-                        float_to_byte_string!(fs.current_io.write_bytes as f64, ByteUnit::B),
+                        float_to_byte_string!(fs.current_io.write_bytes as f64, Unit::B),
                     ),
                     rhs_style,
                 ),

@@ -4,9 +4,13 @@
 #[macro_export]
 macro_rules! float_to_byte_string {
     ($x:expr, $unit:expr) => {
-        match Byte::from_unit($x, $unit) {
-            Ok(b) => b.get_appropriate_unit(false).to_string().replace(" ", ""),
-            Err(_) => String::from("Err"),
+        match Byte::from_f64_with_unit($x, $unit) {
+            Some(b) => format!(
+                "{:.2}",
+                b.get_appropriate_unit(byte_unit::UnitType::Decimal)
+            )
+            .replace(" ", ""),
+            None => String::from("Err"),
         }
     };
 }

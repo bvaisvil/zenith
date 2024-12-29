@@ -1,11 +1,11 @@
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
-use super::{percent_of, Render, ZBackend};
+use super::{percent_of, Render};
 use crate::float_to_byte_string;
 use crate::metrics::zprocess::{ProcessStatusExt, ZProcess};
 use crate::metrics::{CPUTimeApp, ProcessTableSortOrder};
-use byte_unit::{Byte, ByteUnit};
+use byte_unit::{Byte, Unit};
 use chrono::prelude::DateTime;
 use chrono::Local;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -21,7 +21,7 @@ pub fn render_process_table(
     process_table: &[i32],
     area: Rect,
     process_table_start: usize,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     border_style: Style,
     show_paths: bool,
     show_find: bool,
@@ -72,13 +72,10 @@ pub fn render_process_table(
             };
             let mut cpu_usage =
                 set_process_row_style(p.pid, app.top_pids.cpu.pid, format!("{:>5.1}", p.cpu_usage));
-            match &app.cum_cpu_process {
-                Some(top) => {
-                    if top.pid == p.pid {
-                        cpu_usage = cpu_usage.style(Style::default().fg(Color::Magenta));
-                    }
+            if let Some(top) = &app.cum_cpu_process {
+                if top.pid == p.pid {
+                    cpu_usage = cpu_usage.style(Style::default().fg(Color::Magenta));
                 }
-                None => (),
             };
 
             let mut row = vec![
@@ -97,7 +94,7 @@ pub fn render_process_table(
                     app.top_pids.mem.pid,
                     format!(
                         "{:>8}",
-                        float_to_byte_string!(p.memory as f64, ByteUnit::KB).replace('B', "")
+                        float_to_byte_string!(p.memory as f64, Unit::KB).replace('B', "")
                     ),
                 ),
                 set_process_row_style(
@@ -105,8 +102,7 @@ pub fn render_process_table(
                     app.top_pids.virt.pid,
                     format!(
                         "{:>8}",
-                        float_to_byte_string!(p.virtual_memory as f64, ByteUnit::KB)
-                            .replace('B', "")
+                        float_to_byte_string!(p.virtual_memory as f64, Unit::KB).replace('B', "")
                     ),
                 ),
                 Cell::from(format!("{:1}", p.status.to_single_char())),
@@ -117,7 +113,7 @@ pub fn render_process_table(
                         "{:>8}",
                         float_to_byte_string!(
                             p.get_read_bytes_sec(&app.histogram_map.tick),
-                            ByteUnit::B
+                            Unit::B
                         )
                         .replace('B', "")
                     ),
@@ -129,7 +125,7 @@ pub fn render_process_table(
                         "{:>8}",
                         float_to_byte_string!(
                             p.get_write_bytes_sec(&app.histogram_map.tick),
-                            ByteUnit::B
+                            Unit::B
                         )
                         .replace('B', "")
                     ),
@@ -199,7 +195,7 @@ pub fn render_process_table(
         widths.push(Constraint::Length(len));
         used_width += len;
     }
-    let cmd_width = f.size().width.saturating_sub(used_width).saturating_sub(3);
+    let cmd_width = f.area().width.saturating_sub(used_width).saturating_sub(3);
     let cmd_header = format!("{:<width$}", "CMD", width = cmd_width as usize);
     widths.push(Constraint::Min(cmd_width));
     header.push(cmd_header);
@@ -238,14 +234,13 @@ pub fn render_process_table(
         )
     };
 
-    Table::new(rows)
+    Table::new(rows, widths)
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(border_style)
                 .title(Span::styled(title, border_style)),
         )
-        .widths(widths.as_slice())
         .column_spacing(0)
         .header(
             Row::new(header_row)
@@ -259,7 +254,7 @@ pub fn render_process_table(
 pub fn render_process(
     app: &CPUTimeApp,
     layout: Rect,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     border_style: Style,
     process_message: &Option<String>,
     p: &ZProcess,
@@ -275,7 +270,7 @@ pub fn render_process(
         .constraints([Constraint::Length(2), Constraint::Min(1)].as_ref())
         .split(layout);
 
-    let title = format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}", 
+    let title = format!("(b)ack (n)ice (p)riority 0 (s)uspend (r)esume (k)ill [SIGKILL] (t)erminate [SIGTERM] {:} {: >width$}",
                         process_message.as_ref().unwrap_or(&String::from("")), "", width = layout.width as usize);
 
     Block::default()
@@ -368,10 +363,7 @@ pub fn render_process(
         Line::from(vec![
             Span::raw("Total Memory:          "),
             Span::styled(
-                format!(
-                    "{:>10}",
-                    float_to_byte_string!(p.memory as f64, ByteUnit::KB)
-                ),
+                format!("{:>10}", float_to_byte_string!(p.memory as f64, Unit::KB)),
                 rhs_style,
             ),
         ]),
@@ -380,11 +372,8 @@ pub fn render_process(
             Span::styled(
                 format!(
                     "{:>10} {:}/s",
-                    float_to_byte_string!(p.read_bytes as f64, ByteUnit::B),
-                    float_to_byte_string!(
-                        p.get_read_bytes_sec(&app.histogram_map.tick),
-                        ByteUnit::B
-                    )
+                    float_to_byte_string!(p.read_bytes as f64, Unit::B),
+                    float_to_byte_string!(p.get_read_bytes_sec(&app.histogram_map.tick), Unit::B)
                 ),
                 rhs_style,
             ),
@@ -394,11 +383,8 @@ pub fn render_process(
             Span::styled(
                 format!(
                     "{:>10} {:}/s",
-                    float_to_byte_string!(p.write_bytes as f64, ByteUnit::B),
-                    float_to_byte_string!(
-                        p.get_write_bytes_sec(&app.histogram_map.tick),
-                        ByteUnit::B
-                    )
+                    float_to_byte_string!(p.write_bytes as f64, Unit::B),
+                    float_to_byte_string!(p.get_write_bytes_sec(&app.histogram_map.tick), Unit::B)
                 ),
                 rhs_style,
             ),
