@@ -25,7 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v1
+        uses: houseabsolute/actions-rust-cross@v0
         with:
           command: "build"
           target: ${{ matrix.platform.target }}
@@ -34,7 +34,7 @@ jobs:
             "--release"
           strip: true
       - name: Publish
-        uses: houseabsolute/actions-rust-release@v1
+        uses: houseabsolute/actions-rust-release@v0
         with:
           executable-name: zenith
           taerget: ${{ matrix.platform.target }}
