@@ -10,6 +10,7 @@ jobs:
   release:
     name: Release - ${{ matrix.platform.os-name }}
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - os-name: Linux-x86_64
