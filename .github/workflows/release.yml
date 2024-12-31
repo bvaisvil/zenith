@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - "**"
+  workflow_dispatch:
 jobs:
   release:
     name: Release - ${{ matrix.platform.os-name }}
