@@ -37,4 +37,4 @@ jobs:
         uses: houseabsolute/actions-rust-release@v0
         with:
           executable-name: zenith
-          taerget: ${{ matrix.platform.target }}
+          target: ${{ matrix.platform.target }}
