@@ -1,0 +1,39 @@
+name: Release
+on: 
+  push:
+    tags:
+      - "**"
+jobs:
+  release:
+    name: Release - ${{ matrix.platform.os-name }}
+    strategy:
+      matrix:
+        platform:
+          - os-name: Linux-x86_64
+            runs-on: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            
+          - os-name: Linux-aarch64
+            runs-on: ubuntu-22.04
+            target: aarch64-unknown-linux-musl
+            
+        toolchain:
+          - stable
+    runs-on: ${{ matrix.platform.runs-on }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: "build"
+          target: ${{ matrix.platform.target }}
+          toolchain: ${{ matrix.toolchain }}
+          args:
+            "--release"
+          strip: true
+      - name: Publish
+        uses: houseabsolute/actions-rust-release@v1
+        with:
+          executable-name: zenith
+          taerget: ${{ matrix.platform.target }}
