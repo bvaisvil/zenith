@@ -7,7 +7,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::Frame;
 
-use super::{FromPrimitive, Render, ZBackend};
+use super::{FromPrimitive, Render};
 use std::collections::HashSet;
 use std::fmt;
 
@@ -88,7 +88,7 @@ impl<'a> SectionMGRList<'a> {
     }
 }
 
-pub fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'_, ZBackend>) {
+pub fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Frame<'_>) {
     debug!("Rendering Section Manager");
 
     let layout = Layout::default()

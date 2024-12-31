@@ -5,8 +5,8 @@ use super::style::{max_style, ok_style, MAX_COLOR, OK_COLOR};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
 use crate::metrics::CPUTimeApp;
-use crate::renderer::{percent_of, split_left_right_pane, Render, ZBackend};
-use byte_unit::{Byte, ByteUnit};
+use crate::renderer::{percent_of, split_left_right_pane, Render};
+use byte_unit::{Byte, Unit};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -92,8 +92,8 @@ fn mem_title(app: &CPUTimeApp) -> Line {
         Span::styled(
             format!(
                 "{} / {} - {:}%",
-                float_to_byte_string!(app.mem_utilization as f64, ByteUnit::KB),
-                float_to_byte_string!(app.mem_total as f64, ByteUnit::KB),
+                float_to_byte_string!(app.mem_utilization as f64, Unit::KB),
+                float_to_byte_string!(app.mem_total as f64, Unit::KB),
                 mem
             ),
             if mem > 95 { max_style() } else { ok_style() },
@@ -102,8 +102,8 @@ fn mem_title(app: &CPUTimeApp) -> Line {
         Span::styled(
             format!(
                 "{} / {} - {:}%",
-                float_to_byte_string!(app.swap_utilization as f64, ByteUnit::KB),
-                float_to_byte_string!(app.swap_total as f64, ByteUnit::KB),
+                float_to_byte_string!(app.swap_utilization as f64, Unit::KB),
+                float_to_byte_string!(app.swap_total as f64, Unit::KB),
                 swp,
             ),
             if swp > 20 { max_style() } else { ok_style() },
@@ -113,7 +113,7 @@ fn mem_title(app: &CPUTimeApp) -> Line {
     ])
 }
 
-fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, view: &View) {
+fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_>, view: &View) {
     let h = match app.histogram_map.get_zoomed(&HistogramKind::Cpu, view) {
         Some(h) => h,
         None => return,
@@ -127,7 +127,7 @@ fn render_cpu_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend
         .render(f, area);
 }
 
-fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, view: &View) {
+fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_>, view: &View) {
     let h = match app.histogram_map.get_zoomed(&HistogramKind::Mem, view) {
         Some(h) => h,
         None => return,
@@ -141,7 +141,7 @@ fn render_memory_histogram(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBack
         .render(f, area);
 }
 
-fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, style: &Style) {
+fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_>, style: &Style) {
     let cpus = app.cpus.to_owned();
     if cpus.is_empty() {
         return;
@@ -176,7 +176,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, st
 
         let cols = 4;
 
-        let nrows = ((cpus.len() as u16 + cols - 1) / cols) as usize;
+        let nrows = (cpus.len() as u16).div_ceil(cols) as usize;
 
         let mut items = vec![];
         for i in 0..nrows {
@@ -269,7 +269,7 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_, ZBackend>, st
 pub fn render_cpu(
     app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     view: View,
     border_style: Style,
 ) {

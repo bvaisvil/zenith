@@ -220,55 +220,50 @@ impl HistogramMap {
     }
 
     pub(crate) fn save_histograms(&mut self) {
-        match &self.db {
-            Some(db) => {
-                debug!("Saving Histograms...");
-                self.previous_stop = Some(SystemTime::now());
-                let dbfile = db.join("store");
-                let database_open = fs::OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .truncate(true)
-                    .open(dbfile);
-                match database_open {
-                    Ok(database) => {
-                        let mut gz = GzEncoder::new(database, Compression::default());
-                        gz.write_all(&bincode::serialize(self).expect(SER_ERROR))
-                            .expect("Failed to compress/write to file.");
-                        match gz.finish() {
-                            Ok(_r) => {
-                                debug!("Write Finished.");
-                            }
-                            Err(_e) => {
-                                error!("Couldn't complete database write.");
-                            }
-                        };
-                        let configuration = db.join(".configuration");
-                        let mut configuration = fs::OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .open(configuration)
-                            .expect("Couldn't open Configuration");
-                        configuration
-                            .write_all(
-                                format!("version={:}\n", env!("CARGO_PKG_VERSION")).as_bytes(),
-                            )
-                            .expect("Failed to write file.");
-                    }
-                    Err(e) => {
-                        exit_with_message!(
-                            format!(
-                                "Couldn't write to {}, error: {}",
-                                db.join("store").to_string_lossy(),
-                                e.to_string()
-                            ),
-                            1
-                        );
-                    }
+        if let Some(db) = &self.db {
+            debug!("Saving Histograms...");
+            self.previous_stop = Some(SystemTime::now());
+            let dbfile = db.join("store");
+            let database_open = fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(dbfile);
+            match database_open {
+                Ok(database) => {
+                    let mut gz = GzEncoder::new(database, Compression::default());
+                    gz.write_all(&bincode::serialize(self).expect(SER_ERROR))
+                        .expect("Failed to compress/write to file.");
+                    match gz.finish() {
+                        Ok(_r) => {
+                            debug!("Write Finished.");
+                        }
+                        Err(_e) => {
+                            error!("Couldn't complete database write.");
+                        }
+                    };
+                    let configuration = db.join(".configuration");
+                    let mut configuration = fs::OpenOptions::new()
+                        .create(true)
+                        .write(true)
+                        .truncate(true)
+                        .open(configuration)
+                        .expect("Couldn't open Configuration");
+                    configuration
+                        .write_all(format!("version={:}\n", env!("CARGO_PKG_VERSION")).as_bytes())
+                        .expect("Failed to write file.");
+                }
+                Err(e) => {
+                    exit_with_message!(
+                        format!(
+                            "Couldn't write to {}, error: {}",
+                            db.join("store").to_string_lossy(),
+                            e.to_string()
+                        ),
+                        1
+                    );
                 }
             }
-            None => {}
         }
     }
 

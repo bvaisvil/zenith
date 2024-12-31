@@ -31,7 +31,6 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use ratatui::backend::Backend;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders};
@@ -40,24 +39,18 @@ use ratatui::Frame;
 const PROCESS_SELECTION_GRACE: Duration = Duration::from_millis(2000);
 const LEFT_PANE_WIDTH: u16 = 34u16;
 
-type ZBackend = CrosstermBackend<Stdout>;
-
 /// Compatibility trait, that preserves an older method from tui 0.6.5
 /// Exists mostly to keep the caller code idiomatic for the use cases in this file
 /// May be refactored out later if the widget usage patterns change
-trait Render<B>
-where
-    B: Backend,
-{
-    fn render(self, f: &mut Frame<B>, area: Rect);
+trait Render {
+    fn render(self, f: &mut Frame, area: Rect);
 }
 
-impl<T, B> Render<B> for T
+impl<T> Render for T
 where
     T: ratatui::widgets::Widget,
-    B: Backend,
 {
-    fn render(self, f: &mut Frame<B>, area: Rect) {
+    fn render(self, f: &mut Frame, area: Rect) {
         f.render_widget(self, area)
     }
 }
@@ -83,7 +76,7 @@ pub enum FileSystemDisplay {
 fn split_left_right_pane(
     title: &str,
     area: Rect,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     view: View,
     border_style: Style,
 ) -> (Rc<[Rect]>, View) {
@@ -367,13 +360,13 @@ impl<'a> TerminalRenderer<'_> {
 
             self.terminal
                 .draw(|f| {
-                    width = f.size().width;
+                    width = f.area().width;
                     if show_help {
                         let v_sections = Layout::default()
                             .direction(Direction::Vertical)
                             .margin(0)
                             .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
-                            .split(f.size());
+                            .split(f.area());
 
                         title::render_top_title_bar(app, v_sections[0], f, zf, offset);
                         let history_recording = match (app.writes_db_store(), disable_history) {
@@ -387,7 +380,7 @@ impl<'a> TerminalRenderer<'_> {
                             .direction(Direction::Vertical)
                             .margin(0)
                             .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
-                            .split(f.size());
+                            .split(f.area());
                         title::render_top_title_bar(app, v_sections[0], f, zf, offset);
                         section::render_section_mgr(section_manager_options, v_sections[1], f);
                     } else {
@@ -397,7 +390,7 @@ impl<'a> TerminalRenderer<'_> {
                             .direction(Direction::Vertical)
                             .margin(0)
                             .constraints(constraints.as_slice())
-                            .split(f.size());
+                            .split(f.area());
 
                         title::render_top_title_bar(app, v_sections[0], f, zf, offset);
                         let view = View {
@@ -599,7 +592,7 @@ impl<'a> TerminalRenderer<'_> {
                 None => self.section_manager_options.state.select(Some(0)),
             }
         } else if selected == Section::Graphics {
-            if self.app.gfx_devices.len() == 0 {
+            if self.app.gfx_devices.is_empty() {
                 self.gfx_device_index = 0;
             } else if self.gfx_device_index > 0 {
                 self.gfx_device_index -= 1;
@@ -640,7 +633,7 @@ impl<'a> TerminalRenderer<'_> {
                 None => self.section_manager_options.state.select(Some(0)),
             }
         } else if selected == Section::Graphics {
-            if self.app.gfx_devices.len() == 0 {
+            if self.app.gfx_devices.is_empty() {
                 self.gfx_device_index = 0;
             } else if self.gfx_device_index < self.app.gfx_devices.len() - 1 {
                 self.gfx_device_index += 1;

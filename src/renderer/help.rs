@@ -2,7 +2,7 @@
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
 use crate::metrics::*;
-use crate::renderer::{HistoryRecording, Render, ZBackend};
+use crate::renderer::{HistoryRecording, Render};
 #[cfg(all(target_os = "linux", feature = "nvidia"))]
 use nvml::error::NvmlError;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -14,7 +14,7 @@ use ratatui::Frame;
 pub fn render_help(
     _app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     history_recording: HistoryRecording,
 ) {
     let header_style = Style::default().fg(Color::Green);
