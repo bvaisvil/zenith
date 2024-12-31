@@ -4,6 +4,8 @@ on:
     tags:
       - "**"
   workflow_dispatch:
+env:
+  RUST_BACKTRACE: 1
 jobs:
   release:
     name: Release - ${{ matrix.platform.os-name }}
