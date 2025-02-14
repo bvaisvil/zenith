@@ -1,7 +1,7 @@
 /**
  * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
  */
-use super::{Render, ZBackend};
+use super::Render;
 use crate::metrics::*;
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
@@ -48,7 +48,7 @@ fn render_battery_widget(
 ) -> (Span<'_>, Span<'_>, Span<'_>, Span<'_>) {
     let default_style = Style::default().bg(Color::DarkGray).fg(Color::White);
     if !batteries.is_empty() {
-        let b: &starship_battery::Battery = batteries.get(0).expect("no battery");
+        let b: &starship_battery::Battery = batteries.first().expect("no battery");
         let charge_state = match b.state() {
             starship_battery::State::Unknown => " ",
             starship_battery::State::Charging => "⚡︎",
@@ -115,7 +115,7 @@ fn render_battery_widget(
 pub fn render_top_title_bar(
     app: &CPUTimeApp,
     area: Rect,
-    f: &mut Frame<'_, ZBackend>,
+    f: &mut Frame<'_>,
     zf: &u32,
     offset: &usize,
 ) {

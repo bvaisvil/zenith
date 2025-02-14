@@ -202,26 +202,23 @@ impl ZProcess {
     #[cfg(target_os = "linux")]
     pub fn update_delay(&mut self, client: &Option<Client>) {
         debug!("Getting Task Stats for {}", self.pid);
-        match client {
-            Some(c) => {
-                let stats_result = c.pid_stats(self.pid as u32);
-                match stats_result {
-                    Ok(s) => {
-                        self.prev_io_delay = self.io_delay;
-                        self.prev_swap_delay = self.swap_delay;
-                        self.io_delay = s.delays.blkio.delay_total;
-                        self.swap_delay = s.delays.swapin.delay_total;
-                        debug!(
-                            "Pid: {} io_delay: {} swap_delay: {}",
-                            self.pid,
-                            self.io_delay.as_secs(),
-                            self.swap_delay.as_secs()
-                        );
-                    }
-                    Err(_) => debug!("Couldn't get stats for {}", self.pid),
+        if let Some(c) = client {
+            let stats_result = c.pid_stats(self.pid as u32);
+            match stats_result {
+                Ok(s) => {
+                    self.prev_io_delay = self.io_delay;
+                    self.prev_swap_delay = self.swap_delay;
+                    self.io_delay = s.delays.blkio.delay_total;
+                    self.swap_delay = s.delays.swapin.delay_total;
+                    debug!(
+                        "Pid: {} io_delay: {} swap_delay: {}",
+                        self.pid,
+                        self.io_delay.as_secs(),
+                        self.swap_delay.as_secs()
+                    );
                 }
+                Err(_) => debug!("Couldn't get stats for {}", self.pid),
             }
-            None => {}
         }
     }
 
