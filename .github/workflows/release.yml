@@ -13,25 +13,25 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - os-name: Linux-x86_64
+          - os-name: Linux-x86_64-musl
             runs-on: ubuntu-22.04
             target: x86_64-unknown-linux-musl
 
-          - os-name: Linux-x86_64
+          - os-name: Linux-x86_64-gnu
             runs-on: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
           
-          - os-name: Linux-x86_64-nvidia
+          - os-name: Linux-x86_64-gnu-nvidia
             runs-on: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             features: --features nvidia
             
-          - os-name: Linux-aarch64
+          - os-name: Linux-aarch64-musl
             runs-on: ubuntu-22.04
             target: aarch64-unknown-linux-musl
 
-          - os-name: Linux-aarch64
-            runs-on: ubuntu-22.04
+          - os-name: Linux-aarch64-gnu
+            runs-on: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
 
           - os-name: macOS-x86_64
@@ -61,4 +61,4 @@ jobs:
         uses: houseabsolute/actions-rust-release@v0
         with:
           executable-name: zenith
-          target: ${{ matrix.platform.target }}
+          archive-name: zenith-${{ matrix.platform.os-name }}

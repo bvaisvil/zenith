@@ -43,5 +43,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
+    - name: Build with Nvidia
+      run: cargo build --verbose --features nvidia
     - name: Run tests
       run: cargo test --verbose
