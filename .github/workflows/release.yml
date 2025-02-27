@@ -16,10 +16,7 @@ jobs:
           - os-name: Linux-x86_64-musl
             runs-on: ubuntu-22.04
             target: x86_64-unknown-linux-musl
-
-          - os-name: Linux-x86_64-gnu
-            runs-on: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+            features: --features nvidia
           
           - os-name: Linux-x86_64-gnu-nvidia
             runs-on: ubuntu-22.04
@@ -61,4 +58,4 @@ jobs:
         uses: houseabsolute/actions-rust-release@v0
         with:
           executable-name: zenith
-          archive-name: zenith-${{ matrix.platform.os-name }}
+          target: ${{ matrix.platform.target }}
