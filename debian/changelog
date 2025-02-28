@@ -1,3 +1,9 @@
+zenith (0.14.2-1) unstable; urgency=low
+
+  * Update dependency which had a security fix.
+
+ -- Benjamin Vaisvil <benjamini@gmail.com>  Wed, 26 Feb 2025 17:09:00 +0600
+
 zenith (0.14.1-1) unstable; urgency=high
 
   * Update dependency which had a security fix.

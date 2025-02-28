@@ -2740,7 +2740,7 @@ checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "zenith"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "bincode",
  "byte-unit",
