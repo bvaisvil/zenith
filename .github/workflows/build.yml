@@ -45,5 +45,6 @@ jobs:
       run: cargo build --verbose
     - name: Build with Nvidia
       run: cargo build --verbose --features nvidia
+      if: ${{ matrix.os == 'ubuntu-latest' }}
     - name: Run tests
       run: cargo test --verbose
