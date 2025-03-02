@@ -61,5 +61,5 @@ jobs:
           executable-name: zenith
           release-tag-prefix: ~
           changes-file: ~
-          draft: true
+          action-gh-release-parameters: "{'draft': true}"
           target: ${{ matrix.platform.target }}
