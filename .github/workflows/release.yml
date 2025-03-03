@@ -59,7 +59,7 @@ jobs:
         uses: houseabsolute/actions-rust-release@v0
         with:
           executable-name: zenith
-          release-tag-prefix: ~
+          release-tag-prefix: 0
           changes-file: ~
           action-gh-release-parameters: "{'draft': true}"
           target: ${{ matrix.platform.target }}
