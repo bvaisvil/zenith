@@ -66,11 +66,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install builders
-        run: |
-          cargo install cargo-deb
-          cargo install cargo-generate-rpm
-        if: ${{ matrix.platform.command == 'deb' }}
       - name: Build binary
         uses: bvaisvil/actions-rust-cross@remove-build-validation
         with:
