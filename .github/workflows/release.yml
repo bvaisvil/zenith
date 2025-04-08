@@ -27,11 +27,11 @@ jobs:
             command: "build"
             strip: true
 
-          - os-name: Linux-x86_64-gnu-nvidia
+          - os-name: Linux-x86_64-gnu-nvidia-deb
             runs-on: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             args: --locked --release --features nvidia
-            command: "cargo deb"
+            command: "deb"
             strip: false
 
           - os-name: Linux-aarch64-musl
@@ -70,6 +70,7 @@ jobs:
         run: |
           cargo install cargo-deb
           cargo install cargo-generate-rpm
+        if: ${{ matrix.platform.command == 'deb' }}
       - name: Build binary
         uses: bvaisvil/actions-rust-cross@remove-build-validation
         with:
