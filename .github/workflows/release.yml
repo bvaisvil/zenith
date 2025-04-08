@@ -1,8 +1,8 @@
 name: Release
 on: 
   push:
-    tags:
-      - "**"
+    #tags:
+    #  - "**"
   workflow_dispatch:
 env:
   RUST_BACKTRACE: 1
@@ -65,7 +65,7 @@ jobs:
           cargo install cargo-deb
           cargo install cargo-generate-rpm
       - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v1
+        uses: bvaisvil/actions-rust-cross@remove-build-validation
         with:
           command: ${{ matrix.platform.command }}
           target: ${{ matrix.platform.target }}
