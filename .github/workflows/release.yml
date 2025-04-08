@@ -80,6 +80,7 @@ jobs:
           args:
             "${{matrix.platform.args}}"
           strip: ${{ matrix.platform.strip }}
+          use-rust-cache: false
       - name: Publish
         uses: houseabsolute/actions-rust-release@v0
         with:
