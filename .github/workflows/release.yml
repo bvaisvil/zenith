@@ -66,6 +66,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install cargo-deb
+        shell: bash
+        run: | 
+          cargo install cargo-deb
+        if: ${{ matrix.platform.command == 'deb' }}
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v1
         with:
