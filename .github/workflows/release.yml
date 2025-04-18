@@ -67,7 +67,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build binary
-        uses: bvaisvil/actions-rust-cross@remove-build-validation
+        uses: houseabsolute/actions-rust-cross@v1
         with:
           command: ${{ matrix.platform.command }}
           target: ${{ matrix.platform.target }}
