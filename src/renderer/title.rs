@@ -93,10 +93,10 @@ fn render_battery_widget(
         (
             Span::styled(charge_state, default_style.fg(charge_state_color)),
             Span::styled(
-                format!(" {:03.2}%", charged),
+                format!(" {charged:03.2}%"),
                 default_style.fg(charged_color),
             ),
-            Span::styled(format!(" {:}", t), default_style),
+            Span::styled(format!(" {t:}"), default_style),
             Span::styled(
                 format!(" {:03.2}w", b.energy_rate().get::<watt>()),
                 default_style,

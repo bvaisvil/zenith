@@ -140,8 +140,7 @@ fn disk_activity_histogram(
 
         #[cfg(target_os = "linux")]
         let mut spans = vec![Span::raw(format!(
-            "R [{:^10}/s] PEAK [{:^10}/s] {:} ",
-            read_up, read_max_bytes, top_reader
+            "R [{read_up:^10}/s] PEAK [{read_max_bytes:^10}/s] {top_reader:} "
         ))];
         #[cfg(target_os = "macos")]
         let spans = vec![Span::raw(format!(
@@ -181,8 +180,7 @@ fn disk_activity_histogram(
             .block(
                 Block::default().title(
                     format!(
-                        "W [{:^10}/s] PEAK [{:^10}/s] {:}",
-                        write_down, write_max_bytes, top_writer
+                        "W [{write_down:^10}/s] PEAK [{write_max_bytes:^10}/s] {top_writer:}"
                     )
                     .as_str(),
                 ),

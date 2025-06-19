@@ -223,9 +223,9 @@ pub fn render_process_table(
         })
         .collect();
     let title = if show_find {
-        format!("[ESC] Clear, Find: {:}", filter)
+        format!("[ESC] Clear, Find: {filter:}")
     } else if !filter.is_empty() {
-        format!("Filtered Results: {:}, [/] to change/clear", filter)
+        format!("Filtered Results: {filter:}, [/] to change/clear")
     } else {
         format!(
             "Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [;] Filter [/]",
