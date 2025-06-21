@@ -143,9 +143,8 @@ fn create_geometry(
     let sum_heights = sum_section_heights(&geometry);
     // 100.1 to account for possible float precision error
     if sum_heights > 100.1 {
-        let msg = format!(
-            "Sum of minimum percent heights cannot exceed 100 but was {sum_heights:}."
-        );
+        let msg =
+            format!("Sum of minimum percent heights cannot exceed 100 but was {sum_heights:}.");
         exit_with_message!(msg, 1);
     }
     // distribute the remaining percentage proportionately among the non-zero ones

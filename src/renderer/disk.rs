@@ -179,10 +179,8 @@ fn disk_activity_histogram(
         Sparkline::default()
             .block(
                 Block::default().title(
-                    format!(
-                        "W [{write_down:^10}/s] PEAK [{write_max_bytes:^10}/s] {top_writer:}"
-                    )
-                    .as_str(),
+                    format!("W [{write_down:^10}/s] PEAK [{write_max_bytes:^10}/s] {top_writer:}")
+                        .as_str(),
                 ),
             )
             .data(h_write.data())
