@@ -42,7 +42,7 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
             .map(|s| format!("{: >3.0}", s.current_temp))
             .collect::<Vec<String>>()
             .join(",");
-        format!(" TEMP [{:}°C]", t)
+        format!(" TEMP [{t:}°C]")
     } else {
         String::from("")
     };
@@ -60,17 +60,16 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
         Span::raw(temp),
         Span::raw(" MEAN ["),
         Span::styled(
-            format!("{: >3.2}%", mean,),
+            format!("{mean: >3.2}%",),
             if mean > 90.0 { max_style() } else { ok_style() },
         ),
         Span::raw("] PEAK ["),
         Span::styled(
-            format!("{: >3.2}%", peak,),
+            format!("{peak: >3.2}%",),
             if peak > 90 { max_style() } else { ok_style() },
         ),
         Span::raw(format!(
-            "] TOP [{} - {} - {}]",
-            top_pid, top_process_name, top_process_amt
+            "] TOP [{top_pid} - {top_process_name} - {top_process_amt}]"
         )),
     ])
 }
@@ -185,10 +184,10 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_>, style: &Styl
                 .step_by(nrows)
                 .take(cols.into())
                 .for_each(|(label, load)| {
-                    items.push(Span::raw(format!("{:<2} ", label)));
+                    items.push(Span::raw(format!("{label:<2} ")));
                     let color = if *load < 90 { OK_COLOR } else { MAX_COLOR };
                     items.push(Span::styled(
-                        format!("{:3}", load),
+                        format!("{load:3}"),
                         Style::default().fg(color),
                     ));
                     items.push(Span::raw("% "));
