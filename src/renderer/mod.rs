@@ -180,7 +180,6 @@ fn get_constraints(section_geometry: &[(Section, f64)], height: u16) -> Vec<Cons
 }
 
 pub struct TerminalRenderer<'a> {
-    //terminal: Terminal<CrosstermBackend<Stdout>>,
     app: CPUTimeApp,
     events: Events,
     process_table_row_start: usize,
@@ -321,9 +320,8 @@ impl<'a> TerminalRenderer<'_> {
         self.section_geometry[self.selected_section_index].0
     }
 
-    fn render_frame(&mut self, f: &mut Frame<'_>) {
-        if self.show_help {
-            let v_sections = Layout::default()
+    fn render_help(&mut self, f: &mut Frame<'_>) {
+        let v_sections = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(0)
                 .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
@@ -342,8 +340,10 @@ impl<'a> TerminalRenderer<'_> {
                 (false, false) => HistoryRecording::OtherInstancePrevents,
             };
             help::render_help(&self.app, v_sections[1], f, history_recording);
-        } else if self.show_section_mgr {
-            let v_sections = Layout::default()
+    }
+
+    fn render_section_mgr(&mut self, f: &mut Frame<'_>){
+        let v_sections = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(0)
                 .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
@@ -356,6 +356,13 @@ impl<'a> TerminalRenderer<'_> {
                 &self.hist_start_offset,
             );
             section::render_section_mgr(&mut self.section_manager_options, v_sections[1], f);
+    }
+
+    fn render_frame(&mut self, f: &mut Frame<'_>) {
+        if self.show_help {
+            self.render_help(f);
+        } else if self.show_section_mgr {
+            self.render_section_mgr(f);
         } else {
             // create layouts
             // primary vertical
@@ -465,8 +472,12 @@ impl<'a> TerminalRenderer<'_> {
             let action = match event {
                 Event::Input(input) => {
                     let process_table = process_table.into_owned();
-                    self.process_key_event(input, &process_table, self.process_table_height)
-                        .await
+                    self.process_key_event(
+                        input,
+                        &process_table,
+                        self.process_table_height,
+                    )
+                    .await
                 }
                 Event::Resize(_, height) => {
                     self.constraints = get_constraints(&self.section_geometry, height);
