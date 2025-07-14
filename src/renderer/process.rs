@@ -51,7 +51,107 @@ pub fn render_process_table(
         return highlighted_process; // not enough space to draw anything
     }
 
-    let rows: Vec<Row> = procs
+    let rows: Vec<Row> = render_rows(
+        app,
+        procs,
+        process_table_start,
+        display_height,
+        show_paths,
+        highlighted_row,
+    );
+
+    let mut header = vec![
+        format!("{:<width$}", "PID", width = app.max_pid_len + 1),
+        String::from("USER       "),
+        String::from("P   "),
+        String::from("N   "),
+        String::from("CPU%  "),
+        String::from("MEM%  "),
+        String::from("MEM     "),
+        String::from("VIRT     "),
+        String::from("S "),
+        String::from("READ/s   "),
+        String::from("WRITE/s  "),
+    ];
+    #[cfg(target_os = "linux")]
+    header.push(String::from("IOWAIT% "));
+    #[cfg(feature = "nvidia")]
+    header.push(String::from("GPU% "));
+    #[cfg(feature = "nvidia")]
+    header.push(String::from("FB%  "));
+    //figure column widths
+    let mut widths = Vec::with_capacity(header.len() + 1);
+    let mut used_width = 0;
+    for item in &header {
+        let len = item.len() as u16;
+        widths.push(Constraint::Length(len));
+        used_width += len;
+    }
+    let cmd_width = f.area().width.saturating_sub(used_width).saturating_sub(3);
+    let cmd_header = format!("{:<width$}", "CMD", width = cmd_width as usize);
+    widths.push(Constraint::Min(cmd_width));
+    header.push(cmd_header);
+
+    header[app.psortby as usize].pop();
+    let sort_ind = match app.psortorder {
+        ProcessTableSortOrder::Ascending => '↑',
+        ProcessTableSortOrder::Descending => '↓',
+    };
+    header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
+    let header_row: Vec<Cell> = header
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            if i == app.psortby as usize {
+                Cell::from(c.as_str()).style(
+                    Style::default()
+                        .bg(Color::Gray)
+                        .fg(Color::Black)
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Cell::from(c.as_str())
+            }
+        })
+        .collect();
+    let title = if show_find {
+        format!("[ESC] Clear, Find: {filter:}")
+    } else if !filter.is_empty() {
+        format!("Filtered Results: {filter:}, [/] to change/clear")
+    } else {
+        format!(
+            "Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [;] Filter [/]",
+            app.processes.len(),
+            app.threads_total
+        )
+    };
+
+    Table::new(rows, widths)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(Span::styled(title, border_style)),
+        )
+        .column_spacing(0)
+        .header(
+            Row::new(header_row)
+                .style(Style::default().bg(Color::DarkGray))
+                .bottom_margin(0),
+        )
+        .render(f, area);
+    highlighted_process
+}
+
+fn render_rows<'a>(
+    app: &CPUTimeApp,
+    procs: Vec<&'a ZProcess>,
+    process_table_start: usize,
+    display_height: usize,
+    show_paths: bool,
+    highlighted_row: usize,
+) -> Vec<Row<'a>> {
+    procs
         .iter()
         .enumerate()
         .skip(process_table_start)
@@ -166,89 +266,7 @@ pub fn render_process_table(
                 row
             }
         })
-        .collect();
-
-    let mut header = vec![
-        format!("{:<width$}", "PID", width = app.max_pid_len + 1),
-        String::from("USER       "),
-        String::from("P   "),
-        String::from("N   "),
-        String::from("CPU%  "),
-        String::from("MEM%  "),
-        String::from("MEM     "),
-        String::from("VIRT     "),
-        String::from("S "),
-        String::from("READ/s   "),
-        String::from("WRITE/s  "),
-    ];
-    #[cfg(target_os = "linux")]
-    header.push(String::from("IOWAIT% "));
-    #[cfg(feature = "nvidia")]
-    header.push(String::from("GPU% "));
-    #[cfg(feature = "nvidia")]
-    header.push(String::from("FB%  "));
-    //figure column widths
-    let mut widths = Vec::with_capacity(header.len() + 1);
-    let mut used_width = 0;
-    for item in &header {
-        let len = item.len() as u16;
-        widths.push(Constraint::Length(len));
-        used_width += len;
-    }
-    let cmd_width = f.area().width.saturating_sub(used_width).saturating_sub(3);
-    let cmd_header = format!("{:<width$}", "CMD", width = cmd_width as usize);
-    widths.push(Constraint::Min(cmd_width));
-    header.push(cmd_header);
-
-    header[app.psortby as usize].pop();
-    let sort_ind = match app.psortorder {
-        ProcessTableSortOrder::Ascending => '↑',
-        ProcessTableSortOrder::Descending => '↓',
-    };
-    header[app.psortby as usize].insert(0, sort_ind); //sort column indicator
-    let header_row: Vec<Cell> = header
-        .iter()
-        .enumerate()
-        .map(|(i, c)| {
-            if i == app.psortby as usize {
-                Cell::from(c.as_str()).style(
-                    Style::default()
-                        .bg(Color::Gray)
-                        .fg(Color::Black)
-                        .add_modifier(Modifier::BOLD),
-                )
-            } else {
-                Cell::from(c.as_str())
-            }
-        })
-        .collect();
-    let title = if show_find {
-        format!("[ESC] Clear, Find: {:}", filter)
-    } else if !filter.is_empty() {
-        format!("Filtered Results: {:}, [/] to change/clear", filter)
-    } else {
-        format!(
-            "Tasks [{:}] Threads [{:}]  Navigate [↑/↓] Sort Col [,/.] Asc/Dec [;] Filter [/]",
-            app.processes.len(),
-            app.threads_total
-        )
-    };
-
-    Table::new(rows, widths)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(border_style)
-                .title(Span::styled(title, border_style)),
-        )
-        .column_spacing(0)
-        .header(
-            Row::new(header_row)
-                .style(Style::default().bg(Color::DarkGray))
-                .bottom_margin(0),
-        )
-        .render(f, area);
-    highlighted_process
+        .collect()
 }
 
 pub fn render_process(

@@ -27,6 +27,7 @@ use crossterm::{
 };
 use futures::executor::block_on;
 use metrics::histogram::load_zenith_store;
+use ratatui::{backend::CrosstermBackend, Terminal};
 use std::error::Error;
 use std::fs;
 use std::io::stdout;
@@ -251,9 +252,14 @@ fn start_zenith(
             sensor_height,
             graphics_height,
         );
+        let backend = CrosstermBackend::new(stdout());
+        let mut terminal =
+            Terminal::new(backend).expect("Couldn't create new terminal with backend");
+        terminal.hide_cursor().ok();
+
         let mut r = TerminalRenderer::new(rate, &geometry, db, disable_history);
 
-        r.start().await;
+        r.start(terminal).await;
 
         // only drop lock at the end
         drop(lock);
