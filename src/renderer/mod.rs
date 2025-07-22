@@ -322,40 +322,40 @@ impl<'a> TerminalRenderer<'_> {
 
     fn render_help(&mut self, f: &mut Frame<'_>) {
         let v_sections = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(0)
-                .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
-                .split(f.area());
+            .direction(Direction::Vertical)
+            .margin(0)
+            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
+            .split(f.area());
 
-            title::render_top_title_bar(
-                &self.app,
-                v_sections[0],
-                f,
-                &self.zoom_factor,
-                &self.hist_start_offset,
-            );
-            let history_recording = match (self.app.writes_db_store(), self.disable_history) {
-                (true, _) => HistoryRecording::On,
-                (false, true) => HistoryRecording::UserDisabled,
-                (false, false) => HistoryRecording::OtherInstancePrevents,
-            };
-            help::render_help(&self.app, v_sections[1], f, history_recording);
+        title::render_top_title_bar(
+            &self.app,
+            v_sections[0],
+            f,
+            &self.zoom_factor,
+            &self.hist_start_offset,
+        );
+        let history_recording = match (self.app.writes_db_store(), self.disable_history) {
+            (true, _) => HistoryRecording::On,
+            (false, true) => HistoryRecording::UserDisabled,
+            (false, false) => HistoryRecording::OtherInstancePrevents,
+        };
+        help::render_help(&self.app, v_sections[1], f, history_recording);
     }
 
-    fn render_section_mgr(&mut self, f: &mut Frame<'_>){
+    fn render_section_mgr(&mut self, f: &mut Frame<'_>) {
         let v_sections = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(0)
-                .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
-                .split(f.area());
-            title::render_top_title_bar(
-                &self.app,
-                v_sections[0],
-                f,
-                &self.zoom_factor,
-                &self.hist_start_offset,
-            );
-            section::render_section_mgr(&mut self.section_manager_options, v_sections[1], f);
+            .direction(Direction::Vertical)
+            .margin(0)
+            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
+            .split(f.area());
+        title::render_top_title_bar(
+            &self.app,
+            v_sections[0],
+            f,
+            &self.zoom_factor,
+            &self.hist_start_offset,
+        );
+        section::render_section_mgr(&mut self.section_manager_options, v_sections[1], f);
     }
 
     fn render_frame(&mut self, f: &mut Frame<'_>) {
@@ -472,12 +472,8 @@ impl<'a> TerminalRenderer<'_> {
             let action = match event {
                 Event::Input(input) => {
                     let process_table = process_table.into_owned();
-                    self.process_key_event(
-                        input,
-                        &process_table,
-                        self.process_table_height,
-                    )
-                    .await
+                    self.process_key_event(input, &process_table, self.process_table_height)
+                        .await
                 }
                 Event::Resize(_, height) => {
                     self.constraints = get_constraints(&self.section_geometry, height);
