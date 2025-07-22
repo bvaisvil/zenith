@@ -29,7 +29,7 @@ impl fmt::Display for Section {
             Section::Network => " Network",
             Section::Process => " Process",
         };
-        write!(f, "{}", name)
+        write!(f, "{name}")
     }
 }
 
@@ -53,7 +53,7 @@ impl<'a> SectionMGRList<'a> {
         let mut section_set = HashSet::new();
 
         for (s, _) in geometry {
-            section_set.insert(format!("{}", s));
+            section_set.insert(format!("{s}"));
         }
 
         debug!("Section Set: {:?}", section_set.len());
@@ -64,17 +64,17 @@ impl<'a> SectionMGRList<'a> {
             .map(|i| {
                 let section: Section = FromPrimitive::from_u32(*i as u32)
                     .expect("Index not in range for Section enum");
-                let s: String = format!("{}", section);
+                let s: String = format!("{section}");
                 if section_set.contains(s.as_str()) {
                     (
                         section,
                         Span::styled(
-                            format!("*{}", s),
+                            format!("*{s}"),
                             Style::default().add_modifier(Modifier::BOLD),
                         ),
                     )
                 } else {
-                    (section, Span::styled(format!(" {}", s), Style::default()))
+                    (section, Span::styled(format!(" {s}"), Style::default()))
                 }
             })
             .map(|(s, span)| (s, ListItem::new(span)))

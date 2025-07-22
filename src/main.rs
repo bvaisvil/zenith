@@ -49,7 +49,7 @@ fn panic_hook(info: &PanicHookInfo<'_>) {
     };
     error!("thread '<unnamed>' panicked at '{}', {}\r", msg, location);
     restore_terminal();
-    println!("thread '<unnamed>' panicked at '{}', {}\r", msg, location);
+    println!("thread '<unnamed>' panicked at '{msg}', {location}\r");
 }
 
 fn init_terminal() {
@@ -144,10 +144,8 @@ fn create_geometry(
     let sum_heights = sum_section_heights(&geometry);
     // 100.1 to account for possible float precision error
     if sum_heights > 100.1 {
-        let msg = format!(
-            "Sum of minimum percent heights cannot exceed 100 but was {:}.",
-            sum_heights
-        );
+        let msg =
+            format!("Sum of minimum percent heights cannot exceed 100 but was {sum_heights:}.");
         exit_with_message!(msg, 1);
     }
     // distribute the remaining percentage proportionately among the non-zero ones
@@ -280,8 +278,7 @@ fn validate_refresh_rate(arg: &str) -> Result<u64, String> {
         Ok(val)
     } else {
         Err(format!(
-            "{} Enter a refresh rate that is at least 1000 ms",
-            arg
+            "{arg} Enter a refresh rate that is at least 1000 ms"
         ))
     }
 }

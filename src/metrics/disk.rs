@@ -156,7 +156,7 @@ pub async fn get_disk_io_metrics(disks: &mut HashMap<String, ZDisk>) {
             if let Ok(i) = i {
                 let name = i.device_name().to_string_lossy().to_string();
                 debug!("Name: {:}", name);
-                if let Some(d) = disks.get_mut(&format!("/dev/{:}", name)) {
+                if let Some(d) = disks.get_mut(&format!("/dev/{name:}")) {
                     let io_metrics = IoMetrics::from_io_counters(&i);
                     d.previous_io = d.current_io;
                     d.current_io = io_metrics;

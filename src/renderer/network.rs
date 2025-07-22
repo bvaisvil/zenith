@@ -45,7 +45,7 @@ pub fn render_net(
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("↑ [{:^10}/s] PEAK [{:^10}/s]", net_up, up_max_bytes).as_str()),
+                .title(format!("↑ [{net_up:^10}/s] PEAK [{up_max_bytes:^10}/s]").as_str()),
         )
         .data(h_out.data())
         .style(Style::default().fg(Color::LightYellow))
@@ -69,7 +69,7 @@ pub fn render_net(
     Sparkline::default()
         .block(
             Block::default()
-                .title(format!("↓ [{:^10}/s] PEAK [{:^10}/s]", net_down, down_max_bytes).as_str()),
+                .title(format!("↓ [{net_down:^10}/s] PEAK [{down_max_bytes:^10}/s]").as_str()),
         )
         .data(h_in.data())
         .style(Style::default().fg(Color::LightMagenta))
