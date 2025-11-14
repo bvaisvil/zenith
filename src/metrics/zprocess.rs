@@ -263,9 +263,7 @@ impl ZProcess {
         sortfield: ProcessTableSortBy,
     ) -> fn(&Self, &Self, &Duration) -> Ordering {
         match sortfield {
-            ProcessTableSortBy::Cpu => {
-                |pa, pb, _tick| pa.cpu_usage.partial_cmp(&pb.cpu_usage).unwrap_or(Equal)
-            }
+            ProcessTableSortBy::Cpu => |pa, pb, _tick| pa.cpu_usage.total_cmp(&pb.cpu_usage),
             ProcessTableSortBy::Mem => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
             ProcessTableSortBy::MemPerc => |pa, pb, _tick| pa.memory.cmp(&pb.memory),
             ProcessTableSortBy::User => |pa, pb, _tick| pa.user_name.cmp(&pb.user_name),
@@ -274,20 +272,16 @@ impl ZProcess {
                 |pa, pb, _tick| pa.status.to_single_char().cmp(pb.status.to_single_char())
             }
             ProcessTableSortBy::Priority => |pa, pb, _tick| pa.priority.cmp(&pb.priority),
-            ProcessTableSortBy::Nice => {
-                |pa, pb, _tick| pa.priority.partial_cmp(&pb.nice).unwrap_or(Equal)
-            }
+            ProcessTableSortBy::Nice => |pa, pb, _tick| pa.nice.cmp(&pb.nice),
             ProcessTableSortBy::Virt => |pa, pb, _tick| pa.virtual_memory.cmp(&pb.virtual_memory),
             ProcessTableSortBy::Cmd => |pa, pb, _tick| pa.name.cmp(&pb.name),
             ProcessTableSortBy::DiskRead => |pa, pb, tick| {
                 pa.get_read_bytes_sec(tick)
-                    .partial_cmp(&pb.get_read_bytes_sec(tick))
-                    .unwrap_or(Equal)
+                    .total_cmp(&pb.get_read_bytes_sec(tick))
             },
             ProcessTableSortBy::DiskWrite => |pa, pb, tick| {
                 pa.get_write_bytes_sec(tick)
-                    .partial_cmp(&pb.get_write_bytes_sec(tick))
-                    .unwrap_or(Equal)
+                    .total_cmp(&pb.get_write_bytes_sec(tick))
             },
         }
     }
