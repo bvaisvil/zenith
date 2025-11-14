@@ -11,7 +11,7 @@ use libc::{id_t, setpriority};
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
 
-use std::cmp::Ordering;
+use std::cmp::Ordering::{self, Equal};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::Process;
 use sysinfo::ProcessExt;
