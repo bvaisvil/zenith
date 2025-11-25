@@ -42,9 +42,25 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
             .map(|s| format!("{: >3.0}", s.current_temp))
             .collect::<Vec<String>>()
             .join(",");
-        format!(" TEMP [{t:}°C]")
+
+        let hot_threshold = 70_f64;
+        let cold_threshold = 40_f64;
+        let numbers_txt = format!("{t:}°C");
+        let max_temp = app
+            .sensors
+            .iter()
+            .map(|s| s.current_temp as f64)
+            .fold(f64::MIN, f64::max);
+
+        if max_temp > hot_threshold {
+            Span::styled(numbers_txt, max_style())
+        } else if max_temp < cold_threshold {
+            Span::styled(numbers_txt, Style::default().fg(Color::Cyan))
+        } else {
+            Span::raw(numbers_txt)
+        }
     } else {
-        String::from("")
+        Span::raw(String::from(""))
     };
     Line::from(vec![
         Span::raw("CPU ["),
@@ -57,7 +73,9 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
             },
         ),
         Span::raw("]"),
-        Span::raw(temp),
+        Span::raw(" TEMP ["),
+        temp,
+        Span::raw("]"),
         Span::raw(" MEAN ["),
         Span::styled(
             format!("{mean: >3.2}%",),
