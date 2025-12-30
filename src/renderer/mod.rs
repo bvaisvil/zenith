@@ -180,10 +180,10 @@ fn get_constraints(section_geometry: &[(Section, f64)], height: u16) -> Vec<Cons
 }
 
 pub struct TerminalRenderer<'a> {
-    terminal: Terminal<CrosstermBackend<Stdout>>,
     app: CPUTimeApp,
     events: Events,
     process_table_row_start: usize,
+    process_table_height: u16,
     gfx_device_index: usize,
     file_system_index: usize,
     file_system_display: FileSystemDisplay,
@@ -211,6 +211,7 @@ pub struct TerminalRenderer<'a> {
     show_section_mgr: bool,
     filter: String,
     highlighted_row: usize,
+    highlighted_process: Option<Box<ZProcess>>,
     selection_grace_start: Option<Instant>,
     section_manager_options: SectionMGRList<'a>,
     disable_history: bool,
@@ -232,10 +233,6 @@ impl<'a> TerminalRenderer<'_> {
         debug!("Hide Cursor");
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen).expect("Unable to enter alternate screen");
-        let backend = CrosstermBackend::new(stdout);
-        let mut terminal =
-            Terminal::new(backend).expect("Couldn't create new terminal with backend");
-        terminal.hide_cursor().ok();
 
         let constraints = get_constraints(section_geometry, terminal_size().1);
         let mut section_geometry = section_geometry.to_vec();
@@ -250,10 +247,10 @@ impl<'a> TerminalRenderer<'_> {
             recompute_constraints_on_start_up = true;
         }
         TerminalRenderer {
-            terminal,
             app,
             events,
             process_table_row_start: 0,
+            process_table_height: 0,
             gfx_device_index: 0,
             file_system_index: 0,
             file_system_display: FileSystemDisplay::Activity,
@@ -270,6 +267,7 @@ impl<'a> TerminalRenderer<'_> {
             show_find: false,
             show_section_mgr: false,
             filter: String::from(""),
+            highlighted_process: None,
             highlighted_row: 0,
             selection_grace_start: None,
             section_manager_options: SectionMGRList::with_geometry(section_geometry),
@@ -322,161 +320,160 @@ impl<'a> TerminalRenderer<'_> {
         self.section_geometry[self.selected_section_index].0
     }
 
-    pub async fn start(&mut self) {
+    fn render_help(&mut self, f: &mut Frame<'_>) {
+        let v_sections = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(0)
+            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
+            .split(f.area());
+
+        title::render_top_title_bar(
+            &self.app,
+            v_sections[0],
+            f,
+            &self.zoom_factor,
+            &self.hist_start_offset,
+        );
+        let history_recording = match (self.app.writes_db_store(), self.disable_history) {
+            (true, _) => HistoryRecording::On,
+            (false, true) => HistoryRecording::UserDisabled,
+            (false, false) => HistoryRecording::OtherInstancePrevents,
+        };
+        help::render_help(&self.app, v_sections[1], f, history_recording);
+    }
+
+    fn render_section_mgr(&mut self, f: &mut Frame<'_>) {
+        let v_sections = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(0)
+            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
+            .split(f.area());
+        title::render_top_title_bar(
+            &self.app,
+            v_sections[0],
+            f,
+            &self.zoom_factor,
+            &self.hist_start_offset,
+        );
+        section::render_section_mgr(&mut self.section_manager_options, v_sections[1], f);
+    }
+
+    fn render_frame(&mut self, f: &mut Frame<'_>) {
+        if self.show_help {
+            self.render_help(f);
+        } else if self.show_section_mgr {
+            self.render_section_mgr(f);
+        } else {
+            // create layouts
+            // primary vertical
+            let v_sections = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(0)
+                .constraints(self.constraints.as_slice())
+                .split(f.area());
+
+            title::render_top_title_bar(
+                &self.app,
+                v_sections[0],
+                f,
+                &self.zoom_factor,
+                &self.hist_start_offset,
+            );
+            let view = View {
+                zoom_factor: self.zoom_factor,
+                update_number: self.update_number,
+                width: 0,
+                offset: self.hist_start_offset,
+            };
+            let geometry = &self.section_geometry.to_vec();
+
+            for section_index in 0..geometry.len() {
+                let v_section = v_sections[section_index + 1];
+                let current_section = geometry[section_index].0;
+                let border_style =
+                    if current_section == self.section_geometry[self.selected_section_index].0 {
+                        Style::default().fg(Color::Red)
+                    } else {
+                        Style::default()
+                    };
+                match current_section {
+                    Section::Cpu => cpu::render_cpu(&self.app, v_section, f, view, border_style),
+                    Section::Network => {
+                        network::render_net(&self.app, v_section, f, view, border_style)
+                    }
+                    Section::Disk => disk::render_disk(
+                        &self.app,
+                        v_section,
+                        f,
+                        view,
+                        border_style,
+                        &self.file_system_index,
+                        &self.file_system_display,
+                    ),
+                    Section::Graphics => graphics::render_graphics(
+                        &self.app,
+                        v_section,
+                        f,
+                        view,
+                        &self.gfx_device_index,
+                        border_style,
+                    ),
+                    Section::Process => {
+                        if let Some(p) = self.app.selected_process.as_ref() {
+                            process::render_process(
+                                &self.app,
+                                v_section,
+                                f,
+                                border_style,
+                                &self.process_message,
+                                p,
+                            );
+                        } else {
+                            self.highlighted_process = process::render_process_table(
+                                &self.app,
+                                &process::filter_process_table(&self.app, &self.filter),
+                                v_section,
+                                self.process_table_row_start,
+                                f,
+                                border_style,
+                                self.show_paths,
+                                self.show_find,
+                                &self.filter,
+                                self.highlighted_row,
+                            );
+                            if v_section.height > 4 {
+                                // account for table border & margins.
+                                self.process_table_height = v_section.height - 5;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub async fn start(&mut self, mut terminal: Terminal<CrosstermBackend<Stdout>>) {
         debug!("Starting Main Loop.");
-        let disable_history = self.disable_history;
         if self.recompute_constraints_on_start_up {
             self.recompute_constraints();
             self.recompute_constraints_on_start_up = false;
         }
         loop {
-            let app = &self.app;
-            let pst = &self.process_table_row_start;
-            let mut width: u16 = 0;
-            let mut process_table_height: u16 = 0;
-            let zf = &self.zoom_factor;
-            let constraints = &self.constraints;
-            let geometry = &self.section_geometry.to_vec();
-            let section_manager_options = &mut self.section_manager_options;
-            let selected = self.section_geometry[self.selected_section_index].0;
-            let process_message = &self.process_message;
-            let offset = &self.hist_start_offset;
-            let un = &self.update_number;
-            let show_help = self.show_help;
-            let show_section_mgr = self.show_section_mgr;
-            let show_paths = self.show_paths;
-            let filter = &self.filter;
-            let show_find = self.show_find;
-            let mut highlighted_process: Option<Box<ZProcess>> = None;
-            let process_table = process::filter_process_table(app, &self.filter);
-            let gfx_device_index = &self.gfx_device_index;
-            let file_system_index = &self.file_system_index;
-            let file_system_display = &self.file_system_display;
+            terminal
+                .draw(|f| self.render_frame(f))
+                .expect("Could not draw frame.");
+
+            let process_table = process::filter_process_table(&self.app, &self.filter);
 
             if !process_table.is_empty() && self.highlighted_row >= process_table.len() {
                 self.highlighted_row = process_table.len() - 1;
             }
-            let highlighted_row = self.highlighted_row;
-
-            self.terminal
-                .draw(|f| {
-                    width = f.area().width;
-                    if show_help {
-                        let v_sections = Layout::default()
-                            .direction(Direction::Vertical)
-                            .margin(0)
-                            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
-                            .split(f.area());
-
-                        title::render_top_title_bar(app, v_sections[0], f, zf, offset);
-                        let history_recording = match (app.writes_db_store(), disable_history) {
-                            (true, _) => HistoryRecording::On,
-                            (false, true) => HistoryRecording::UserDisabled,
-                            (false, false) => HistoryRecording::OtherInstancePrevents,
-                        };
-                        help::render_help(app, v_sections[1], f, history_recording);
-                    } else if show_section_mgr {
-                        let v_sections = Layout::default()
-                            .direction(Direction::Vertical)
-                            .margin(0)
-                            .constraints([Constraint::Length(1), Constraint::Length(40)].as_ref())
-                            .split(f.area());
-                        title::render_top_title_bar(app, v_sections[0], f, zf, offset);
-                        section::render_section_mgr(section_manager_options, v_sections[1], f);
-                    } else {
-                        // create layouts
-                        // primary vertical
-                        let v_sections = Layout::default()
-                            .direction(Direction::Vertical)
-                            .margin(0)
-                            .constraints(constraints.as_slice())
-                            .split(f.area());
-
-                        title::render_top_title_bar(app, v_sections[0], f, zf, offset);
-                        let view = View {
-                            zoom_factor: *zf,
-                            update_number: *un,
-                            width: 0,
-                            offset: *offset,
-                        };
-                        for section_index in 0..geometry.len() {
-                            let v_section = v_sections[section_index + 1];
-                            let current_section = geometry[section_index].0;
-                            let border_style = if current_section == selected {
-                                Style::default().fg(Color::Red)
-                            } else {
-                                Style::default()
-                            };
-                            match current_section {
-                                Section::Cpu => {
-                                    cpu::render_cpu(app, v_section, f, view, border_style)
-                                }
-                                Section::Network => {
-                                    network::render_net(app, v_section, f, view, border_style)
-                                }
-                                Section::Disk => disk::render_disk(
-                                    app,
-                                    v_section,
-                                    f,
-                                    view,
-                                    border_style,
-                                    file_system_index,
-                                    file_system_display,
-                                ),
-                                Section::Graphics => graphics::render_graphics(
-                                    app,
-                                    v_section,
-                                    f,
-                                    view,
-                                    gfx_device_index,
-                                    border_style,
-                                ),
-                                Section::Process => {
-                                    if let Some(p) = app.selected_process.as_ref() {
-                                        process::render_process(
-                                            app,
-                                            v_section,
-                                            f,
-                                            border_style,
-                                            process_message,
-                                            p,
-                                        );
-                                    } else {
-                                        highlighted_process = process::render_process_table(
-                                            app,
-                                            &process_table,
-                                            v_section,
-                                            *pst,
-                                            f,
-                                            border_style,
-                                            show_paths,
-                                            show_find,
-                                            filter,
-                                            highlighted_row,
-                                        );
-                                        if v_section.height > 4 {
-                                            // account for table border & margins.
-                                            process_table_height = v_section.height - 5;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                })
-                .expect("Could not draw frame.");
-
             let event = self.events.next().expect("No new event.");
             let action = match event {
                 Event::Input(input) => {
                     let process_table = process_table.into_owned();
-                    self.process_key_event(
-                        input,
-                        &process_table,
-                        process_table_height,
-                        highlighted_process,
-                    )
-                    .await
+                    self.process_key_event(input, &process_table, self.process_table_height)
+                        .await
                 }
                 Event::Resize(_, height) => {
                     self.constraints = get_constraints(&self.section_geometry, height);
@@ -529,7 +526,6 @@ impl<'a> TerminalRenderer<'_> {
         input: KeyEvent,
         process_table: &[i32],
         process_table_height: u16,
-        highlighted_process: Option<Box<ZProcess>>,
     ) -> Action {
         debug!("Event Key: {:?}", input);
         match input.code {
@@ -549,7 +545,7 @@ impl<'a> TerminalRenderer<'_> {
             ),
             Key::Left => self.histogram_left(),
             Key::Right => self.histogram_right(),
-            Key::Enter => self.select(highlighted_process),
+            Key::Enter => self.select(),
             Key::Char('c') => {
                 if input.modifiers.contains(KeyModifiers::CONTROL) {
                     return Action::Quit;
@@ -568,10 +564,10 @@ impl<'a> TerminalRenderer<'_> {
         Action::Continue
     }
 
-    fn select(&mut self, highlighted_process: Option<Box<ZProcess>>) {
+    fn select(&mut self) {
         let selected = self.selected_section();
         if selected == Section::Process {
-            self.app.select_process(highlighted_process);
+            self.app.select_process(self.highlighted_process.take());
             self.process_message = None;
             self.show_find = false;
             self.process_table_row_start = 0;

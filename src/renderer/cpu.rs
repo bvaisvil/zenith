@@ -42,9 +42,25 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
             .map(|s| format!("{: >3.0}", s.current_temp))
             .collect::<Vec<String>>()
             .join(",");
-        format!(" TEMP [{:}°C]", t)
+
+        let hot_threshold = 70_f64;
+        let cold_threshold = 40_f64;
+        let numbers_txt = format!("{t:}°C");
+        let max_temp = app
+            .sensors
+            .iter()
+            .map(|s| s.current_temp as f64)
+            .fold(f64::MIN, f64::max);
+
+        if max_temp > hot_threshold {
+            Span::styled(numbers_txt, max_style())
+        } else if max_temp < cold_threshold {
+            Span::styled(numbers_txt, Style::default().fg(Color::Cyan))
+        } else {
+            Span::raw(numbers_txt)
+        }
     } else {
-        String::from("")
+        Span::raw(String::from(""))
     };
     Line::from(vec![
         Span::raw("CPU ["),
@@ -57,20 +73,21 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
             },
         ),
         Span::raw("]"),
-        Span::raw(temp),
+        Span::raw(" TEMP ["),
+        temp,
+        Span::raw("]"),
         Span::raw(" MEAN ["),
         Span::styled(
-            format!("{: >3.2}%", mean,),
+            format!("{mean: >3.2}%",),
             if mean > 90.0 { max_style() } else { ok_style() },
         ),
         Span::raw("] PEAK ["),
         Span::styled(
-            format!("{: >3.2}%", peak,),
+            format!("{peak: >3.2}%",),
             if peak > 90 { max_style() } else { ok_style() },
         ),
         Span::raw(format!(
-            "] TOP [{} - {} - {}]",
-            top_pid, top_process_name, top_process_amt
+            "] TOP [{top_pid} - {top_process_name} - {top_process_amt}]"
         )),
     ])
 }
@@ -185,10 +202,10 @@ fn render_cpu_bars(app: &CPUTimeApp, area: Rect, f: &mut Frame<'_>, style: &Styl
                 .step_by(nrows)
                 .take(cols.into())
                 .for_each(|(label, load)| {
-                    items.push(Span::raw(format!("{:<2} ", label)));
+                    items.push(Span::raw(format!("{label:<2} ")));
                     let color = if *load < 90 { OK_COLOR } else { MAX_COLOR };
                     items.push(Span::styled(
-                        format!("{:3}", load),
+                        format!("{load:3}"),
                         Style::default().fg(color),
                     ));
                     items.push(Span::raw("% "));
