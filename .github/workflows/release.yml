@@ -45,6 +45,9 @@ jobs:
           - os-name: Linux-aarch64-gnu
             runs-on: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
+            strip: true
+            command: "build"
+            args: --locked --release
 
           - os-name: macOS-x86_64
             runs-on: macOS-latest
