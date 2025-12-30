@@ -2,7 +2,7 @@ name: Release
 on: 
   push:
     tags:
-      - "**"
+     - "**"
   workflow_dispatch:
 env:
   RUST_BACKTRACE: 1
@@ -18,41 +18,50 @@ jobs:
             target: x86_64-unknown-linux-musl
             args: --locked --release --features nvidia
             command: "build"
+            strip: true
 
           - os-name: Linux-x86_64-gnu-nvidia
             runs-on: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             args: --locked --release --features nvidia
             command: "build"
+            strip: true
 
-          - os-name: Linux-x86_64-gnu-nvidia
+          - os-name: Linux-x86_64-gnu-nvidia-deb
             runs-on: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            args: --locked --release --features nvidia
-            command: "cargo deb"
+            args: --locked -- --features nvidia
+            command: "deb"
+            strip: false
 
           - os-name: Linux-aarch64-musl
             runs-on: ubuntu-22.04
             target: aarch64-unknown-linux-musl
             command: "build"
             args: --locked --release
+            strip: true
 
           # presently broken  
           # - os-name: Linux-aarch64-gnu
           #   runs-on: ubuntu-24.04
           #   target: aarch64-unknown-linux-gnu
+          #   strip: true
+          #   command: "build"
+          #   args: --locked --release
 
           - os-name: macOS-x86_64
             runs-on: macOS-latest
             target: x86_64-apple-darwin
             command: "build"
             args: --locked --release
+            strip: true
 
           - os-name: aarch64-apple-darwin
             runs-on: macOS-latest
             target: aarch64-apple-darwin
             command: "build"
             args: --locked --release
+            strip: true
 
         toolchain:
           - stable
@@ -60,10 +69,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install builders
-        run: |
+      - name: Install cargo-deb
+        shell: bash
+        run: | 
           cargo install cargo-deb
-          cargo install cargo-generate-rpm
+        if: ${{ matrix.platform.command == 'deb' }}
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v1
         with:
@@ -72,7 +82,8 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           args:
             "${{matrix.platform.args}}"
-          strip: true
+          strip: ${{ matrix.platform.strip }}
+          use-rust-cache: false
       - name: Publish
         uses: houseabsolute/actions-rust-release@v0
         with:
@@ -81,3 +92,10 @@ jobs:
           changes-file: ~
           action-gh-release-parameters: "{\"draft\": true}"
           target: ${{ matrix.platform.target }}
+        if: ${{ matrix.platform.command != 'deb' }}
+      - name: Upload Deb file
+        uses: actions/upload-artifact@v4
+        with:
+          name: zenith-deb-${{ matrix.platform.target }}.deb
+          path: target/debian/
+        if: ${{ matrix.platform.command == 'deb' }}
