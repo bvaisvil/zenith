@@ -94,7 +94,7 @@ jobs:
           target: ${{ matrix.platform.target }}
         if: ${{ matrix.platform.command != 'deb' }}
       - name: Upload Deb file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: zenith-deb
           path: target/debian/
