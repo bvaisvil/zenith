@@ -42,12 +42,12 @@ jobs:
             strip: true
 
           # presently broken  
-          - os-name: Linux-aarch64-gnu
-            runs-on: ubuntu-24.04
-            target: aarch64-unknown-linux-gnu
-            strip: true
-            command: "build"
-            args: --locked --release
+          # - os-name: Linux-aarch64-gnu
+          #   runs-on: ubuntu-24.04
+          #   target: aarch64-unknown-linux-gnu
+          #   strip: true
+          #   command: "build"
+          #   args: --locked --release
 
           - os-name: macOS-x86_64
             runs-on: macOS-latest
@@ -96,20 +96,6 @@ jobs:
       - name: Upload Deb file
         uses: actions/upload-artifact@v4
         with:
-          name: zenith-deb
+          name: zenith-deb-${{ matrix.platform.target }}.deb
           path: target/debian/
         if: ${{ matrix.platform.command == 'deb' }}
-      #   run: |
-      #     pwd
-      #     mkdir -p target/${{ matrix.platform.target }}/debian/release
-      #     cp target/debian/zenith_0.14.2-1_amd64.deb target/${{ matrix.platform.target }}/debian/release/zenith_0.14.2-1_amd64.deb
-      #  if: ${{ matrix.platform.command == 'deb' }}
-      # - name: Publish Deb
-      #   uses: houseabsolute/actions-rust-release@v0
-      #   with:
-      #     executable-name: zenith_0.14.2-1_amd64.deb
-      #     release-tag-prefix: 0
-      #     changes-file: ~
-      #     action-gh-release-parameters: "{\"draft\": true}"
-      #     target: ${{ matrix.platform.target }}/debian
-      #   if: ${{ matrix.platform.command == 'deb' }}
