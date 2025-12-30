@@ -93,6 +93,12 @@ jobs:
           action-gh-release-parameters: "{\"draft\": true}"
           target: ${{ matrix.platform.target }}
         if: ${{ matrix.platform.command != 'deb' }}
+      - name: Copy Deb file
+        run: |
+          pwd
+          mkdir -p target/${{ matrix.platform.target }}/debian
+          cp target/debian/zenith_0.14.2-1_amd64.deb target/${{ matrix.platform.target }}/debian/zenith_0.14.2-1_amd64.deb
+        if: ${{ matrix.platform.command == 'deb' }}
       - name: Publish Deb
         uses: houseabsolute/actions-rust-release@v0
         with:
@@ -100,5 +106,5 @@ jobs:
           release-tag-prefix: 0
           changes-file: ~
           action-gh-release-parameters: "{\"draft\": true}"
-          target: debian
+          target: ${{ matrix.platform.target }}/debian
         if: ${{ matrix.platform.command == 'deb' }}
