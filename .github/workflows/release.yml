@@ -93,18 +93,23 @@ jobs:
           action-gh-release-parameters: "{\"draft\": true}"
           target: ${{ matrix.platform.target }}
         if: ${{ matrix.platform.command != 'deb' }}
-      - name: Copy Deb file
-        run: |
-          pwd
-          mkdir -p target/${{ matrix.platform.target }}/debian/release
-          cp target/debian/zenith_0.14.2-1_amd64.deb target/${{ matrix.platform.target }}/debian/release/zenith_0.14.2-1_amd64.deb
-        if: ${{ matrix.platform.command == 'deb' }}
-      - name: Publish Deb
-        uses: houseabsolute/actions-rust-release@v0
+      - name: Upload Deb file
+        uses: actions/upload-artifact@v3
         with:
-          executable-name: zenith_0.14.2-1_amd64.deb
-          release-tag-prefix: 0
-          changes-file: ~
-          action-gh-release-parameters: "{\"draft\": true}"
-          target: ${{ matrix.platform.target }}/debian
+          name: zenith-deb
+          path: target/debian/
         if: ${{ matrix.platform.command == 'deb' }}
+      #   run: |
+      #     pwd
+      #     mkdir -p target/${{ matrix.platform.target }}/debian/release
+      #     cp target/debian/zenith_0.14.2-1_amd64.deb target/${{ matrix.platform.target }}/debian/release/zenith_0.14.2-1_amd64.deb
+      #  if: ${{ matrix.platform.command == 'deb' }}
+      # - name: Publish Deb
+      #   uses: houseabsolute/actions-rust-release@v0
+      #   with:
+      #     executable-name: zenith_0.14.2-1_amd64.deb
+      #     release-tag-prefix: 0
+      #     changes-file: ~
+      #     action-gh-release-parameters: "{\"draft\": true}"
+      #     target: ${{ matrix.platform.target }}/debian
+      #   if: ${{ matrix.platform.command == 'deb' }}
