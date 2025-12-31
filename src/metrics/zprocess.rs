@@ -531,8 +531,7 @@ mod tests {
         let duration = process.get_run_duration();
 
         // Process started 1 hour ago
-        assert!(duration.num_minutes() >= 59);
-        assert!(duration.num_minutes() <= 61);
+        assert_eq!(duration.num_minutes(), 60);
     }
 
     #[test]
@@ -571,7 +570,6 @@ mod tests {
 
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
         assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
-        assert_eq!(comparator(&p1, &p1, &tick), Ordering::Equal);
     }
 
     #[test]
@@ -599,6 +597,7 @@ mod tests {
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::Pid);
 
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+        assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
     }
 
     #[test]
@@ -612,6 +611,7 @@ mod tests {
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::User);
 
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+        assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
     }
 
     #[test]
@@ -627,6 +627,7 @@ mod tests {
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::DiskRead);
 
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+        assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
     }
 
     #[test]
@@ -640,6 +641,7 @@ mod tests {
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::Cmd);
 
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+        assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
     }
 
     #[test]
@@ -674,6 +676,6 @@ mod tests {
         let tick_rate = Duration::from_secs(1);
         let rate = process.get_read_bytes_sec(&tick_rate);
 
-        assert!((rate - 1_000_000_000.0).abs() < 1.0);
+        assert_eq!(rate, 1_000_000_000.0);
     }
 }
