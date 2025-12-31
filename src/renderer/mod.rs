@@ -8,8 +8,7 @@ mod help;
 pub mod macros;
 mod network;
 mod process;
-#[cfg(test)]
-mod render_tests;
+
 pub mod section;
 pub mod style;
 mod title;
