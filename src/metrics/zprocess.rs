@@ -11,7 +11,7 @@ use libc::{id_t, setpriority};
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
 
-use std::cmp::Ordering::{self, Equal};
+use std::cmp::Ordering::{self};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::Process;
 use sysinfo::ProcessExt;
@@ -436,3 +436,243 @@ impl ProcessStatusExt for ProcessStatus {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn create_test_process() -> ZProcess {
+        ZProcess {
+            pid: 1234,
+            uid: 1000,
+            user_name: "testuser".to_string(),
+            memory: 1024 * 1024,
+            cpu_usage: 50.0,
+            cum_cpu_usage: 100.0,
+            command: vec!["test".to_string(), "--arg".to_string()],
+            exe: "/usr/bin/test".to_string(),
+            status: ProcessStatus::Run,
+            name: "test_process".to_string(),
+            priority: 20,
+            nice: 0,
+            virtual_memory: 2 * 1024 * 1024,
+            threads_total: 4,
+            read_bytes: 1000,
+            write_bytes: 500,
+            prev_read_bytes: 500,
+            prev_write_bytes: 250,
+            last_updated: SystemTime::now(),
+            end_time: None,
+            start_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                - 3600, // Started 1 hour ago
+            gpu_usage: 0,
+            fb_utilization: 0,
+            enc_utilization: 0,
+            dec_utilization: 0,
+            sm_utilization: 0,
+            io_delay: Duration::from_nanos(0),
+            swap_delay: Duration::from_nanos(0),
+            prev_io_delay: Duration::from_nanos(0),
+            prev_swap_delay: Duration::from_nanos(0),
+        }
+    }
+
+    #[test]
+    fn test_get_read_bytes_sec() {
+        let process = create_test_process();
+        let tick_rate = Duration::from_secs(1);
+        
+        // read_bytes: 1000, prev_read_bytes: 500
+        // (1000 - 500) / 1.0 = 500.0
+        let read_rate = process.get_read_bytes_sec(&tick_rate);
+        assert!((read_rate - 500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_get_read_bytes_sec_with_different_tick() {
+        let process = create_test_process();
+        let tick_rate = Duration::from_secs(2);
+        
+        // (1000 - 500) / 2.0 = 250.0
+        let read_rate = process.get_read_bytes_sec(&tick_rate);
+        assert!((read_rate - 250.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_get_write_bytes_sec() {
+        let process = create_test_process();
+        let tick_rate = Duration::from_secs(1);
+        
+        // write_bytes: 500, prev_write_bytes: 250
+        // (500 - 250) / 1.0 = 250.0
+        let write_rate = process.get_write_bytes_sec(&tick_rate);
+        assert!((write_rate - 250.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_get_write_bytes_sec_with_different_tick() {
+        let process = create_test_process();
+        let tick_rate = Duration::from_millis(500);
+        
+        // (500 - 250) / 0.5 = 500.0
+        let write_rate = process.get_write_bytes_sec(&tick_rate);
+        assert!((write_rate - 500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_get_run_duration_alive_process() {
+        let process = create_test_process();
+        let duration = process.get_run_duration();
+        
+        // Process started 1 hour ago
+        assert!(duration.num_minutes() >= 59);
+        assert!(duration.num_minutes() <= 61);
+    }
+
+    #[test]
+    fn test_get_run_duration_dead_process() {
+        let mut process = create_test_process();
+        // Process ended 30 minutes after start
+        process.end_time = Some(process.start_time + 1800);
+        
+        let duration = process.get_run_duration();
+        assert_eq!(duration.num_minutes(), 30);
+    }
+
+    #[test]
+    fn test_set_end_time() {
+        let mut process = create_test_process();
+        assert!(process.end_time.is_none());
+        
+        process.set_end_time();
+        assert!(process.end_time.is_some());
+        
+        // Calling again should not change the end time
+        let first_end_time = process.end_time;
+        process.set_end_time();
+        assert_eq!(process.end_time, first_end_time);
+    }
+
+    #[test]
+    fn test_field_comparator_cpu() {
+        let mut p1 = create_test_process();
+        let mut p2 = create_test_process();
+        p1.cpu_usage = 10.0;
+        p2.cpu_usage = 20.0;
+        
+        let tick = Duration::from_secs(1);
+        let comparator = ZProcess::field_comparator(ProcessTableSortBy::Cpu);
+        
+        assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+        assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
+        assert_eq!(comparator(&p1, &p1, &tick), Ordering::Equal);
+    }
+
+    #[test]
+    fn test_field_comparator_memory() {
+        let mut p1 = create_test_process();
+        let mut p2 = create_test_process();
+        p1.memory = 1000;
+        p2.memory = 2000;
+        
+        let tick = Duration::from_secs(1);
+        let comparator = ZProcess::field_comparator(ProcessTableSortBy::Mem);
+        
+        assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+        assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_field_comparator_pid() {
+        let mut p1 = create_test_process();
+        let mut p2 = create_test_process();
+        p1.pid = 100;
+        p2.pid = 200;
+        
+        let tick = Duration::from_secs(1);
+        let comparator = ZProcess::field_comparator(ProcessTableSortBy::Pid);
+        
+        assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+    }
+
+    #[test]
+    fn test_field_comparator_user() {
+        let mut p1 = create_test_process();
+        let mut p2 = create_test_process();
+        p1.user_name = "alice".to_string();
+        p2.user_name = "bob".to_string();
+        
+        let tick = Duration::from_secs(1);
+        let comparator = ZProcess::field_comparator(ProcessTableSortBy::User);
+        
+        assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+    }
+
+    #[test]
+    fn test_field_comparator_disk_read() {
+        let mut p1 = create_test_process();
+        let mut p2 = create_test_process();
+        p1.read_bytes = 1000;
+        p1.prev_read_bytes = 0;
+        p2.read_bytes = 2000;
+        p2.prev_read_bytes = 0;
+        
+        let tick = Duration::from_secs(1);
+        let comparator = ZProcess::field_comparator(ProcessTableSortBy::DiskRead);
+        
+        assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+    }
+
+    #[test]
+    fn test_field_comparator_cmd() {
+        let mut p1 = create_test_process();
+        let mut p2 = create_test_process();
+        p1.name = "aaa".to_string();
+        p2.name = "zzz".to_string();
+        
+        let tick = Duration::from_secs(1);
+        let comparator = ZProcess::field_comparator(ProcessTableSortBy::Cmd);
+        
+        assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
+    }
+
+    #[test]
+    fn test_process_status_to_single_char() {
+        assert_eq!(ProcessStatus::Run.to_single_char(), "R");
+        assert_eq!(ProcessStatus::Sleep.to_single_char(), "S");
+        assert_eq!(ProcessStatus::Stop.to_single_char(), "T");
+        assert_eq!(ProcessStatus::Zombie.to_single_char(), "Z");
+        assert_eq!(ProcessStatus::Idle.to_single_char(), "I");
+    }
+
+    #[test]
+    fn test_zero_io_rates() {
+        let mut process = create_test_process();
+        process.read_bytes = 0;
+        process.prev_read_bytes = 0;
+        process.write_bytes = 0;
+        process.prev_write_bytes = 0;
+        
+        let tick_rate = Duration::from_secs(1);
+        
+        assert_eq!(process.get_read_bytes_sec(&tick_rate), 0.0);
+        assert_eq!(process.get_write_bytes_sec(&tick_rate), 0.0);
+    }
+
+    #[test]
+    fn test_large_io_rates() {
+        let mut process = create_test_process();
+        process.read_bytes = 1_000_000_000; // 1GB
+        process.prev_read_bytes = 0;
+        
+        let tick_rate = Duration::from_secs(1);
+        let rate = process.get_read_bytes_sec(&tick_rate);
+        
+        assert!((rate - 1_000_000_000.0).abs() < 1.0);
+    }
+}
+

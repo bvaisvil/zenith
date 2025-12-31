@@ -395,3 +395,91 @@ struct ZOptions {
     #[options(short = "g", long = "graphics-height", default = "17", meta = "INT")]
     graphics_height: u16,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_refresh_rate_valid() {
+        assert_eq!(validate_refresh_rate("1000"), Ok(1000));
+        assert_eq!(validate_refresh_rate("2000"), Ok(2000));
+        assert_eq!(validate_refresh_rate("5000"), Ok(5000));
+    }
+
+    #[test]
+    fn test_validate_refresh_rate_too_low() {
+        let result = validate_refresh_rate("500");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("at least 1000"));
+    }
+
+    #[test]
+    fn test_validate_refresh_rate_invalid_number() {
+        let result = validate_refresh_rate("not_a_number");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_refresh_rate_zero() {
+        let result = validate_refresh_rate("0");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_create_geometry_all_sections() {
+        let geometry = create_geometry(17, 17, 17, 32, 0, 17);
+        
+        // Should have 5 sections (graphics is included when height > 0)
+        assert_eq!(geometry.len(), 5);
+        
+        // Check that all expected sections are present
+        let sections: Vec<Section> = geometry.iter().map(|(s, _)| *s).collect();
+        assert!(sections.contains(&Section::Cpu));
+        assert!(sections.contains(&Section::Network));
+        assert!(sections.contains(&Section::Disk));
+        assert!(sections.contains(&Section::Graphics));
+        assert!(sections.contains(&Section::Process));
+    }
+
+    #[test]
+    fn test_create_geometry_sum_to_100() {
+        let geometry = create_geometry(17, 17, 17, 32, 0, 17);
+        let sum: f64 = geometry.iter().map(|(_, h)| h).sum();
+        
+        // Sum should be approximately 100%
+        assert!((99.9..=100.1).contains(&sum));
+    }
+
+    #[test]
+    fn test_create_geometry_zero_heights_excluded() {
+        // Only CPU and Process with non-zero heights
+        let geometry = create_geometry(50, 0, 0, 50, 0, 0);
+        
+        assert_eq!(geometry.len(), 2);
+        let sections: Vec<Section> = geometry.iter().map(|(s, _)| *s).collect();
+        assert!(sections.contains(&Section::Cpu));
+        assert!(sections.contains(&Section::Process));
+        assert!(!sections.contains(&Section::Network));
+        assert!(!sections.contains(&Section::Disk));
+    }
+
+    #[test]
+    fn test_create_geometry_proportional_distribution() {
+        // Test that heights are distributed proportionally
+        let geometry = create_geometry(25, 25, 25, 25, 0, 0);
+        
+        // Each should be approximately 25%
+        for (_, height) in &geometry {
+            assert!((*height - 25.0).abs() < 1.0);
+        }
+    }
+
+    #[test]
+    fn test_default_db_path_not_empty() {
+        let path = default_db_path();
+        assert!(!path.is_empty());
+        assert!(path.contains("zenith"));
+    }
+}
+

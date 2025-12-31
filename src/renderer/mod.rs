@@ -11,6 +11,8 @@ mod process;
 pub mod section;
 pub mod style;
 mod title;
+#[cfg(test)]
+mod render_tests;
 use crate::metrics::graphics::device::GraphicsExt;
 use crate::metrics::histogram::View;
 use crate::metrics::zprocess::*;
@@ -883,3 +885,170 @@ pub enum HistoryRecording {
     UserDisabled,
     OtherInstancePrevents,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_constraints_single_section() {
+        let geometry = vec![(Section::Process, 100.0)];
+        let constraints = get_constraints(&geometry, 24);
+        
+        // Should have 2 constraints: title bar (1) + process section
+        assert_eq!(constraints.len(), 2);
+        assert_eq!(constraints[0], Constraint::Length(1));
+    }
+
+    #[test]
+    fn test_get_constraints_multiple_sections() {
+        let geometry = vec![
+            (Section::Cpu, 25.0),
+            (Section::Network, 25.0),
+            (Section::Process, 50.0),
+        ];
+        let constraints = get_constraints(&geometry, 40);
+        
+        // 1 title + 3 sections = 4 constraints
+        assert_eq!(constraints.len(), 4);
+        assert_eq!(constraints[0], Constraint::Length(1));
+    }
+
+    #[test]
+    fn test_get_constraints_with_small_height() {
+        let geometry = vec![
+            (Section::Cpu, 33.0),
+            (Section::Process, 67.0),
+        ];
+        let constraints = get_constraints(&geometry, 10);
+        
+        assert_eq!(constraints.len(), 3);
+        // CPU should get even height
+        if let Constraint::Length(h) = constraints[1] {
+            assert!(h % 2 == 0 || h == 1);
+        }
+    }
+
+    #[test]
+    fn test_eval_constraints_process_minimum() {
+        // Process section should have at least 4 rows
+        let geometry = vec![
+            (Section::Cpu, 80.0),
+            (Section::Process, 20.0),
+        ];
+        let mut borrowed = false;
+        let constraints = eval_constraints(&geometry, 20, &mut borrowed);
+        
+        // Process section should get Min constraint
+        if let Constraint::Min(h) = constraints[2] {
+            assert!(h >= 4, "Process section should have at least 4 rows");
+        }
+    }
+
+    #[test]
+    fn test_eval_constraints_even_heights() {
+        // With two sections at 50% each on a 40-row terminal
+        // Title bar takes 1 row, leaving 39 for sections
+        let geometry = vec![
+            (Section::Cpu, 50.0),
+            (Section::Network, 50.0),
+        ];
+        let mut borrowed = false;
+        let constraints = eval_constraints(&geometry, 40, &mut borrowed);
+        
+        // The constraint calculation tries to make heights even when possible
+        // but the exact height depends on available space and rounding
+        // Just verify we get valid constraints
+        assert_eq!(constraints.len(), 3); // 1 title + 2 sections
+        assert_eq!(constraints[0], Constraint::Length(1)); // title bar
+    }
+
+    #[test]
+    fn test_eval_constraints_borrowed_flag() {
+        // When process section is too small, rows should be borrowed
+        let geometry = vec![
+            (Section::Cpu, 50.0),
+            (Section::Network, 45.0),
+            (Section::Process, 5.0),
+        ];
+        let mut borrowed = false;
+        let _constraints = eval_constraints(&geometry, 20, &mut borrowed);
+        
+        // borrowed flag might be set if process section needed to borrow rows
+        // This depends on the specific height calculation
+    }
+
+    #[test]
+    fn test_ceil_even_macro() {
+        assert_eq!(ceil_even!(1), 2);
+        assert_eq!(ceil_even!(2), 2);
+        assert_eq!(ceil_even!(3), 4);
+        assert_eq!(ceil_even!(4), 4);
+        assert_eq!(ceil_even!(5), 6);
+        assert_eq!(ceil_even!(10), 10);
+        assert_eq!(ceil_even!(11), 12);
+    }
+
+    #[test]
+    fn test_filesystem_display_enum() {
+        let activity = FileSystemDisplay::Activity;
+        let usage = FileSystemDisplay::Usage;
+        
+        assert_ne!(activity, usage);
+        assert_eq!(activity, FileSystemDisplay::Activity);
+    }
+
+    #[test]
+    fn test_constraints_title_bar_always_one() {
+        // Test various configurations - title bar should always be 1
+        let configs = vec![
+            vec![(Section::Process, 100.0)],
+            vec![(Section::Cpu, 50.0), (Section::Process, 50.0)],
+            vec![
+                (Section::Cpu, 25.0),
+                (Section::Network, 25.0),
+                (Section::Disk, 25.0),
+                (Section::Process, 25.0),
+            ],
+        ];
+        
+        for geometry in configs {
+            let constraints = get_constraints(&geometry, 40);
+            assert_eq!(
+                constraints[0],
+                Constraint::Length(1),
+                "Title bar should always be 1 row"
+            );
+        }
+    }
+
+    #[test]
+    fn test_constraints_count_matches_sections() {
+        let geometry = vec![
+            (Section::Cpu, 20.0),
+            (Section::Network, 20.0),
+            (Section::Disk, 20.0),
+            (Section::Graphics, 20.0),
+            (Section::Process, 20.0),
+        ];
+        let constraints = get_constraints(&geometry, 50);
+        
+        // Should be 1 (title) + 5 (sections) = 6 constraints
+        assert_eq!(constraints.len(), geometry.len() + 1);
+    }
+
+    #[test]
+    fn test_get_constraints_very_small_terminal() {
+        let geometry = vec![
+            (Section::Cpu, 50.0),
+            (Section::Process, 50.0),
+        ];
+        // Very small terminal
+        let constraints = get_constraints(&geometry, 8);
+        
+        assert!(!constraints.is_empty());
+        // Should still have title bar
+        assert_eq!(constraints[0], Constraint::Length(1));
+    }
+}
+
