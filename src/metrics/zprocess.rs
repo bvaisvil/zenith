@@ -11,6 +11,8 @@ use libc::{id_t, setpriority};
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
 
+#[cfg(target_os = "linux")]
+use std::cmp::Ordering::Equal;
 use std::cmp::Ordering::{self};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::Process;
@@ -485,7 +487,7 @@ mod tests {
     fn test_get_read_bytes_sec() {
         let process = create_test_process();
         let tick_rate = Duration::from_secs(1);
-        
+
         // read_bytes: 1000, prev_read_bytes: 500
         // (1000 - 500) / 1.0 = 500.0
         let read_rate = process.get_read_bytes_sec(&tick_rate);
@@ -496,7 +498,7 @@ mod tests {
     fn test_get_read_bytes_sec_with_different_tick() {
         let process = create_test_process();
         let tick_rate = Duration::from_secs(2);
-        
+
         // (1000 - 500) / 2.0 = 250.0
         let read_rate = process.get_read_bytes_sec(&tick_rate);
         assert!((read_rate - 250.0).abs() < 0.01);
@@ -506,7 +508,7 @@ mod tests {
     fn test_get_write_bytes_sec() {
         let process = create_test_process();
         let tick_rate = Duration::from_secs(1);
-        
+
         // write_bytes: 500, prev_write_bytes: 250
         // (500 - 250) / 1.0 = 250.0
         let write_rate = process.get_write_bytes_sec(&tick_rate);
@@ -517,7 +519,7 @@ mod tests {
     fn test_get_write_bytes_sec_with_different_tick() {
         let process = create_test_process();
         let tick_rate = Duration::from_millis(500);
-        
+
         // (500 - 250) / 0.5 = 500.0
         let write_rate = process.get_write_bytes_sec(&tick_rate);
         assert!((write_rate - 500.0).abs() < 0.01);
@@ -527,7 +529,7 @@ mod tests {
     fn test_get_run_duration_alive_process() {
         let process = create_test_process();
         let duration = process.get_run_duration();
-        
+
         // Process started 1 hour ago
         assert!(duration.num_minutes() >= 59);
         assert!(duration.num_minutes() <= 61);
@@ -538,7 +540,7 @@ mod tests {
         let mut process = create_test_process();
         // Process ended 30 minutes after start
         process.end_time = Some(process.start_time + 1800);
-        
+
         let duration = process.get_run_duration();
         assert_eq!(duration.num_minutes(), 30);
     }
@@ -547,10 +549,10 @@ mod tests {
     fn test_set_end_time() {
         let mut process = create_test_process();
         assert!(process.end_time.is_none());
-        
+
         process.set_end_time();
         assert!(process.end_time.is_some());
-        
+
         // Calling again should not change the end time
         let first_end_time = process.end_time;
         process.set_end_time();
@@ -563,10 +565,10 @@ mod tests {
         let mut p2 = create_test_process();
         p1.cpu_usage = 10.0;
         p2.cpu_usage = 20.0;
-        
+
         let tick = Duration::from_secs(1);
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::Cpu);
-        
+
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
         assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
         assert_eq!(comparator(&p1, &p1, &tick), Ordering::Equal);
@@ -578,10 +580,10 @@ mod tests {
         let mut p2 = create_test_process();
         p1.memory = 1000;
         p2.memory = 2000;
-        
+
         let tick = Duration::from_secs(1);
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::Mem);
-        
+
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
         assert_eq!(comparator(&p2, &p1, &tick), Ordering::Greater);
     }
@@ -592,10 +594,10 @@ mod tests {
         let mut p2 = create_test_process();
         p1.pid = 100;
         p2.pid = 200;
-        
+
         let tick = Duration::from_secs(1);
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::Pid);
-        
+
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
     }
 
@@ -605,10 +607,10 @@ mod tests {
         let mut p2 = create_test_process();
         p1.user_name = "alice".to_string();
         p2.user_name = "bob".to_string();
-        
+
         let tick = Duration::from_secs(1);
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::User);
-        
+
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
     }
 
@@ -620,10 +622,10 @@ mod tests {
         p1.prev_read_bytes = 0;
         p2.read_bytes = 2000;
         p2.prev_read_bytes = 0;
-        
+
         let tick = Duration::from_secs(1);
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::DiskRead);
-        
+
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
     }
 
@@ -633,10 +635,10 @@ mod tests {
         let mut p2 = create_test_process();
         p1.name = "aaa".to_string();
         p2.name = "zzz".to_string();
-        
+
         let tick = Duration::from_secs(1);
         let comparator = ZProcess::field_comparator(ProcessTableSortBy::Cmd);
-        
+
         assert_eq!(comparator(&p1, &p2, &tick), Ordering::Less);
     }
 
@@ -656,9 +658,9 @@ mod tests {
         process.prev_read_bytes = 0;
         process.write_bytes = 0;
         process.prev_write_bytes = 0;
-        
+
         let tick_rate = Duration::from_secs(1);
-        
+
         assert_eq!(process.get_read_bytes_sec(&tick_rate), 0.0);
         assert_eq!(process.get_write_bytes_sec(&tick_rate), 0.0);
     }
@@ -668,11 +670,10 @@ mod tests {
         let mut process = create_test_process();
         process.read_bytes = 1_000_000_000; // 1GB
         process.prev_read_bytes = 0;
-        
+
         let tick_rate = Duration::from_secs(1);
         let rate = process.get_read_bytes_sec(&tick_rate);
-        
+
         assert!((rate - 1_000_000_000.0).abs() < 1.0);
     }
 }
-

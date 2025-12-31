@@ -8,11 +8,11 @@ mod help;
 pub mod macros;
 mod network;
 mod process;
+#[cfg(test)]
+mod render_tests;
 pub mod section;
 pub mod style;
 mod title;
-#[cfg(test)]
-mod render_tests;
 use crate::metrics::graphics::device::GraphicsExt;
 use crate::metrics::histogram::View;
 use crate::metrics::zprocess::*;
@@ -894,7 +894,7 @@ mod tests {
     fn test_get_constraints_single_section() {
         let geometry = vec![(Section::Process, 100.0)];
         let constraints = get_constraints(&geometry, 24);
-        
+
         // Should have 2 constraints: title bar (1) + process section
         assert_eq!(constraints.len(), 2);
         assert_eq!(constraints[0], Constraint::Length(1));
@@ -908,7 +908,7 @@ mod tests {
             (Section::Process, 50.0),
         ];
         let constraints = get_constraints(&geometry, 40);
-        
+
         // 1 title + 3 sections = 4 constraints
         assert_eq!(constraints.len(), 4);
         assert_eq!(constraints[0], Constraint::Length(1));
@@ -916,12 +916,9 @@ mod tests {
 
     #[test]
     fn test_get_constraints_with_small_height() {
-        let geometry = vec![
-            (Section::Cpu, 33.0),
-            (Section::Process, 67.0),
-        ];
+        let geometry = vec![(Section::Cpu, 33.0), (Section::Process, 67.0)];
         let constraints = get_constraints(&geometry, 10);
-        
+
         assert_eq!(constraints.len(), 3);
         // CPU should get even height
         if let Constraint::Length(h) = constraints[1] {
@@ -932,13 +929,10 @@ mod tests {
     #[test]
     fn test_eval_constraints_process_minimum() {
         // Process section should have at least 4 rows
-        let geometry = vec![
-            (Section::Cpu, 80.0),
-            (Section::Process, 20.0),
-        ];
+        let geometry = vec![(Section::Cpu, 80.0), (Section::Process, 20.0)];
         let mut borrowed = false;
         let constraints = eval_constraints(&geometry, 20, &mut borrowed);
-        
+
         // Process section should get Min constraint
         if let Constraint::Min(h) = constraints[2] {
             assert!(h >= 4, "Process section should have at least 4 rows");
@@ -949,13 +943,10 @@ mod tests {
     fn test_eval_constraints_even_heights() {
         // With two sections at 50% each on a 40-row terminal
         // Title bar takes 1 row, leaving 39 for sections
-        let geometry = vec![
-            (Section::Cpu, 50.0),
-            (Section::Network, 50.0),
-        ];
+        let geometry = vec![(Section::Cpu, 50.0), (Section::Network, 50.0)];
         let mut borrowed = false;
         let constraints = eval_constraints(&geometry, 40, &mut borrowed);
-        
+
         // The constraint calculation tries to make heights even when possible
         // but the exact height depends on available space and rounding
         // Just verify we get valid constraints
@@ -973,7 +964,7 @@ mod tests {
         ];
         let mut borrowed = false;
         let _constraints = eval_constraints(&geometry, 20, &mut borrowed);
-        
+
         // borrowed flag might be set if process section needed to borrow rows
         // This depends on the specific height calculation
     }
@@ -993,7 +984,7 @@ mod tests {
     fn test_filesystem_display_enum() {
         let activity = FileSystemDisplay::Activity;
         let usage = FileSystemDisplay::Usage;
-        
+
         assert_ne!(activity, usage);
         assert_eq!(activity, FileSystemDisplay::Activity);
     }
@@ -1011,7 +1002,7 @@ mod tests {
                 (Section::Process, 25.0),
             ],
         ];
-        
+
         for geometry in configs {
             let constraints = get_constraints(&geometry, 40);
             assert_eq!(
@@ -1032,23 +1023,19 @@ mod tests {
             (Section::Process, 20.0),
         ];
         let constraints = get_constraints(&geometry, 50);
-        
+
         // Should be 1 (title) + 5 (sections) = 6 constraints
         assert_eq!(constraints.len(), geometry.len() + 1);
     }
 
     #[test]
     fn test_get_constraints_very_small_terminal() {
-        let geometry = vec![
-            (Section::Cpu, 50.0),
-            (Section::Process, 50.0),
-        ];
+        let geometry = vec![(Section::Cpu, 50.0), (Section::Process, 50.0)];
         // Very small terminal
         let constraints = get_constraints(&geometry, 8);
-        
+
         assert!(!constraints.is_empty());
         // Should still have title bar
         assert_eq!(constraints[0], Constraint::Length(1));
     }
 }
-

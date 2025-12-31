@@ -576,11 +576,11 @@ mod tests {
     fn create_mock_app_for_filter(processes: Vec<ZProcess>) -> MockApp {
         let mut process_map = HashMap::new();
         let process_ids: Vec<i32> = processes.iter().map(|p| p.pid).collect();
-        
+
         for p in processes {
             process_map.insert(p.pid, p);
         }
-        
+
         MockApp {
             processes: process_ids,
             process_map,
@@ -603,14 +603,15 @@ mod tests {
             create_test_process(3, "code", 5.0, 500),
             create_test_process(4, "firefox-esr", 8.0, 800),
         ];
-        
+
         let mock = create_mock_app_for_filter(processes);
-        
+
         // Test filter matching
         let filter = "firefox";
         let filter_lc = filter.to_lowercase();
-        
-        let matches: Vec<i32> = mock.processes
+
+        let matches: Vec<i32> = mock
+            .processes
             .iter()
             .filter(|pid| {
                 let p = mock.process_map.get(pid).unwrap();
@@ -618,7 +619,7 @@ mod tests {
             })
             .copied()
             .collect();
-        
+
         assert_eq!(matches.len(), 2);
         assert!(matches.contains(&1));
         assert!(matches.contains(&4));
@@ -630,13 +631,14 @@ mod tests {
             create_test_process(1, "firefox", 10.0, 1000),
             create_test_process(2, "chrome", 20.0, 2000),
         ];
-        
+
         let mock = create_mock_app_for_filter(processes);
-        
+
         let filter = "/usr/bin/firefox";
         let filter_lc = filter.to_lowercase();
-        
-        let matches: Vec<i32> = mock.processes
+
+        let matches: Vec<i32> = mock
+            .processes
             .iter()
             .filter(|pid| {
                 let p = mock.process_map.get(pid).unwrap();
@@ -644,7 +646,7 @@ mod tests {
             })
             .copied()
             .collect();
-        
+
         assert_eq!(matches.len(), 1);
         assert!(matches.contains(&1));
     }
@@ -656,13 +658,14 @@ mod tests {
             create_test_process(456, "process_b", 20.0, 2000),
             create_test_process(1234, "process_c", 5.0, 500),
         ];
-        
+
         let mock = create_mock_app_for_filter(processes);
-        
+
         let filter = "123";
         let filter_lc = filter.to_lowercase();
-        
-        let matches: Vec<i32> = mock.processes
+
+        let matches: Vec<i32> = mock
+            .processes
             .iter()
             .filter(|pid| {
                 let p = mock.process_map.get(pid).unwrap();
@@ -670,7 +673,7 @@ mod tests {
             })
             .copied()
             .collect();
-        
+
         // Should match pid 123 and 1234
         assert_eq!(matches.len(), 2);
         assert!(matches.contains(&123));
@@ -684,13 +687,14 @@ mod tests {
             create_test_process(2, "FIREFOX", 20.0, 2000),
             create_test_process(3, "firefox", 5.0, 500),
         ];
-        
+
         let mock = create_mock_app_for_filter(processes);
-        
+
         let filter = "firefox";
         let filter_lc = filter.to_lowercase();
-        
-        let matches: Vec<i32> = mock.processes
+
+        let matches: Vec<i32> = mock
+            .processes
             .iter()
             .filter(|pid| {
                 let p = mock.process_map.get(pid).unwrap();
@@ -698,7 +702,7 @@ mod tests {
             })
             .copied()
             .collect();
-        
+
         // All three should match
         assert_eq!(matches.len(), 3);
     }
@@ -709,11 +713,11 @@ mod tests {
             create_test_process(1, "firefox", 10.0, 1000),
             create_test_process(2, "chrome", 20.0, 2000),
         ];
-        
+
         let mock = create_mock_app_for_filter(processes);
-        
+
         let filter = "";
-        
+
         // Empty filter should return all
         if filter.is_empty() {
             assert_eq!(mock.processes.len(), 2);
@@ -726,13 +730,14 @@ mod tests {
             create_test_process(1, "firefox", 10.0, 1000),
             create_test_process(2, "chrome", 20.0, 2000),
         ];
-        
+
         let mock = create_mock_app_for_filter(processes);
-        
+
         let filter = "nonexistent";
         let filter_lc = filter.to_lowercase();
-        
-        let matches: Vec<i32> = mock.processes
+
+        let matches: Vec<i32> = mock
+            .processes
             .iter()
             .filter(|pid| {
                 let p = mock.process_map.get(pid).unwrap();
@@ -740,7 +745,7 @@ mod tests {
             })
             .copied()
             .collect();
-        
+
         assert_eq!(matches.len(), 0);
     }
 
@@ -748,18 +753,16 @@ mod tests {
     fn test_filter_logic_by_command() {
         let mut process = create_test_process(1, "python", 10.0, 1000);
         process.command = vec!["python".to_string(), "my_script.py".to_string()];
-        
-        let processes = vec![
-            process,
-            create_test_process(2, "bash", 5.0, 500),
-        ];
-        
+
+        let processes = vec![process, create_test_process(2, "bash", 5.0, 500)];
+
         let mock = create_mock_app_for_filter(processes);
-        
+
         let filter = "my_script";
         let filter_lc = filter.to_lowercase();
-        
-        let matches: Vec<i32> = mock.processes
+
+        let matches: Vec<i32> = mock
+            .processes
             .iter()
             .filter(|pid| {
                 let p = mock.process_map.get(pid).unwrap();
@@ -767,7 +770,7 @@ mod tests {
             })
             .copied()
             .collect();
-        
+
         assert_eq!(matches.len(), 1);
         assert!(matches.contains(&1));
     }
@@ -792,4 +795,3 @@ mod tests {
         assert!(!format!("{:?}", cell).is_empty());
     }
 }
-

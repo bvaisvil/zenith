@@ -188,12 +188,9 @@ mod tests {
 
     #[test]
     fn test_section_mgr_list_creation() {
-        let geometry = vec![
-            (Section::Cpu, 50.0),
-            (Section::Process, 50.0),
-        ];
+        let geometry = vec![(Section::Cpu, 50.0), (Section::Process, 50.0)];
         let list = SectionMGRList::with_geometry(geometry);
-        
+
         // Should have 5 items (all sections)
         assert_eq!(list.items.len(), 5);
         // Should have first item selected
@@ -202,12 +199,9 @@ mod tests {
 
     #[test]
     fn test_section_mgr_list_selected() {
-        let geometry = vec![
-            (Section::Cpu, 50.0),
-            (Section::Process, 50.0),
-        ];
+        let geometry = vec![(Section::Cpu, 50.0), (Section::Process, 50.0)];
         let list = SectionMGRList::with_geometry(geometry);
-        
+
         // First item is CPU
         assert_eq!(list.selected(), Some(Section::Cpu));
     }
@@ -219,7 +213,7 @@ mod tests {
         let disk: Section = FromPrimitive::from_u32(2).unwrap();
         let graphics: Section = FromPrimitive::from_u32(3).unwrap();
         let process: Section = FromPrimitive::from_u32(4).unwrap();
-        
+
         assert_eq!(cpu, Section::Cpu);
         assert_eq!(network, Section::Network);
         assert_eq!(disk, Section::Disk);
@@ -233,4 +227,3 @@ mod tests {
         assert!(invalid.is_none());
     }
 }
-
