@@ -221,10 +221,10 @@ pub struct TerminalRenderer<'a> {
 impl<'a> TerminalRenderer<'_> {
     pub fn new(
         tick_rate: u64,
-        section_geometry: &[(Section, f64)],
+        section_geometry: &'_ [(Section, f64)],
         db_path: Option<PathBuf>,
         disable_history: bool,
-    ) -> TerminalRenderer {
+    ) -> TerminalRenderer<'_> {
         debug!("Create Metrics App");
         let mut app = CPUTimeApp::new(Duration::from_millis(tick_rate), db_path);
         debug!("Create Event Loop");

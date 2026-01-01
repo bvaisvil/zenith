@@ -191,7 +191,7 @@ impl HistogramMap {
         })
     }
 
-    pub fn get(&self, name: &HistogramKind) -> Option<&Histogram> {
+    pub fn get(&'_ self, name: &HistogramKind) -> Option<&'_ Histogram<'_>> {
         self.map.get(name)
     }
 
