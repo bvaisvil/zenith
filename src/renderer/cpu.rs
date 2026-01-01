@@ -92,7 +92,7 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
     ])
 }
 
-fn mem_title(app: &CPUTimeApp) -> Line {
+fn mem_title(app: &'_ CPUTimeApp) -> Line<'_> {
     let mem = percent_of(app.mem_utilization, app.mem_total) as u64;
     let swp = percent_of(app.swap_utilization, app.swap_total) as u64;
 
