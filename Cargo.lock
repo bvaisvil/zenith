@@ -2185,7 +2185,7 @@ dependencies = [
 [[package]]
 name = "sysinfo"
 version = "0.15.1"
-source = "git+https://github.com/bvaisvil/sysinfo.git?branch=zenith_changes_15.1#bcff3dc5c5b53320c53984cef5773ed850001fd8"
+source = "git+https://github.com/bvaisvil/sysinfo.git?branch=zenith_changes_15.1_mem_fix#0ba4e1cbef69278b4f2b2e922f18620609edbd18"
 dependencies = [
  "cfg-if 0.1.10",
  "doc-comment",
