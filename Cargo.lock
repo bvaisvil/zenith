@@ -2696,7 +2696,7 @@ dependencies = [
 
 [[package]]
 name = "zenith"
-version = "0.14.2"
+version = "0.14.3"
 dependencies = [
  "bincode",
  "byte-unit",
