@@ -979,7 +979,6 @@ mod tests {
         assert_eq!(ceil_even!(11), 12);
     }
 
-
     #[test]
     fn test_constraints_title_bar_always_one() {
         // Test various configurations - title bar should always be 1
