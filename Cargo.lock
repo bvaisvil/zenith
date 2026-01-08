@@ -1278,9 +1278,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.171"
+version = "0.2.179"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c19937216e9d3aa9956d9bb8dfc0b0c8beb6058fc4f7a4dc4d850edf86a237d6"
+checksum = "c5a2d376baa530d1238d133232d15e239abad80d05838b4b59354e5268af431f"
 
 [[package]]
 name = "libloading"
@@ -2185,7 +2185,7 @@ dependencies = [
 [[package]]
 name = "sysinfo"
 version = "0.15.1"
-source = "git+https://github.com/bvaisvil/sysinfo.git?branch=zenith_changes_15.1#bcff3dc5c5b53320c53984cef5773ed850001fd8"
+source = "git+https://github.com/bvaisvil/sysinfo.git?branch=zenith_changes_15.1_mem_fix#671c4e14a0ff9c653fc842c83fabb5be4cae25c1"
 dependencies = [
  "cfg-if 0.1.10",
  "doc-comment",
@@ -2696,7 +2696,7 @@ dependencies = [
 
 [[package]]
 name = "zenith"
-version = "0.14.2"
+version = "0.14.3"
 dependencies = [
  "bincode",
  "byte-unit",

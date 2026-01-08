@@ -109,8 +109,8 @@ fn mem_title(app: &'_ CPUTimeApp) -> Line<'_> {
         Span::styled(
             format!(
                 "{} / {} - {:}%",
-                float_to_byte_string!(app.mem_utilization as f64, Unit::KB),
-                float_to_byte_string!(app.mem_total as f64, Unit::KB),
+                float_to_byte_string!(app.mem_utilization as f64, Unit::B),
+                float_to_byte_string!(app.mem_total as f64, Unit::B),
                 mem
             ),
             if mem > 95 { max_style() } else { ok_style() },
@@ -119,8 +119,8 @@ fn mem_title(app: &'_ CPUTimeApp) -> Line<'_> {
         Span::styled(
             format!(
                 "{} / {} - {:}%",
-                float_to_byte_string!(app.swap_utilization as f64, Unit::KB),
-                float_to_byte_string!(app.swap_total as f64, Unit::KB),
+                float_to_byte_string!(app.swap_utilization as f64, Unit::B),
+                float_to_byte_string!(app.swap_total as f64, Unit::B),
                 swp,
             ),
             if swp > 20 { max_style() } else { ok_style() },
