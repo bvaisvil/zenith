@@ -124,3 +124,79 @@ pub fn render_section_mgr(list: &mut SectionMGRList<'_>, area: Rect, f: &mut Fra
         .highlight_symbol("➡ ");
     f.render_stateful_widget(list_widget, layout[1], &mut list.state);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_section_ordering() {
+        assert!(Section::Cpu < Section::Network);
+        assert!(Section::Network < Section::Disk);
+        assert!(Section::Disk < Section::Graphics);
+        assert!(Section::Graphics < Section::Process);
+    }
+
+    #[test]
+    fn test_section_display() {
+        assert_eq!(format!("{}", Section::Cpu), " CPU");
+        assert_eq!(format!("{}", Section::Network), " Network");
+        assert_eq!(format!("{}", Section::Disk), " Disk");
+        assert_eq!(format!("{}", Section::Graphics), " Graphics");
+        assert_eq!(format!("{}", Section::Process), " Process");
+    }
+
+    #[test]
+    fn test_sum_section_heights_single() {
+        let geometry = vec![(Section::Process, 100.0)];
+        assert!((sum_section_heights(&geometry) - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_sum_section_heights_multiple() {
+        let geometry = vec![
+            (Section::Cpu, 25.0),
+            (Section::Network, 25.0),
+            (Section::Disk, 25.0),
+            (Section::Process, 25.0),
+        ];
+        assert!((sum_section_heights(&geometry) - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_sum_section_heights_empty() {
+        let geometry: Vec<(Section, f64)> = vec![];
+        assert_eq!(sum_section_heights(&geometry), 0.0);
+    }
+
+    #[test]
+    fn test_sum_section_heights_unequal() {
+        let geometry = vec![
+            (Section::Cpu, 17.0),
+            (Section::Network, 17.0),
+            (Section::Disk, 17.0),
+            (Section::Process, 49.0),
+        ];
+        assert!((sum_section_heights(&geometry) - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_section_mgr_list_creation() {
+        let geometry = vec![(Section::Cpu, 50.0), (Section::Process, 50.0)];
+        let list = SectionMGRList::with_geometry(geometry);
+
+        // Should have 5 items (all sections)
+        assert_eq!(list.items.len(), 5);
+        // Should have first item selected
+        assert_eq!(list.state.selected(), Some(0));
+    }
+
+    #[test]
+    fn test_section_mgr_list_selected() {
+        let geometry = vec![(Section::Cpu, 50.0), (Section::Process, 50.0)];
+        let list = SectionMGRList::with_geometry(geometry);
+
+        // First item is CPU
+        assert_eq!(list.selected(), Some(Section::Cpu));
+    }
+}
