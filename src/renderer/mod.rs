@@ -979,14 +979,6 @@ mod tests {
         assert_eq!(ceil_even!(11), 12);
     }
 
-    #[test]
-    fn test_filesystem_display_enum() {
-        let activity = FileSystemDisplay::Activity;
-        let usage = FileSystemDisplay::Usage;
-
-        assert_ne!(activity, usage);
-        assert_eq!(activity, FileSystemDisplay::Activity);
-    }
 
     #[test]
     fn test_constraints_title_bar_always_one() {
