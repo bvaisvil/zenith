@@ -906,7 +906,6 @@ mod tests {
         assert!(top.write.pid.is_none());
     }
 
-
     // Tests for NetworkInterface
     #[test]
     fn test_network_interface_struct() {

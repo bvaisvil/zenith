@@ -323,8 +323,6 @@ mod tests {
         assert_eq!(disk.get_write_bytes_sec(&tick), 800.0);
     }
 
-
-
     // Tests for get_device_name
     #[test]
     fn test_get_device_name_simple() {

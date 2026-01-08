@@ -302,7 +302,6 @@ mod tests {
         assert_eq!(h.data(), &[0, 0, 0, 0, 0]);
     }
 
-
     #[test]
     fn test_histogram_map_new_no_db() {
         let dur = Duration::from_secs(60 * 60);
@@ -534,6 +533,4 @@ mod tests {
             HistogramKind::FileSystemUsedSpace("/dev/sda1".to_string())
         );
     }
-
-
 }
