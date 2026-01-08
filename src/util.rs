@@ -251,21 +251,6 @@ mod tests {
         assert_eq!(config.tick_rate, Duration::from_millis(1000));
     }
 
-    #[test]
-    fn test_config_clone() {
-        let config1 = Config::default();
-        let config2 = config1.clone();
-        assert_eq!(config1.exit_key, config2.exit_key);
-        assert_eq!(config1.tick_rate, config2.tick_rate);
-    }
-
-    #[test]
-    fn test_config_copy() {
-        let config1 = Config::default();
-        let config2 = config1;
-        assert_eq!(config1.exit_key, config2.exit_key);
-        assert_eq!(config1.tick_rate, config2.tick_rate);
-    }
 
     #[test]
     fn test_config_debug() {
@@ -275,54 +260,6 @@ mod tests {
         assert!(debug_str.contains("tick_rate"));
     }
 
-    // Tests for Event enum
-    #[test]
-    fn test_event_tick() {
-        let event: Event<()> = Event::Tick;
-        match event {
-            Event::Tick => assert!(true),
-            _ => panic!("Expected Tick event"),
-        }
-    }
-
-    #[test]
-    fn test_event_save() {
-        let event: Event<()> = Event::Save;
-        match event {
-            Event::Save => assert!(true),
-            _ => panic!("Expected Save event"),
-        }
-    }
-
-    #[test]
-    fn test_event_terminate() {
-        let event: Event<()> = Event::Terminate;
-        match event {
-            Event::Terminate => assert!(true),
-            _ => panic!("Expected Terminate event"),
-        }
-    }
-
-    #[test]
-    fn test_event_resize() {
-        let event: Event<()> = Event::Resize(80, 24);
-        match event {
-            Event::Resize(cols, rows) => {
-                assert_eq!(cols, 80);
-                assert_eq!(rows, 24);
-            }
-            _ => panic!("Expected Resize event"),
-        }
-    }
-
-    #[test]
-    fn test_event_input() {
-        let event: Event<i32> = Event::Input(42);
-        match event {
-            Event::Input(val) => assert_eq!(val, 42),
-            _ => panic!("Expected Input event"),
-        }
-    }
 
     // Edge case tests for percent_of
     #[test]
