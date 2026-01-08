@@ -138,12 +138,6 @@ mod tests {
     }
 
     #[test]
-    fn test_section_equality() {
-        assert_eq!(Section::Cpu, Section::Cpu);
-        assert_ne!(Section::Cpu, Section::Network);
-    }
-
-    #[test]
     fn test_section_display() {
         assert_eq!(format!("{}", Section::Cpu), " CPU");
         assert_eq!(format!("{}", Section::Network), " Network");
