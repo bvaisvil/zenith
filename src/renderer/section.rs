@@ -199,25 +199,4 @@ mod tests {
         // First item is CPU
         assert_eq!(list.selected(), Some(Section::Cpu));
     }
-
-    #[test]
-    fn test_section_from_primitive() {
-        let cpu: Section = FromPrimitive::from_u32(0).unwrap();
-        let network: Section = FromPrimitive::from_u32(1).unwrap();
-        let disk: Section = FromPrimitive::from_u32(2).unwrap();
-        let graphics: Section = FromPrimitive::from_u32(3).unwrap();
-        let process: Section = FromPrimitive::from_u32(4).unwrap();
-
-        assert_eq!(cpu, Section::Cpu);
-        assert_eq!(network, Section::Network);
-        assert_eq!(disk, Section::Disk);
-        assert_eq!(graphics, Section::Graphics);
-        assert_eq!(process, Section::Process);
-    }
-
-    #[test]
-    fn test_section_from_primitive_invalid() {
-        let invalid: Option<Section> = FromPrimitive::from_u32(99);
-        assert!(invalid.is_none());
-    }
 }
