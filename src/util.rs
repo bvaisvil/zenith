@@ -251,7 +251,6 @@ mod tests {
         assert_eq!(config.tick_rate, Duration::from_millis(1000));
     }
 
-
     #[test]
     fn test_config_debug() {
         let config = Config::default();
@@ -259,7 +258,6 @@ mod tests {
         assert!(debug_str.contains("exit_key"));
         assert!(debug_str.contains("tick_rate"));
     }
-
 
     // Edge case tests for percent_of
     #[test]
