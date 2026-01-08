@@ -833,3 +833,231 @@ impl CPUTimeApp {
         self.histogram_map.writes_db_store()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Tests for ValAndPid
+    #[test]
+    fn test_val_and_pid_default() {
+        let vp: ValAndPid<u64> = ValAndPid::default();
+        assert_eq!(vp.val, 0);
+        assert!(vp.pid.is_none());
+    }
+
+    #[test]
+    fn test_val_and_pid_update_greater() {
+        let mut vp: ValAndPid<u64> = ValAndPid::default();
+        vp.update(100, 1234);
+
+        assert_eq!(vp.val, 100);
+        assert_eq!(vp.pid, Some(1234));
+    }
+
+    #[test]
+    fn test_val_and_pid_update_lesser() {
+        let mut vp: ValAndPid<u64> = ValAndPid::default();
+        vp.update(100, 1234);
+        vp.update(50, 5678); // Should not update since 50 < 100
+
+        assert_eq!(vp.val, 100);
+        assert_eq!(vp.pid, Some(1234));
+    }
+
+    #[test]
+    fn test_val_and_pid_update_equal() {
+        let mut vp: ValAndPid<u64> = ValAndPid::default();
+        vp.update(100, 1234);
+        vp.update(100, 5678); // Equal, should not update
+
+        assert_eq!(vp.val, 100);
+        assert_eq!(vp.pid, Some(1234));
+    }
+
+    #[test]
+    fn test_val_and_pid_update_sequence() {
+        let mut vp: ValAndPid<f64> = ValAndPid::default();
+        vp.update(10.5, 100);
+        vp.update(20.5, 200);
+        vp.update(15.0, 300);
+        vp.update(25.0, 400);
+
+        assert_eq!(vp.val, 25.0);
+        assert_eq!(vp.pid, Some(400));
+    }
+
+    // Tests for Top
+    #[test]
+    fn test_top_default() {
+        let top = Top::default();
+
+        assert_eq!(top.cum_cpu.val, 0.0);
+        assert!(top.cum_cpu.pid.is_none());
+        assert_eq!(top.cpu.val, 0.0);
+        assert!(top.cpu.pid.is_none());
+        assert_eq!(top.mem.val, 0);
+        assert!(top.mem.pid.is_none());
+        assert_eq!(top.virt.val, 0);
+        assert!(top.virt.pid.is_none());
+        assert_eq!(top.read.val, 0.0);
+        assert!(top.read.pid.is_none());
+        assert_eq!(top.write.val, 0.0);
+        assert!(top.write.pid.is_none());
+    }
+
+
+    // Tests for NetworkInterface
+    #[test]
+    fn test_network_interface_struct() {
+        let ni = NetworkInterface {
+            name: "eth0".to_string(),
+            ip: "192.168.1.100".to_string(),
+            dest: "192.168.1.1".to_string(),
+        };
+
+        assert_eq!(ni.name, "eth0");
+        assert_eq!(ni.ip, "192.168.1.100");
+        assert_eq!(ni.dest, "192.168.1.1");
+    }
+
+    // Tests for ProcessTableSortBy
+    #[test]
+    fn test_process_table_sort_by_values() {
+        assert_eq!(ProcessTableSortBy::Pid as u32, 0);
+        assert_eq!(ProcessTableSortBy::User as u32, 1);
+        assert_eq!(ProcessTableSortBy::Priority as u32, 2);
+        assert_eq!(ProcessTableSortBy::Nice as u32, 3);
+        assert_eq!(ProcessTableSortBy::Cpu as u32, 4);
+        assert_eq!(ProcessTableSortBy::MemPerc as u32, 5);
+        assert_eq!(ProcessTableSortBy::Mem as u32, 6);
+        assert_eq!(ProcessTableSortBy::Virt as u32, 7);
+        assert_eq!(ProcessTableSortBy::Status as u32, 8);
+        assert_eq!(ProcessTableSortBy::DiskRead as u32, 9);
+        assert_eq!(ProcessTableSortBy::DiskWrite as u32, 10);
+    }
+
+    #[test]
+    fn test_process_table_sort_by_equality() {
+        assert!(ProcessTableSortBy::Pid == ProcessTableSortBy::Pid);
+        assert!(ProcessTableSortBy::Cpu == ProcessTableSortBy::Cpu);
+        assert!(ProcessTableSortBy::Pid != ProcessTableSortBy::Cpu);
+    }
+
+    #[test]
+    fn test_process_table_sort_by_copy() {
+        let sort1 = ProcessTableSortBy::Cpu;
+        let sort2 = sort1;
+        assert!(sort1 == sort2);
+    }
+
+    // Tests for DiskFreeSpaceExt (requires mock or actual disk)
+    // Skipped as it requires real Disk struct
+
+    // Tests for from_primitive
+    #[test]
+    fn test_process_table_sort_by_from_primitive() {
+        use num_traits::FromPrimitive;
+
+        let pid: ProcessTableSortBy = FromPrimitive::from_u32(0).unwrap();
+        assert!(pid == ProcessTableSortBy::Pid);
+
+        let user: ProcessTableSortBy = FromPrimitive::from_u32(1).unwrap();
+        assert!(user == ProcessTableSortBy::User);
+
+        let cpu: ProcessTableSortBy = FromPrimitive::from_u32(4).unwrap();
+        assert!(cpu == ProcessTableSortBy::Cpu);
+
+        let invalid: Option<ProcessTableSortBy> = FromPrimitive::from_u32(999);
+        assert!(invalid.is_none());
+    }
+
+    // Tests for ValAndPid with different types
+    #[test]
+    fn test_val_and_pid_with_f32() {
+        let mut vp: ValAndPid<f32> = ValAndPid::default();
+        vp.update(10.5, 100);
+        vp.update(20.5, 200);
+
+        assert_eq!(vp.val, 20.5);
+        assert_eq!(vp.pid, Some(200));
+    }
+
+    #[test]
+    fn test_val_and_pid_debug() {
+        let vp: ValAndPid<u64> = ValAndPid {
+            val: 100,
+            pid: Some(1234),
+        };
+        let debug_str = format!("{:?}", vp);
+        assert!(debug_str.contains("100"));
+        assert!(debug_str.contains("1234"));
+    }
+
+    #[test]
+    fn test_top_debug() {
+        let top = Top::default();
+        let debug_str = format!("{:?}", top);
+        assert!(debug_str.contains("cum_cpu"));
+        assert!(debug_str.contains("cpu"));
+        assert!(debug_str.contains("mem"));
+    }
+
+    // Test edge cases for ValAndPid
+    #[test]
+    fn test_val_and_pid_zero_update() {
+        let mut vp: ValAndPid<u64> = ValAndPid::default();
+        vp.update(0, 100);
+
+        // 0 is not greater than 0, so should not update
+        assert_eq!(vp.val, 0);
+        assert!(vp.pid.is_none());
+    }
+
+    #[test]
+    fn test_val_and_pid_first_nonzero() {
+        let mut vp: ValAndPid<u64> = ValAndPid::default();
+        vp.update(1, 100);
+
+        // 1 > 0, should update
+        assert_eq!(vp.val, 1);
+        assert_eq!(vp.pid, Some(100));
+    }
+
+    #[test]
+    fn test_val_and_pid_negative_pid() {
+        let mut vp: ValAndPid<u64> = ValAndPid::default();
+        vp.update(100, -1);
+
+        assert_eq!(vp.val, 100);
+        assert_eq!(vp.pid, Some(-1));
+    }
+
+    // Linux-specific tests
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_top_iowait_default() {
+        let top = Top::default();
+        assert_eq!(top.iowait.val, 0.0);
+        assert!(top.iowait.pid.is_none());
+    }
+
+    // NVIDIA feature tests
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    #[test]
+    fn test_top_gpu_default() {
+        let top = Top::default();
+        assert_eq!(top.gpu.val, 0);
+        assert!(top.gpu.pid.is_none());
+        assert_eq!(top.frame_buffer.val, 0);
+        assert!(top.frame_buffer.pid.is_none());
+    }
+
+    #[cfg(all(target_os = "linux", feature = "nvidia"))]
+    #[test]
+    fn test_process_table_sort_by_gpu_fields() {
+        // With nvidia feature, Gpu and FB fields should exist
+        assert!(ProcessTableSortBy::Gpu as u32 > 0);
+        assert!(ProcessTableSortBy::FB as u32 > 0);
+    }
+}

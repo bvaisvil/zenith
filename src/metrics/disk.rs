@@ -172,3 +172,206 @@ pub async fn get_disk_io_metrics(disks: &mut HashMap<String, ZDisk>) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    // Tests for ZDisk
+    #[test]
+    fn test_zdisk_new_total() {
+        let disk = ZDisk::new_total();
+
+        assert_eq!(disk.name, "Total");
+        assert_eq!(disk.file_system, "Total");
+        assert_eq!(disk.available_bytes, 0);
+        assert_eq!(disk.size_bytes, 0);
+        assert_eq!(disk.mount_point.to_string_lossy(), "Total");
+    }
+
+    #[test]
+    fn test_zdisk_get_perc_free_space_zero_size() {
+        let disk = ZDisk::new_total();
+        assert_eq!(disk.get_perc_free_space(), 0.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_perc_free_space_normal() {
+        let mut disk = ZDisk::new_total();
+        disk.size_bytes = 1000;
+        disk.available_bytes = 500;
+
+        assert_eq!(disk.get_perc_free_space(), 50.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_perc_free_space_full() {
+        let mut disk = ZDisk::new_total();
+        disk.size_bytes = 1000;
+        disk.available_bytes = 0;
+
+        assert_eq!(disk.get_perc_free_space(), 0.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_perc_free_space_empty() {
+        let mut disk = ZDisk::new_total();
+        disk.size_bytes = 1000;
+        disk.available_bytes = 1000;
+
+        assert_eq!(disk.get_perc_free_space(), 100.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_used_bytes() {
+        let mut disk = ZDisk::new_total();
+        disk.size_bytes = 1000;
+        disk.available_bytes = 300;
+
+        assert_eq!(disk.get_used_bytes(), 700);
+    }
+
+    #[test]
+    fn test_zdisk_get_used_bytes_underflow() {
+        let mut disk = ZDisk::new_total();
+        disk.size_bytes = 100;
+        disk.available_bytes = 200; // More available than size (edge case)
+
+        // saturating_sub should return 0
+        assert_eq!(disk.get_used_bytes(), 0);
+    }
+
+    #[test]
+    fn test_zdisk_get_perc_used_space_zero_size() {
+        let disk = ZDisk::new_total();
+        assert_eq!(disk.get_perc_used_space(), 0.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_perc_used_space_normal() {
+        let mut disk = ZDisk::new_total();
+        disk.size_bytes = 1000;
+        disk.available_bytes = 300;
+
+        // used = 700, 700/1000 * 100 = 70%
+        assert!((disk.get_perc_used_space() - 70.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_zdisk_get_read_bytes_sec() {
+        let mut disk = ZDisk::new_total();
+        disk.previous_io = IoMetrics {
+            read_bytes: 100,
+            write_bytes: 50,
+        };
+        disk.current_io = IoMetrics {
+            read_bytes: 600,
+            write_bytes: 150,
+        };
+
+        let tick = Duration::from_secs(1);
+        assert_eq!(disk.get_read_bytes_sec(&tick), 500.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_read_bytes_sec_different_tick() {
+        let mut disk = ZDisk::new_total();
+        disk.previous_io = IoMetrics {
+            read_bytes: 100,
+            write_bytes: 50,
+        };
+        disk.current_io = IoMetrics {
+            read_bytes: 600,
+            write_bytes: 150,
+        };
+
+        let tick = Duration::from_secs(2);
+        assert_eq!(disk.get_read_bytes_sec(&tick), 250.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_write_bytes_sec() {
+        let mut disk = ZDisk::new_total();
+        disk.previous_io = IoMetrics {
+            read_bytes: 100,
+            write_bytes: 50,
+        };
+        disk.current_io = IoMetrics {
+            read_bytes: 600,
+            write_bytes: 150,
+        };
+
+        let tick = Duration::from_secs(1);
+        assert_eq!(disk.get_write_bytes_sec(&tick), 100.0);
+    }
+
+    #[test]
+    fn test_zdisk_get_write_bytes_sec_different_tick() {
+        let mut disk = ZDisk::new_total();
+        disk.previous_io = IoMetrics {
+            read_bytes: 100,
+            write_bytes: 100,
+        };
+        disk.current_io = IoMetrics {
+            read_bytes: 600,
+            write_bytes: 500,
+        };
+
+        let tick = Duration::from_millis(500);
+        // (500 - 100) / 0.5 = 800
+        assert_eq!(disk.get_write_bytes_sec(&tick), 800.0);
+    }
+
+
+
+    // Tests for get_device_name
+    #[test]
+    fn test_get_device_name_simple() {
+        use std::ffi::OsStr;
+        let name = get_device_name(OsStr::new("/dev/sda1"));
+        // Since /dev/sda1 is not a symlink in test environment, it returns as-is
+        assert!(name.contains("sda1") || name.contains("/dev/"));
+    }
+
+    #[test]
+    fn test_get_device_name_non_existent() {
+        use std::ffi::OsStr;
+        let name = get_device_name(OsStr::new("/nonexistent/path/device"));
+        assert_eq!(name, "/nonexistent/path/device");
+    }
+
+    #[test]
+    fn test_get_device_name_empty() {
+        use std::ffi::OsStr;
+        let name = get_device_name(OsStr::new(""));
+        assert_eq!(name, "");
+    }
+
+    // Tests for ZDisk io operations
+    #[test]
+    fn test_zdisk_io_metrics_zero() {
+        let disk = ZDisk::new_total();
+        let tick = Duration::from_secs(1);
+
+        assert_eq!(disk.get_read_bytes_sec(&tick), 0.0);
+        assert_eq!(disk.get_write_bytes_sec(&tick), 0.0);
+    }
+
+    #[test]
+    fn test_zdisk_large_io_values() {
+        let mut disk = ZDisk::new_total();
+        disk.previous_io = IoMetrics {
+            read_bytes: 0,
+            write_bytes: 0,
+        };
+        disk.current_io = IoMetrics {
+            read_bytes: 1_000_000_000, // 1 GB
+            write_bytes: 500_000_000,  // 500 MB
+        };
+
+        let tick = Duration::from_secs(1);
+        assert_eq!(disk.get_read_bytes_sec(&tick), 1_000_000_000.0);
+        assert_eq!(disk.get_write_bytes_sec(&tick), 500_000_000.0);
+    }
+}
