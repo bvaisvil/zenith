@@ -16,6 +16,7 @@ use ratatui::Frame;
 use std::borrow::Cow;
 use std::time::{Duration, UNIX_EPOCH};
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_process_table(
     app: &CPUTimeApp,
     process_table: &[i32],
