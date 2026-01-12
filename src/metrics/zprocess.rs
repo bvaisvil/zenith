@@ -13,7 +13,8 @@ use linux_taskstats::Client;
 #[cfg(target_os = "linux")]
 use procfs;
 
-use std::cmp::Ordering;
+#[allow(unused_imports)]
+use std::cmp::Ordering::{self, Equal};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::{Process, ProcessStatus};
 
