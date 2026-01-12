@@ -10,12 +10,12 @@ use libc::{id_t, setpriority};
 
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
+#[cfg(target_os = "linux")]
+use procfs;
 
-use std::cmp::Ordering::{self, Equal};
+use std::cmp::Ordering;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use sysinfo::Process;
-use sysinfo::ProcessExt;
-use sysinfo::ProcessStatus;
+use sysinfo::{Process, ProcessStatus};
 
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
@@ -77,23 +77,43 @@ pub struct ZProcess {
 }
 
 impl ZProcess {
-    pub fn from_user_and_process(user_name: String, process: &Process) -> Self {
+    pub fn from_user_and_process(user_name: String, process: &Process, uid: u32) -> Self {
         let disk_usage = process.disk_usage();
+        let pid_i32 = process.pid().as_u32() as i32;
+
+        // Get priority, nice, threads_total from procfs on Linux
+        #[cfg(target_os = "linux")]
+        let (priority, nice, threads_total) = {
+            if let Ok(proc) = procfs::process::Process::new(pid_i32) {
+                if let Ok(stat) = proc.stat() {
+                    (stat.priority as i32, stat.nice as i32, stat.num_threads as u64)
+                } else {
+                    (0, 0, 1)
+                }
+            } else {
+                (0, 0, 1)
+            }
+        };
+
+        #[cfg(not(target_os = "linux"))]
+        let (priority, nice, threads_total) = (0, 0, 1);
+        // TODO: macOS - priority, nice, threads_total not available in sysinfo 0.33
+
         ZProcess {
-            uid: process.uid,
+            uid,
             user_name,
-            pid: process.pid(),
+            pid: pid_i32,
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
-            command: process.cmd().to_vec(),
+            command: process.cmd().iter().map(|s| s.to_string_lossy().to_string()).collect(),
             status: process.status(),
-            exe: format!("{}", process.exe().display()),
-            name: process.name().to_string(),
+            exe: process.exe().map(|p| format!("{}", p.display())).unwrap_or_default(),
+            name: process.name().to_string_lossy().to_string(),
             cum_cpu_usage: process.cpu_usage() as f64,
-            priority: process.priority,
-            nice: process.nice,
+            priority,
+            nice,
             virtual_memory: process.virtual_memory(),
-            threads_total: process.threads_total,
+            threads_total,
             read_bytes: disk_usage.total_read_bytes,
             write_bytes: disk_usage.total_written_bytes,
             prev_read_bytes: disk_usage.total_read_bytes,
@@ -407,19 +427,6 @@ pub trait ProcessStatusExt {
 }
 
 impl ProcessStatusExt for ProcessStatus {
-    #[cfg(target_os = "macos")]
-    fn to_single_char(&self) -> &str {
-        match *self {
-            ProcessStatus::Idle => "I",
-            ProcessStatus::Run => "R",
-            ProcessStatus::Sleep => "S",
-            ProcessStatus::Stop => "T",
-            ProcessStatus::Zombie => "Z",
-            ProcessStatus::Unknown(_) => "U",
-        }
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
     fn to_single_char(&self) -> &str {
         match *self {
             ProcessStatus::Idle => "I",
@@ -432,6 +439,8 @@ impl ProcessStatusExt for ProcessStatus {
             ProcessStatus::Wakekill => "K",
             ProcessStatus::Waking => "W",
             ProcessStatus::Parked => "P",
+            ProcessStatus::UninterruptibleDiskSleep => "D",
+            ProcessStatus::LockBlocked => "L",
             ProcessStatus::Unknown(_) => "U",
         }
     }
