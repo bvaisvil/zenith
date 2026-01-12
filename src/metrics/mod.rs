@@ -29,11 +29,11 @@ use nvml::error::NvmlError;
 #[cfg(all(feature = "nvidia", target_os = "linux"))]
 use nvml::{cuda_driver_version_major, cuda_driver_version_minor};
 
+#[cfg(target_os = "linux")]
+use procfs;
 use std::fs;
 use std::path::{Path, PathBuf};
 use sysinfo::{Components, Disk, Disks, Networks, System};
-#[cfg(target_os = "linux")]
-use procfs;
 use uzers::{Users, UsersCache};
 
 #[cfg(all(feature = "nvidia", not(target_os = "linux")))]
@@ -642,14 +642,7 @@ impl CPUTimeApp {
         debug!("Updating Disks");
 
         static IGNORED_FILE_SYSTEMS: &[&str] = &[
-            "sysfs",
-            "proc",
-            "tmpfs",
-            "cgroup",
-            "cgroup2",
-            "pstore",
-            "squashfs",
-            "iso9660",
+            "sysfs", "proc", "tmpfs", "cgroup", "cgroup2", "pstore", "squashfs", "iso9660",
         ];
 
         self.disks_cache.refresh(true);
@@ -669,7 +662,10 @@ impl CPUTimeApp {
             let mp = d.mount_point().to_string_lossy();
             if cfg!(target_os = "linux") {
                 let fs = d.file_system().to_string_lossy();
-                if IGNORED_FILE_SYSTEMS.iter().any(|ignored| fs.as_ref() == *ignored) {
+                if IGNORED_FILE_SYSTEMS
+                    .iter()
+                    .any(|ignored| fs.as_ref() == *ignored)
+                {
                     continue;
                 }
                 if mp.starts_with("/sys")

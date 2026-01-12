@@ -86,7 +86,11 @@ impl ZProcess {
         let (priority, nice, threads_total) = {
             if let Ok(proc) = procfs::process::Process::new(pid_i32) {
                 if let Ok(stat) = proc.stat() {
-                    (stat.priority as i32, stat.nice as i32, stat.num_threads as u64)
+                    (
+                        stat.priority as i32,
+                        stat.nice as i32,
+                        stat.num_threads as u64,
+                    )
                 } else {
                     (0, 0, 1)
                 }
@@ -105,9 +109,16 @@ impl ZProcess {
             pid: pid_i32,
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
-            command: process.cmd().iter().map(|s| s.to_string_lossy().to_string()).collect(),
+            command: process
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect(),
             status: process.status(),
-            exe: process.exe().map(|p| format!("{}", p.display())).unwrap_or_default(),
+            exe: process
+                .exe()
+                .map(|p| format!("{}", p.display()))
+                .unwrap_or_default(),
             name: process.name().to_string_lossy().to_string(),
             cum_cpu_usage: process.cpu_usage() as f64,
             priority,
