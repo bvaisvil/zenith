@@ -64,11 +64,17 @@ extern "C" {
 pub fn get_macos_process_info(pid: i32) -> (i32, i32, u64) {
     use std::mem;
 
-    // Get nice value using getpriority
+    // Get nice value using getpriority (returns -1 on error, but -1 is also valid nice)
+    // We need to clear errno first to distinguish errors
+    unsafe { *libc::__error() = 0 };
     let nice = unsafe { getpriority(0, pid as u32) };
-    let priority = nice + 20; // Convert nice to priority (Linux convention)
+    let nice = if nice == -1 && unsafe { *libc::__error() } != 0 {
+        0 // Error occurred, use default
+    } else {
+        nice
+    };
 
-    // Get thread count using proc_pidinfo
+    // Get thread count and priority using proc_pidinfo
     let mut task_info: ProcTaskInfo = unsafe { mem::zeroed() };
     let size = mem::size_of::<ProcTaskInfo>() as c_int;
 
@@ -82,10 +88,10 @@ pub fn get_macos_process_info(pid: i32) -> (i32, i32, u64) {
         )
     };
 
-    let threads = if ret > 0 {
-        task_info.pti_threadnum as u64
+    let (priority, threads) = if ret > 0 {
+        (task_info.pti_priority, task_info.pti_threadnum as u64)
     } else {
-        1
+        (0, 1)
     };
 
     (priority, nice, threads)
