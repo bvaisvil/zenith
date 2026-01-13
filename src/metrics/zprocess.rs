@@ -4,8 +4,9 @@
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
-#[cfg(target_os = "linux")]
 use libc::getpriority;
+#[cfg(target_os = "macos")]
+use libc::{c_int, c_void, pid_t};
 use libc::{id_t, setpriority};
 
 #[cfg(target_os = "linux")]
@@ -21,6 +22,74 @@ use sysinfo::{Process, ProcessStatus};
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
 use chrono::Local;
+
+#[cfg(target_os = "macos")]
+const PROC_PIDTASKINFO: c_int = 4;
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct ProcTaskInfo {
+    pti_virtual_size: u64,
+    pti_resident_size: u64,
+    pti_total_user: u64,
+    pti_total_system: u64,
+    pti_threads_user: u64,
+    pti_threads_system: u64,
+    pti_policy: i32,
+    pti_faults: i32,
+    pti_pageins: i32,
+    pti_cow_faults: i32,
+    pti_messages_sent: i32,
+    pti_messages_received: i32,
+    pti_syscalls_mach: i32,
+    pti_syscalls_unix: i32,
+    pti_csw: i32,
+    pti_threadnum: i32,
+    pti_numrunning: i32,
+    pti_priority: i32,
+}
+
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn proc_pidinfo(
+        pid: pid_t,
+        flavor: c_int,
+        arg: u64,
+        buffer: *mut c_void,
+        buffersize: c_int,
+    ) -> c_int;
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_macos_process_info(pid: i32) -> (i32, i32, u64) {
+    use std::mem;
+
+    // Get nice value using getpriority
+    let nice = unsafe { getpriority(0, pid as u32) };
+    let priority = nice + 20; // Convert nice to priority (Linux convention)
+
+    // Get thread count using proc_pidinfo
+    let mut task_info: ProcTaskInfo = unsafe { mem::zeroed() };
+    let size = mem::size_of::<ProcTaskInfo>() as c_int;
+
+    let ret = unsafe {
+        proc_pidinfo(
+            pid,
+            PROC_PIDTASKINFO,
+            0,
+            &mut task_info as *mut _ as *mut c_void,
+            size,
+        )
+    };
+
+    let threads = if ret > 0 {
+        task_info.pti_threadnum as u64
+    } else {
+        1
+    };
+
+    (priority, nice, threads)
+}
 
 macro_rules! convert_result_to_string {
     ($x:expr) => {
@@ -100,9 +169,8 @@ impl ZProcess {
             }
         };
 
-        #[cfg(not(target_os = "linux"))]
-        let (priority, nice, threads_total) = (0, 0, 1);
-        // TODO: macOS - priority, nice, threads_total not available in sysinfo 0.33
+        #[cfg(target_os = "macos")]
+        let (priority, nice, threads_total) = get_macos_process_info(pid_i32);
 
         ZProcess {
             uid,

@@ -9,6 +9,8 @@ pub mod zprocess;
 use crate::metrics::disk::{get_device_name, get_disk_io_metrics, IoMetrics, ZDisk};
 use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::metrics::histogram::{HistogramKind, HistogramMap};
+#[cfg(target_os = "macos")]
+use crate::metrics::zprocess::get_macos_process_info;
 use crate::metrics::zprocess::ZProcess;
 use crate::util::percent_of;
 
@@ -522,7 +524,13 @@ impl CPUTimeApp {
                             }
                         }
                     }
-                    // TODO: macOS - priority, nice, threads_total not available in sysinfo 0.33
+                    #[cfg(target_os = "macos")]
+                    {
+                        let (priority, nice, threads_total) = get_macos_process_info(pid_i32);
+                        zp.priority = priority;
+                        zp.nice = nice;
+                        zp.threads_total = threads_total;
+                    }
 
                     zp.virtual_memory = process.virtual_memory();
                     self.threads_total += zp.threads_total as usize;
