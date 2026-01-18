@@ -4,22 +4,98 @@
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
-#[cfg(target_os = "linux")]
 use libc::getpriority;
+#[cfg(target_os = "macos")]
+use libc::{c_int, c_void, pid_t};
 use libc::{id_t, setpriority};
 
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
+#[cfg(target_os = "linux")]
+use procfs;
 
+#[allow(unused_imports)]
 use std::cmp::Ordering::{self, Equal};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use sysinfo::Process;
-use sysinfo::ProcessExt;
-use sysinfo::ProcessStatus;
+use sysinfo::{Process, ProcessStatus};
 
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
 use chrono::Local;
+
+#[cfg(target_os = "macos")]
+const PROC_PIDTASKINFO: c_int = 4;
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct ProcTaskInfo {
+    pti_virtual_size: u64,
+    pti_resident_size: u64,
+    pti_total_user: u64,
+    pti_total_system: u64,
+    pti_threads_user: u64,
+    pti_threads_system: u64,
+    pti_policy: i32,
+    pti_faults: i32,
+    pti_pageins: i32,
+    pti_cow_faults: i32,
+    pti_messages_sent: i32,
+    pti_messages_received: i32,
+    pti_syscalls_mach: i32,
+    pti_syscalls_unix: i32,
+    pti_csw: i32,
+    pti_threadnum: i32,
+    pti_numrunning: i32,
+    pti_priority: i32,
+}
+
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn proc_pidinfo(
+        pid: pid_t,
+        flavor: c_int,
+        arg: u64,
+        buffer: *mut c_void,
+        buffersize: c_int,
+    ) -> c_int;
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_macos_process_info(pid: i32) -> (i32, i32, u64) {
+    use std::mem;
+
+    // Get nice value using getpriority (returns -1 on error, but -1 is also valid nice)
+    // We need to clear errno first to distinguish errors
+    unsafe { *libc::__error() = 0 };
+    let nice = unsafe { getpriority(0, pid as u32) };
+    let nice = if nice == -1 && unsafe { *libc::__error() } != 0 {
+        0 // Error occurred, use default
+    } else {
+        nice
+    };
+
+    // Get thread count and priority using proc_pidinfo
+    let mut task_info: ProcTaskInfo = unsafe { mem::zeroed() };
+    let size = mem::size_of::<ProcTaskInfo>() as c_int;
+
+    let ret = unsafe {
+        proc_pidinfo(
+            pid,
+            PROC_PIDTASKINFO,
+            0,
+            &mut task_info as *mut _ as *mut c_void,
+            size,
+        )
+    };
+
+    let (priority, threads) = if ret > 0 {
+        (task_info.pti_priority, task_info.pti_threadnum as u64)
+    } else {
+        (0, 1)
+    };
+
+    (priority, nice, threads)
+}
 
 macro_rules! convert_result_to_string {
     ($x:expr) => {
@@ -77,23 +153,53 @@ pub struct ZProcess {
 }
 
 impl ZProcess {
-    pub fn from_user_and_process(user_name: String, process: &Process) -> Self {
+    pub fn from_user_and_process(user_name: String, process: &Process, uid: u32) -> Self {
         let disk_usage = process.disk_usage();
+        let pid_i32 = process.pid().as_u32() as i32;
+
+        // Get priority, nice, threads_total from procfs on Linux
+        #[cfg(target_os = "linux")]
+        let (priority, nice, threads_total) = {
+            if let Ok(proc) = procfs::process::Process::new(pid_i32) {
+                if let Ok(stat) = proc.stat() {
+                    (
+                        stat.priority as i32,
+                        stat.nice as i32,
+                        stat.num_threads as u64,
+                    )
+                } else {
+                    (0, 0, 1)
+                }
+            } else {
+                (0, 0, 1)
+            }
+        };
+
+        #[cfg(target_os = "macos")]
+        let (priority, nice, threads_total) = get_macos_process_info(pid_i32);
+
         ZProcess {
-            uid: process.uid,
+            uid,
             user_name,
-            pid: process.pid(),
+            pid: pid_i32,
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
-            command: process.cmd().to_vec(),
+            command: process
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect(),
             status: process.status(),
-            exe: format!("{}", process.exe().display()),
-            name: process.name().to_string(),
+            exe: process
+                .exe()
+                .map(|p| format!("{}", p.display()))
+                .unwrap_or_default(),
+            name: process.name().to_string_lossy().to_string(),
             cum_cpu_usage: process.cpu_usage() as f64,
-            priority: process.priority,
-            nice: process.nice,
+            priority,
+            nice,
             virtual_memory: process.virtual_memory(),
-            threads_total: process.threads_total,
+            threads_total,
             read_bytes: disk_usage.total_read_bytes,
             write_bytes: disk_usage.total_written_bytes,
             prev_read_bytes: disk_usage.total_read_bytes,
@@ -407,19 +513,6 @@ pub trait ProcessStatusExt {
 }
 
 impl ProcessStatusExt for ProcessStatus {
-    #[cfg(target_os = "macos")]
-    fn to_single_char(&self) -> &str {
-        match *self {
-            ProcessStatus::Idle => "I",
-            ProcessStatus::Run => "R",
-            ProcessStatus::Sleep => "S",
-            ProcessStatus::Stop => "T",
-            ProcessStatus::Zombie => "Z",
-            ProcessStatus::Unknown(_) => "U",
-        }
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
     fn to_single_char(&self) -> &str {
         match *self {
             ProcessStatus::Idle => "I",
@@ -432,6 +525,8 @@ impl ProcessStatusExt for ProcessStatus {
             ProcessStatus::Wakekill => "K",
             ProcessStatus::Waking => "W",
             ProcessStatus::Parked => "P",
+            ProcessStatus::UninterruptibleDiskSleep => "D",
+            ProcessStatus::LockBlocked => "L",
             ProcessStatus::Unknown(_) => "U",
         }
     }

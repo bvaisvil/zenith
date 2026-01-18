@@ -74,7 +74,7 @@ impl Events {
                 loop {
                     tx.send(Event::Tick).expect("Couldn't send event.");
                     count += 1;
-                    if count % 60 == 0 {
+                    if count.is_multiple_of(60) {
                         tx.send(Event::Save).expect("Couldn't send event");
                     }
                     thread::sleep(config.tick_rate);
@@ -150,7 +150,7 @@ impl Drop for Lockfile {
 async fn is_zenith_running(path: &Path) -> bool {
     name_of_process_for_pidfile(path)
         .await
-        .map_or(false, |name| name == "zenith")
+        .is_some_and(|name| name == "zenith")
 }
 
 async fn name_of_process_for_pidfile(path: &Path) -> Option<String> {

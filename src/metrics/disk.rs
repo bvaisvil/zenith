@@ -11,7 +11,7 @@ use std::fs::{canonicalize, read_link};
 use std::ops;
 use std::path::PathBuf;
 use std::time::Duration;
-use sysinfo::{Disk, DiskExt};
+use sysinfo::Disk;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct IoMetrics {
@@ -81,11 +81,11 @@ impl ZDisk {
 
     pub fn from_disk(d: &Disk) -> ZDisk {
         ZDisk {
-            mount_point: d.get_mount_point().to_path_buf(),
-            available_bytes: d.get_available_space(),
-            size_bytes: d.get_total_space(),
-            name: get_device_name(d.get_name()),
-            file_system: String::from_utf8_lossy(d.get_file_system()).into_owned(),
+            mount_point: d.mount_point().to_path_buf(),
+            available_bytes: d.available_space(),
+            size_bytes: d.total_space(),
+            name: get_device_name(d.name()),
+            file_system: d.file_system().to_string_lossy().into_owned(),
             previous_io: IoMetrics {
                 read_bytes: 0,
                 write_bytes: 0,
