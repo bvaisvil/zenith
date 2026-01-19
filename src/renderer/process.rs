@@ -195,7 +195,7 @@ fn render_rows<'a>(
                     app.top_pids.mem.pid,
                     format!(
                         "{:>8}",
-                        float_to_byte_string!(p.memory as f64, Unit::KB).replace('B', "")
+                        float_to_byte_string!(p.memory as f64, Unit::B).replace('B', "")
                     ),
                 ),
                 set_process_row_style(
@@ -203,7 +203,7 @@ fn render_rows<'a>(
                     app.top_pids.virt.pid,
                     format!(
                         "{:>8}",
-                        float_to_byte_string!(p.virtual_memory as f64, Unit::KB).replace('B', "")
+                        float_to_byte_string!(p.virtual_memory as f64, Unit::B).replace('B', "")
                     ),
                 ),
                 Cell::from(format!("{:1}", p.status.to_single_char())),
@@ -382,7 +382,7 @@ pub fn render_process(
         Line::from(vec![
             Span::raw("Total Memory:          "),
             Span::styled(
-                format!("{:>10}", float_to_byte_string!(p.memory as f64, Unit::KB)),
+                format!("{:>10}", float_to_byte_string!(p.memory as f64, Unit::B)),
                 rhs_style,
             ),
         ]),
