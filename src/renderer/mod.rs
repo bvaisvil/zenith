@@ -218,7 +218,7 @@ pub struct TerminalRenderer<'a> {
     recompute_constraints_on_start_up: bool,
 }
 
-impl<'a> TerminalRenderer<'_> {
+impl TerminalRenderer<'_> {
     pub fn new(
         tick_rate: u64,
         section_geometry: &'_ [(Section, f64)],

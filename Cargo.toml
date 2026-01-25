@@ -29,7 +29,7 @@ heim = { git = "https://github.com/bvaisvil/heim.git", branch = "zenith_changes"
 futures = "0.3.31"
 gumdrop = { version = "~0.8.1", features = ["default_expr"] }
 chrono = "~0.4.39"
-sysinfo = { git = "https://github.com/bvaisvil/sysinfo.git", branch = "zenith_changes_15.1_mem_fix" }
+sysinfo = "0.37"
 dirs-next = "2.0.0"
 serde = { version = "~1.0.217", features = ["derive"] }
 serde_derive = "~1.0.217"
@@ -44,3 +44,4 @@ nvml-wrapper = { version = "0.10.0", optional = true }
 unicode-width = "0.2.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 linux-taskstats = { version = "0.7.0", default-features = false }
+procfs = "0.17"

@@ -1,7 +1,6 @@
 /**
  * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
  */
-
 pub trait GraphicsExt {
     fn update_gfx_devices(&mut self);
     #[allow(dead_code)]
