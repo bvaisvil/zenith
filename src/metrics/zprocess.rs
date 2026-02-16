@@ -13,11 +13,9 @@ use linux_taskstats::Client;
 
 use std::cmp::Ordering::{self, Equal};
 use std::convert::TryInto;
-use std::ops::Deref;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::Process;
 use sysinfo::ProcessStatus;
-use sysinfo::Uid;
 
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
