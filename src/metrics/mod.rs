@@ -29,8 +29,6 @@ use nvml::error::NvmlError;
 #[cfg(all(feature = "nvidia", target_os = "linux"))]
 use nvml::{cuda_driver_version_major, cuda_driver_version_minor};
 
-#[cfg(target_os = "linux")]
-use procfs;
 use std::fs;
 use std::path::{Path, PathBuf};
 use sysinfo::{Component, Components, Disk, Disks, Networks, System};
