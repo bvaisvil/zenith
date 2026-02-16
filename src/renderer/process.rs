@@ -18,7 +18,7 @@ use std::time::{Duration, UNIX_EPOCH};
 
 pub fn render_process_table(
     app: &CPUTimeApp,
-    process_table: &[i32],
+    process_table: &[u32],
     area: Rect,
     process_table_start: usize,
     f: &mut Frame<'_>,
@@ -485,13 +485,13 @@ pub fn render_process(
     }
 }
 
-pub fn filter_process_table<'a>(app: &'a CPUTimeApp, filter: &str) -> Cow<'a, [i32]> {
+pub fn filter_process_table<'a>(app: &'a CPUTimeApp, filter: &str) -> Cow<'a, [u32]> {
     if filter.is_empty() {
         return Cow::Borrowed(&app.processes);
     }
 
     let filter_lc = filter.to_lowercase();
-    let results: Vec<i32> = app
+    let results: Vec<u32> = app
         .processes
         .iter()
         .filter(|pid| {
@@ -510,8 +510,8 @@ pub fn filter_process_table<'a>(app: &'a CPUTimeApp, filter: &str) -> Cow<'a, [i
 }
 
 fn set_process_row_style<'a>(
-    current_pid: i32,
-    test_pid: Option<i32>,
+    current_pid: u32,
+    test_pid: Option<u32>,
     row_content: String,
 ) -> Cell<'a> {
     match test_pid {

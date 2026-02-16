@@ -12,10 +12,12 @@ use libc::{id_t, setpriority};
 use linux_taskstats::Client;
 
 use std::cmp::Ordering::{self, Equal};
+use std::convert::TryInto;
+use std::ops::Deref;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::Process;
-use sysinfo::ProcessExt;
 use sysinfo::ProcessStatus;
+use sysinfo::Uid;
 
 use chrono::prelude::DateTime;
 use chrono::Duration as CDuration;
@@ -44,7 +46,7 @@ macro_rules! convert_error_to_string {
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct ZProcess {
-    pub pid: i32,
+    pub pid: u32,
     pub uid: u32,
     pub user_name: String,
     pub memory: u64,
@@ -80,20 +82,27 @@ impl ZProcess {
     pub fn from_user_and_process(user_name: String, process: &Process) -> Self {
         let disk_usage = process.disk_usage();
         ZProcess {
-            uid: process.uid,
+            uid: process.user_id().map(|uid| **uid).unwrap_or(0),
             user_name,
-            pid: process.pid(),
+            pid: process.pid().as_u32(),
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
-            command: process.cmd().to_vec(),
+            command: process
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect(),
             status: process.status(),
-            exe: format!("{}", process.exe().display()),
-            name: process.name().to_string(),
+            exe: process
+                .exe()
+                .map(|p| format!("{}", p.display()))
+                .unwrap_or_default(),
+            name: process.name().to_string_lossy().to_string(),
             cum_cpu_usage: process.cpu_usage() as f64,
-            priority: process.priority,
-            nice: process.nice,
+            priority: 0, // process.priority,
+            nice: 0,     // process.nice,
             virtual_memory: process.virtual_memory(),
-            threads_total: process.threads_total,
+            threads_total: 0, // process.threads_total,
             read_bytes: disk_usage.total_read_bytes,
             write_bytes: disk_usage.total_written_bytes,
             prev_read_bytes: disk_usage.total_read_bytes,
@@ -128,28 +137,44 @@ impl ZProcess {
     }
 
     pub async fn suspend(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.suspend().await),
             Err(e) => convert_error_to_string!(e),
         }
     }
 
     pub async fn resume(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.resume().await),
             Err(e) => convert_error_to_string!(e),
         }
     }
 
     pub async fn kill(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.kill().await),
             Err(e) => convert_error_to_string!(e),
         }
     }
 
     pub async fn terminate(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.terminate().await),
             Err(e) => convert_error_to_string!(e),
         }
@@ -407,19 +432,6 @@ pub trait ProcessStatusExt {
 }
 
 impl ProcessStatusExt for ProcessStatus {
-    #[cfg(target_os = "macos")]
-    fn to_single_char(&self) -> &str {
-        match *self {
-            ProcessStatus::Idle => "I",
-            ProcessStatus::Run => "R",
-            ProcessStatus::Sleep => "S",
-            ProcessStatus::Stop => "T",
-            ProcessStatus::Zombie => "Z",
-            ProcessStatus::Unknown(_) => "U",
-        }
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
     fn to_single_char(&self) -> &str {
         match *self {
             ProcessStatus::Idle => "I",
@@ -432,6 +444,8 @@ impl ProcessStatusExt for ProcessStatus {
             ProcessStatus::Wakekill => "K",
             ProcessStatus::Waking => "W",
             ProcessStatus::Parked => "P",
+            ProcessStatus::UninterruptibleDiskSleep => "D",
+            ProcessStatus::LockBlocked => "L",
             ProcessStatus::Unknown(_) => "U",
         }
     }
