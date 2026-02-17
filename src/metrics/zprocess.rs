@@ -116,7 +116,7 @@ unsafe fn errno_ptr() -> *mut i32 {
 
 fn get_priority(pid: u32) -> i32 {
     // have to reset errno before calling getpriority
-    unsafe { *libc::__error() = 0 };
+    unsafe { *errno_ptr() = 0 };
     let nice = unsafe { getpriority(0, pid) };
     let nice = if nice == -1 && unsafe { *errno_ptr() } != 0 {
         0 // Error occurred, use default
