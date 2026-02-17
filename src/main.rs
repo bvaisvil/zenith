@@ -160,6 +160,7 @@ fn create_geometry(
     geometry
 }
 
+#[allow(clippy::too_many_arguments)]
 fn start_zenith(
     rate: u64,
     cpu_height: u16,

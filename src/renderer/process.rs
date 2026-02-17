@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use super::{percent_of, Render};
 use crate::float_to_byte_string;
 use crate::metrics::zprocess::{ProcessStatusExt, ZProcess};
@@ -16,6 +17,7 @@ use ratatui::Frame;
 use std::borrow::Cow;
 use std::time::{Duration, UNIX_EPOCH};
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_process_table(
     app: &CPUTimeApp,
     process_table: &[u32],
