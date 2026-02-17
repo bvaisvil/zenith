@@ -1,14 +1,20 @@
-pub mod disk;
 /**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+pub mod disk;
 pub mod graphics;
 pub mod histogram;
 pub mod zprocess;
 
+#[cfg(target_os = "macos")]
+pub mod memory_mac;
+
 use crate::metrics::disk::{get_device_name, get_disk_io_metrics, IoMetrics, ZDisk};
 use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::metrics::histogram::{HistogramKind, HistogramMap};
+#[cfg(target_os = "macos")]
+use crate::metrics::memory_mac::get_macos_memory_used;
+use crate::metrics::zprocess::set_addl_task_info;
 use crate::metrics::zprocess::ZProcess;
 use crate::util::percent_of;
 
@@ -31,9 +37,7 @@ use nvml::{cuda_driver_version_major, cuda_driver_version_minor};
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use sysinfo::{
-    Component, ComponentExt, Disk, DiskExt, NetworkExt, ProcessExt, ProcessorExt, System, SystemExt,
-};
+use sysinfo::{Component, Components, Disk, Disks, Networks, System};
 use uzers::{Users, UsersCache};
 
 #[cfg(all(feature = "nvidia", not(target_os = "linux")))]
@@ -123,10 +127,10 @@ pub trait DiskFreeSpaceExt {
 
 impl DiskFreeSpaceExt for Disk {
     fn get_perc_free_space(&self) -> f32 {
-        if self.get_total_space() < 1 {
+        if self.total_space() < 1 {
             return 0.0;
         }
-        percent_of(self.get_available_space(), self.get_total_space())
+        percent_of(self.available_space(), self.total_space())
     }
 }
 #[allow(dead_code)]
@@ -146,10 +150,10 @@ pub struct Sensor {
 impl From<&Component> for Sensor {
     fn from(c: &Component) -> Sensor {
         Sensor {
-            name: c.get_label().to_owned(),
-            current_temp: c.get_temperature(),
-            critical: c.get_critical().unwrap_or(0.0),
-            high: c.get_max(),
+            name: c.label().to_owned(),
+            current_temp: c.temperature().unwrap_or(0.0),
+            critical: c.critical().unwrap_or(0.0),
+            high: c.max().unwrap_or(0.0),
         }
     }
 }
@@ -177,10 +181,10 @@ fn get_max_pid_length() -> usize {
 #[derive(Default, Debug)]
 pub struct ValAndPid<T> {
     pub val: T,
-    pub pid: Option<i32>,
+    pub pid: Option<u32>,
 }
 impl<T: PartialOrd> ValAndPid<T> {
-    fn update(&mut self, new: T, pid: i32) {
+    fn update(&mut self, new: T, pid: u32) {
         if new > self.val {
             self.val = new;
             self.pid = Some(pid);
@@ -232,11 +236,14 @@ pub struct CPUTimeApp {
     pub disk_write: u64,
     pub disk_read: u64,
     pub cpus: Vec<(String, u64)>,
+    pub components: Components,
+    pub disks_cache: Disks,
+    pub networks: Networks,
     pub system: System,
     pub net_in: u64,
     pub net_out: u64,
-    pub processes: Vec<i32>,
-    pub process_map: HashMap<i32, ZProcess>,
+    pub processes: Vec<u32>,
+    pub process_map: HashMap<u32, ZProcess>,
     pub user_cache: UsersCache,
     pub cum_cpu_process: Option<ZProcess>,
     pub top_pids: Top,
@@ -314,6 +321,9 @@ impl CPUTimeApp {
             histogram_map,
             cpus: vec![],
             system: System::new_all(),
+            components: Components::new_with_refreshed_list(),
+            disks_cache: Disks::new_with_refreshed_list(),
+            networks: Networks::new_with_refreshed_list(),
             cpu_utilization: 0,
             mem_utilization: 0,
             mem_total: 0,
@@ -459,13 +469,14 @@ impl CPUTimeApp {
 
     async fn update_sensors(&mut self) {
         self.sensors.clear();
-        for t in self.system.get_components() {
+        self.components.refresh(false);
+        for t in self.components.iter() {
             if cfg!(target_os = "linux") {
-                if t.get_label().contains("Package id") {
+                if t.label().contains("Package id") {
                     debug!("{:?}", t);
                     self.sensors.push(Sensor::from(t));
                 }
-            } else if cfg!(target_os = "macos") && t.get_label().contains("CPU") {
+            } else if cfg!(target_os = "macos") && t.label().contains("CPU") {
                 self.sensors.push(Sensor::from(t));
             }
         }
@@ -478,10 +489,10 @@ impl CPUTimeApp {
 
     fn update_process_list(&mut self, keep_order: bool) {
         debug!("Updating Process List");
-        let process_list = self.system.get_processes();
+        let process_list = self.system.processes();
         #[cfg(target_os = "linux")]
         let client = &self.netlink_client;
-        let mut current_pids: HashSet<i32> = HashSet::with_capacity(process_list.len());
+        let mut current_pids: HashSet<u32> = HashSet::with_capacity(process_list.len());
 
         let mut top = Top::default();
         top.cum_cpu.val = match &self.cum_cpu_process {
@@ -492,7 +503,7 @@ impl CPUTimeApp {
         self.threads_total = 0;
 
         for (pid, process) in process_list {
-            if let Some(zp) = self.process_map.get_mut(pid) {
+            if let Some(zp) = self.process_map.get_mut(&pid.as_u32()) {
                 if zp.start_time == process.start_time() {
                     let disk_usage = process.disk_usage();
                     // check for PID reuse
@@ -500,10 +511,7 @@ impl CPUTimeApp {
                     zp.cpu_usage = process.cpu_usage();
                     zp.cum_cpu_usage += zp.cpu_usage as f64;
                     zp.status = process.status();
-                    zp.priority = process.priority;
-                    zp.nice = process.nice;
                     zp.virtual_memory = process.virtual_memory();
-                    zp.threads_total = process.threads_total;
                     self.threads_total += zp.threads_total as usize;
                     zp.prev_read_bytes = zp.read_bytes;
                     zp.prev_write_bytes = zp.write_bytes;
@@ -513,13 +521,16 @@ impl CPUTimeApp {
                     #[cfg(target_os = "linux")]
                     zp.update_delay(client);
 
+                    set_addl_task_info(zp);
+
                     top.update(zp, &self.histogram_map.tick);
                 } else {
+                    let uid = process.user_id().map(|uid| **uid).unwrap_or(0);
                     let user_name = self
                         .user_cache
-                        .get_user_by_uid(process.uid)
+                        .get_user_by_uid(uid)
                         .map(|user| user.name().to_string_lossy().to_string())
-                        .unwrap_or(format!("{:}", process.uid));
+                        .unwrap_or(format!("{:}", uid));
                     let zprocess = ZProcess::from_user_and_process(user_name, process);
                     self.threads_total += zprocess.threads_total as usize;
 
@@ -528,11 +539,12 @@ impl CPUTimeApp {
                     self.process_map.insert(zprocess.pid, zprocess);
                 }
             } else {
+                let uid = process.user_id().map(|uid| **uid).unwrap_or(0);
                 let user_name = self
                     .user_cache
-                    .get_user_by_uid(process.uid)
+                    .get_user_by_uid(uid)
                     .map(|user| user.name().to_string_lossy().to_string())
-                    .unwrap_or(format!("{:}", process.uid));
+                    .unwrap_or(format!("{:}", uid));
                 #[allow(unused_mut)]
                 let mut zprocess = ZProcess::from_user_and_process(user_name, process);
                 #[cfg(target_os = "linux")]
@@ -544,7 +556,7 @@ impl CPUTimeApp {
 
                 self.process_map.insert(zprocess.pid, zprocess);
             }
-            current_pids.insert(*pid);
+            current_pids.insert(pid.as_u32());
         }
 
         if keep_order {
@@ -631,7 +643,7 @@ impl CPUTimeApp {
             b"iso9660",
         ];
 
-        self.system.refresh_disks_list();
+        self.disks_cache.refresh(true);
         let mut updated: HashMap<String, bool> = HashMap::with_capacity(self.disks.len());
         for k in self.disks.keys() {
             if k == "Total" {
@@ -643,12 +655,15 @@ impl CPUTimeApp {
         let mut total_available = 0;
         let mut total_space = 0;
 
-        for d in self.system.get_disks().iter() {
-            let name = d.get_name().to_string_lossy();
-            let mp = d.get_mount_point().to_string_lossy();
+        for d in self.disks_cache.list().iter() {
+            let name = d.name().to_string_lossy();
+            let mp = d.mount_point().to_string_lossy();
             if cfg!(target_os = "linux") {
-                let fs = d.get_file_system();
-                if IGNORED_FILE_SYSTEMS.iter().any(|ignored| &fs == ignored) {
+                let fs = d.file_system();
+                if IGNORED_FILE_SYSTEMS
+                    .iter()
+                    .any(|ignored| &fs.as_encoded_bytes() == ignored)
+                {
                     continue;
                 }
                 if mp.starts_with("/sys")
@@ -661,10 +676,10 @@ impl CPUTimeApp {
                     continue;
                 }
             }
-            let name = get_device_name(d.get_name());
+            let name = get_device_name(d.name());
             let zd = self.disks.entry(name).or_insert(ZDisk::from_disk(d));
-            zd.size_bytes = d.get_total_space();
-            zd.available_bytes = d.get_available_space();
+            zd.size_bytes = d.total_space();
+            zd.available_bytes = d.available_space();
             total_available += zd.available_bytes;
             total_space += zd.size_bytes;
             updated.insert(zd.name.to_string(), true);
@@ -754,15 +769,15 @@ impl CPUTimeApp {
 
     pub async fn update_cpu(&mut self) {
         debug!("Updating CPU");
-        let procs = self.system.get_processors();
+        let procs = self.system.cpus();
         let mut usage: f32 = 0.0;
         self.cpus.clear();
         let mut usagev: Vec<f32> = vec![];
         for (i, p) in procs.iter().enumerate() {
             if i == 0 {
-                self.processor_name = p.get_name().to_owned();
+                self.processor_name = p.name().to_owned();
             }
-            let mut u = p.get_cpu_usage();
+            let mut u = p.cpu_usage();
             if u.is_nan() {
                 u = 0.0;
             }
@@ -783,10 +798,11 @@ impl CPUTimeApp {
     pub async fn update_networks(&mut self) {
         let mut net_in = 0;
         let mut net_out = 0;
-        for (_iface, data) in self.system.get_networks() {
+        self.networks.refresh(false);
+        for (_iface, data) in self.networks.iter() {
             debug!("iface: {}", _iface);
-            net_in += data.get_received();
-            net_out += data.get_transmitted();
+            net_in += data.received();
+            net_out += data.transmitted();
         }
         self.net_in = net_in;
         self.net_out = net_out;
@@ -802,15 +818,22 @@ impl CPUTimeApp {
         self.update_cpu().await;
         self.update_sensors().await;
 
-        self.mem_utilization = self.system.get_used_memory();
-        self.mem_total = self.system.get_total_memory();
+        #[cfg(target_os = "macos")]
+        {
+            self.mem_utilization = get_macos_memory_used().unwrap_or(0);
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.mem_utilization = self.system.used_memory();
+        }
+        self.mem_total = self.system.total_memory();
 
         let mem = percent_of(self.mem_utilization, self.mem_total) as u64;
 
         self.histogram_map.add_value_to(&HistogramKind::Mem, mem);
 
-        self.swap_utilization = self.system.get_used_swap();
-        self.swap_total = self.system.get_total_swap();
+        self.swap_utilization = self.system.used_swap();
+        self.swap_total = self.system.total_swap();
 
         self.update_networks().await;
         self.update_process_list(keep_order);

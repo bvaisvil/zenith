@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 #[macro_export]
 macro_rules! float_to_byte_string {
     ($x:expr, $unit:expr) => {

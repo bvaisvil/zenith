@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use super::Render;
 use crate::metrics::*;
 use chrono::prelude::DateTime;

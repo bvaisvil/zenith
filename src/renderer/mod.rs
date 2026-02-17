@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 mod cpu;
 mod disk;
 mod graphics;
@@ -218,7 +219,7 @@ pub struct TerminalRenderer<'a> {
     recompute_constraints_on_start_up: bool,
 }
 
-impl<'a> TerminalRenderer<'_> {
+impl TerminalRenderer<'_> {
     pub fn new(
         tick_rate: u64,
         section_geometry: &'_ [(Section, f64)],
@@ -524,7 +525,7 @@ impl<'a> TerminalRenderer<'_> {
     async fn process_key_event(
         &mut self,
         input: KeyEvent,
-        process_table: &[i32],
+        process_table: &[u32],
         process_table_height: u16,
     ) -> Action {
         debug!("Event Key: {:?}", input);
@@ -574,7 +575,7 @@ impl<'a> TerminalRenderer<'_> {
         }
     }
 
-    fn view_up(&mut self, process_table: &[i32], delta: usize) {
+    fn view_up(&mut self, process_table: &[u32], delta: usize) {
         let selected = self.selected_section();
         if self.show_section_mgr {
             match self.section_manager_options.state.selected() {
@@ -614,7 +615,7 @@ impl<'a> TerminalRenderer<'_> {
         }
     }
 
-    fn view_down(&mut self, process_table: &[i32], process_table_height: usize, delta: usize) {
+    fn view_down(&mut self, process_table: &[u32], process_table_height: usize, delta: usize) {
         use std::cmp::min;
         let selected = self.selected_section();
         if self.show_section_mgr {

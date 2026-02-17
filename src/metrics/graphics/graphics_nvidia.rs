@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use crate::metrics::graphics::device::*;
 use crate::metrics::histogram::HistogramKind;
 use crate::metrics::CPUTimeApp;
@@ -8,6 +9,7 @@ use nvml::device::Device;
 use nvml::enum_wrappers::device::{Clock, TemperatureSensor, TemperatureThreshold};
 use nvml::struct_wrappers::device::ProcessUtilizationSample;
 use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::fmt;
 
 impl From<&ProcessUtilizationSample> for GraphicsDeviceProcess {
@@ -199,7 +201,9 @@ impl GraphicsExt for CPUTimeApp {
     fn update_gpu_utilization(&mut self) {
         for d in &mut self.gfx_devices.iter().skip(1) {
             for p in &d.processes {
-                let proc = self.process_map.get_mut(&p.pid);
+                let proc = self
+                    .process_map
+                    .get_mut(&p.pid.try_into().expect("negative pid makes no sense"));
                 if let Some(proc) = proc {
                     proc.gpu_usage =
                         (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;

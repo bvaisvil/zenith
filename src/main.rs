@@ -1,5 +1,5 @@
-/**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
 
 #[macro_use]
@@ -160,6 +160,7 @@ fn create_geometry(
     geometry
 }
 
+#[allow(clippy::too_many_arguments)]
 fn start_zenith(
     rate: u64,
     cpu_height: u16,

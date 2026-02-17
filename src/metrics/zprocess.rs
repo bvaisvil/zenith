@@ -1,20 +1,26 @@
-/**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
-#[cfg(target_os = "linux")]
-use libc::getpriority;
-use libc::{id_t, setpriority};
+
+#[cfg(target_os = "macos")]
+use libc::{c_int, c_void, pid_t};
+use libc::{getpriority, id_t, setpriority};
 
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
+#[cfg(target_os = "linux")]
+use procfs;
 
-use std::cmp::Ordering::{self, Equal};
+use std::cmp::Ordering;
+#[cfg(target_os = "linux")]
+use std::cmp::Ordering::Equal;
+use std::convert::TryInto;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::Process;
-use sysinfo::ProcessExt;
 use sysinfo::ProcessStatus;
 
 use chrono::prelude::DateTime;
@@ -41,10 +47,87 @@ macro_rules! convert_error_to_string {
     };
 }
 
+#[cfg(target_os = "macos")]
+const PROC_PIDTASKINFO: c_int = 4;
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct ProcTaskInfo {
+    pti_virtual_size: u64,
+    pti_resident_size: u64,
+    pti_total_user: u64,
+    pti_total_system: u64,
+    pti_threads_user: u64,
+    pti_threads_system: u64,
+    pti_policy: i32,
+    pti_faults: i32,
+    pti_pageins: i32,
+    pti_cow_faults: i32,
+    pti_messages_sent: i32,
+    pti_messages_received: i32,
+    pti_syscalls_mach: i32,
+    pti_syscalls_unix: i32,
+    pti_csw: i32,
+    pti_threadnum: i32,
+    pti_numrunning: i32,
+    pti_priority: i32,
+}
+
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn proc_pidinfo(
+        pid: pid_t,
+        flavor: c_int,
+        arg: u64,
+        buffer: *mut c_void,
+        buffersize: c_int,
+    ) -> c_int;
+}
+
+/*
+ * Sysinfo doesn't get number of threads, priority or nice
+ * this function makes a syscall to get that info
+ */
+#[cfg(target_os = "macos")]
+fn get_macos_process_info(pid: i32) -> Option<ProcTaskInfo> {
+    use std::mem;
+
+    // Get thread count and priority using proc_pidinfo
+    let mut task_info: ProcTaskInfo = unsafe { mem::zeroed() };
+    let size = mem::size_of::<ProcTaskInfo>() as c_int;
+
+    let ret = unsafe {
+        proc_pidinfo(
+            pid,
+            PROC_PIDTASKINFO,
+            0,
+            &mut task_info as *mut _ as *mut c_void,
+            size,
+        )
+    };
+    if ret > 0 {
+        Some(task_info)
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn get_priority(pid: u32) -> i32 {
+    // have to reset errno before calling getpriority
+    unsafe { *libc::__error() = 0 };
+    let nice = unsafe { getpriority(0, pid) };
+    if nice == -1 && unsafe { *libc::__error() } != 0 {
+        0 // Error occurred, use default
+    } else {
+        nice
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct ZProcess {
-    pub pid: i32,
+    pub pid: u32,
     pub uid: u32,
     pub user_name: String,
     pub memory: u64,
@@ -76,24 +159,59 @@ pub struct ZProcess {
     pub prev_swap_delay: Duration,
 }
 
+#[cfg(target_os = "macos")]
+pub fn set_addl_task_info(zprocess: &mut ZProcess) {
+    let pid_i32 = zprocess.pid.try_into();
+    if let Ok(pid) = pid_i32 {
+        let task_info = get_macos_process_info(pid);
+        if let Some(ti) = task_info {
+            zprocess.priority = ti.pti_priority;
+            zprocess.nice = get_priority(zprocess.pid);
+            zprocess.threads_total = ti.pti_threadnum as u64;
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub fn set_addl_task_info(zprocess: &mut ZProcess) {
+    let pid_i32 = zprocess.pid.try_into();
+    if let Ok(pid) = pid_i32 {
+        if let Ok(proc) = procfs::process::Process::new(pid) {
+            if let Ok(stat) = proc.stat() {
+                zprocess.priority = stat.priority as i32;
+                zprocess.nice = stat.nice as i32;
+                zprocess.threads_total = stat.num_threads as u64;
+            }
+        }
+    }
+}
+
 impl ZProcess {
     pub fn from_user_and_process(user_name: String, process: &Process) -> Self {
         let disk_usage = process.disk_usage();
-        ZProcess {
-            uid: process.uid,
+
+        let mut zp = ZProcess {
+            uid: process.user_id().map(|uid| **uid).unwrap_or(0),
             user_name,
-            pid: process.pid(),
+            pid: process.pid().as_u32(),
             memory: process.memory(),
             cpu_usage: process.cpu_usage(),
-            command: process.cmd().to_vec(),
+            command: process
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect(),
             status: process.status(),
-            exe: format!("{}", process.exe().display()),
-            name: process.name().to_string(),
+            exe: process
+                .exe()
+                .map(|p| format!("{}", p.display()))
+                .unwrap_or_default(),
+            name: process.name().to_string_lossy().to_string(),
             cum_cpu_usage: process.cpu_usage() as f64,
-            priority: process.priority,
-            nice: process.nice,
+            priority: 0, // process.priority,
+            nice: 0,     // process.nice,
             virtual_memory: process.virtual_memory(),
-            threads_total: process.threads_total,
+            threads_total: 0, // process.threads_total,
             read_bytes: disk_usage.total_read_bytes,
             write_bytes: disk_usage.total_written_bytes,
             prev_read_bytes: disk_usage.total_read_bytes,
@@ -110,7 +228,10 @@ impl ZProcess {
             swap_delay: Duration::from_nanos(0),
             prev_io_delay: Duration::from_nanos(0),
             prev_swap_delay: Duration::from_nanos(0),
-        }
+        };
+        set_addl_task_info(&mut zp);
+
+        zp
     }
     pub fn get_read_bytes_sec(&self, tick_rate: &Duration) -> f64 {
         debug!(
@@ -128,28 +249,44 @@ impl ZProcess {
     }
 
     pub async fn suspend(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.suspend().await),
             Err(e) => convert_error_to_string!(e),
         }
     }
 
     pub async fn resume(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.resume().await),
             Err(e) => convert_error_to_string!(e),
         }
     }
 
     pub async fn kill(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.kill().await),
             Err(e) => convert_error_to_string!(e),
         }
     }
 
     pub async fn terminate(&self) -> String {
-        match process::get(self.pid).await {
+        let pid_i32: i32 = match self.pid.try_into() {
+            Ok(val) => val,
+            Err(_) => return "PID value too large to convert to i32".to_string(),
+        };
+        match process::get(pid_i32).await {
             Ok(p) => convert_result_to_string!(p.terminate().await),
             Err(e) => convert_error_to_string!(e),
         }
@@ -407,19 +544,6 @@ pub trait ProcessStatusExt {
 }
 
 impl ProcessStatusExt for ProcessStatus {
-    #[cfg(target_os = "macos")]
-    fn to_single_char(&self) -> &str {
-        match *self {
-            ProcessStatus::Idle => "I",
-            ProcessStatus::Run => "R",
-            ProcessStatus::Sleep => "S",
-            ProcessStatus::Stop => "T",
-            ProcessStatus::Zombie => "Z",
-            ProcessStatus::Unknown(_) => "U",
-        }
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
     fn to_single_char(&self) -> &str {
         match *self {
             ProcessStatus::Idle => "I",
@@ -432,6 +556,8 @@ impl ProcessStatusExt for ProcessStatus {
             ProcessStatus::Wakekill => "K",
             ProcessStatus::Waking => "W",
             ProcessStatus::Parked => "P",
+            ProcessStatus::UninterruptibleDiskSleep => "D",
+            ProcessStatus::LockBlocked => "L",
             ProcessStatus::Unknown(_) => "U",
         }
     }
