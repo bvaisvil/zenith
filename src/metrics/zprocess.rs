@@ -83,6 +83,10 @@ extern "C" {
     ) -> c_int;
 }
 
+/*
+ * Sysinfo doesn't get number of threads, priority or nice
+ * this function makes a syscall to get that info
+ */
 #[cfg(target_os = "macos")]
 fn get_macos_process_info(pid: i32) -> Option<ProcTaskInfo> {
     use std::mem;

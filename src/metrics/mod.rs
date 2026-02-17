@@ -1,14 +1,19 @@
-pub mod disk;
 /**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+pub mod disk;
 pub mod graphics;
 pub mod histogram;
 pub mod zprocess;
 
+#[cfg(target_os = "macos")]
+pub mod memory_mac;
+
 use crate::metrics::disk::{get_device_name, get_disk_io_metrics, IoMetrics, ZDisk};
 use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::metrics::histogram::{HistogramKind, HistogramMap};
+#[cfg(target_os = "macos")]
+use crate::metrics::memory_mac::get_macos_memory_used;
 use crate::metrics::zprocess::set_addl_task_info;
 use crate::metrics::zprocess::ZProcess;
 use crate::util::percent_of;
@@ -813,7 +818,14 @@ impl CPUTimeApp {
         self.update_cpu().await;
         self.update_sensors().await;
 
-        self.mem_utilization = self.system.used_memory();
+        #[cfg(target_os = "macos")]
+        {
+            self.mem_utilization = get_macos_memory_used().unwrap_or(0);
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.mem_utilization = self.system.used_memory();
+        }
         self.mem_total = self.system.total_memory();
 
         let mem = percent_of(self.mem_utilization, self.mem_total) as u64;
