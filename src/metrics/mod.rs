@@ -9,6 +9,7 @@ pub mod zprocess;
 use crate::metrics::disk::{get_device_name, get_disk_io_metrics, IoMetrics, ZDisk};
 use crate::metrics::graphics::device::{GraphicsDevice, GraphicsExt};
 use crate::metrics::histogram::{HistogramKind, HistogramMap};
+use crate::metrics::zprocess::set_addl_task_info;
 use crate::metrics::zprocess::ZProcess;
 use crate::util::percent_of;
 
@@ -505,10 +506,7 @@ impl CPUTimeApp {
                     zp.cpu_usage = process.cpu_usage();
                     zp.cum_cpu_usage += zp.cpu_usage as f64;
                     zp.status = process.status();
-                    zp.priority = 0; //process.priority;
-                    zp.nice = 0; //process.nice;
                     zp.virtual_memory = process.virtual_memory();
-                    zp.threads_total = 0; //process.threads_total;
                     self.threads_total += zp.threads_total as usize;
                     zp.prev_read_bytes = zp.read_bytes;
                     zp.prev_write_bytes = zp.write_bytes;
@@ -517,6 +515,8 @@ impl CPUTimeApp {
                     zp.last_updated = SystemTime::now();
                     #[cfg(target_os = "linux")]
                     zp.update_delay(client);
+
+                    set_addl_task_info(zp);
 
                     top.update(zp, &self.histogram_map.tick);
                 } else {
