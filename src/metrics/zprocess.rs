@@ -4,8 +4,6 @@
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
-#[cfg(target_os = "linux")]
-use libc::getpriority;
 #[cfg(target_os = "macos")]
 use libc::{c_int, c_void, pid_t};
 use libc::{getpriority, id_t, setpriority};
