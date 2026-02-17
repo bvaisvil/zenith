@@ -200,7 +200,7 @@ impl GraphicsExt for CPUTimeApp {
     fn update_gpu_utilization(&mut self) {
         for d in &mut self.gfx_devices.iter().skip(1) {
             for p in &d.processes {
-                let proc = self.process_map.get_mut(&p.pid);
+                let proc = self.process_map.get_mut(&p.pid as u32);
                 if let Some(proc) = proc {
                     proc.gpu_usage =
                         (p.sm_utilization + p.dec_utilization + p.enc_utilization) as u64;
