@@ -104,11 +104,21 @@ fn get_macos_process_info(pid: i32) -> Option<ProcTaskInfo> {
     }
 }
 
+#[cfg(target_os = "macos")]
+unsafe fn errno_ptr() -> *mut i32 {
+    libc::__error()
+}
+
+#[cfg(target_os = "linux")]
+unsafe fn errno_ptr() -> *mut i32 {
+    libc::__errno_location()
+}
+
 fn get_priority(pid: u32) -> i32 {
     // have to reset errno before calling getpriority
     unsafe { *libc::__error() = 0 };
     let nice = unsafe { getpriority(0, pid) };
-    let nice = if nice == -1 && unsafe { *libc::__error() } != 0 {
+    let nice = if nice == -1 && unsafe { *errno_ptr() } != 0 {
         0 // Error occurred, use default
     } else {
         nice
@@ -165,10 +175,10 @@ pub fn set_addl_task_info(zprocess: &mut ZProcess) {
 }
 
 #[cfg(target_os = "linux")]
-fn set_addl_task_info(zprocess: &mut ZProcess) {
+pub fn set_addl_task_info(zprocess: &mut ZProcess) {
     let pid_i32 = zprocess.pid.try_into();
     if let Ok(pid) = pid_i32 {
-        if let Ok(proc) = procfs::process::Process::new(pid_i32) {
+        if let Ok(proc) = procfs::process::Process::new(pid) {
             if let Ok(stat) = proc.stat() {
                 zprocess.priority = stat.priority as i32;
                 zprocess.nice = stat.nice as i32;
