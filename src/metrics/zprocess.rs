@@ -5,6 +5,7 @@ use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
 
+#[cfg(target_os = "macos")]
 use libc::{c_int, c_void, pid_t};
 use libc::{getpriority, id_t, setpriority};
 
@@ -13,7 +14,9 @@ use linux_taskstats::Client;
 #[cfg(target_os = "linux")]
 use procfs;
 
-use std::cmp::Ordering::{self, Equal};
+use std::cmp::Ordering;
+#[cfg(target_os = "linux")]
+use std::cmp::Ordering::Equal;
 use std::convert::TryInto;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::Process;
