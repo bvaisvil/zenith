@@ -4,9 +4,11 @@
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
+
 #[cfg(target_os = "macos")]
+use libc::getpriority;
 use libc::{c_int, c_void, pid_t};
-use libc::{getpriority, id_t, setpriority};
+use libc::{id_t, setpriority};
 
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
@@ -105,20 +107,11 @@ fn get_macos_process_info(pid: i32) -> Option<ProcTaskInfo> {
 }
 
 #[cfg(target_os = "macos")]
-unsafe fn errno_ptr() -> *mut i32 {
-    libc::__error()
-}
-
-#[cfg(target_os = "linux")]
-unsafe fn errno_ptr() -> *mut i32 {
-    libc::__errno_location()
-}
-
 fn get_priority(pid: u32) -> i32 {
     // have to reset errno before calling getpriority
-    unsafe { *errno_ptr() = 0 };
+    unsafe { *libc::__error() = 0 };
     let nice = unsafe { getpriority(0, pid) };
-    let nice = if nice == -1 && unsafe { *errno_ptr() } != 0 {
+    let nice = if nice == -1 && unsafe { *libc::__error() } != 0 {
         0 // Error occurred, use default
     } else {
         nice
