@@ -5,10 +5,8 @@ use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
 
-#[cfg(target_os = "macos")]
-use libc::getpriority;
 use libc::{c_int, c_void, pid_t};
-use libc::{id_t, setpriority};
+use libc::{getpriority, id_t, setpriority};
 
 #[cfg(target_os = "linux")]
 use linux_taskstats::Client;
