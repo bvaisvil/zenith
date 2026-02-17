@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use crate::metrics::graphics::device::*;
 use crate::metrics::histogram::HistogramKind;
 use crate::metrics::CPUTimeApp;

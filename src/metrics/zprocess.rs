@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use crate::metrics::ProcessTableSortBy;
 use heim::process;
 use heim::process::ProcessError;
@@ -116,12 +117,11 @@ fn get_priority(pid: u32) -> i32 {
     // have to reset errno before calling getpriority
     unsafe { *libc::__error() = 0 };
     let nice = unsafe { getpriority(0, pid) };
-    let nice = if nice == -1 && unsafe { *libc::__error() } != 0 {
+    if nice == -1 && unsafe { *libc::__error() } != 0 {
         0 // Error occurred, use default
     } else {
         nice
-    };
-    nice
+    }
 }
 
 #[allow(dead_code)]

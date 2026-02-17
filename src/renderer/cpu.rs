@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use super::style::{max_style, ok_style, MAX_COLOR, OK_COLOR};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};

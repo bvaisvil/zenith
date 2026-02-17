@@ -1,6 +1,7 @@
-/**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use crate::util::percent_of;
 use futures::StreamExt;
 use heim::disk::{io_counters, IoCounters};

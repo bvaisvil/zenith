@@ -1,7 +1,8 @@
 #![allow(dead_code)]
-/**
- * Copyright 2019-2020, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
 use crate::constants::DEFAULT_TICK;
 use crossterm::{event, event::Event as CEvent, event::KeyCode as Key, event::KeyEvent};
 use signal_hook::consts::signal::{SIGABRT, SIGINT, SIGTERM};

@@ -1,7 +1,8 @@
-use super::style::{max_style, ok_style};
-/**
- * Copyright 2019-2022, Benjamin Vaisvil and the zenith contributors
+/*!
+ * Copyright 2019-2026, Benjamin Vaisvil and the zenith contributors
  */
+
+use super::style::{max_style, ok_style};
 use super::{split_left_right_pane, FileSystemDisplay, Render};
 use crate::float_to_byte_string;
 use crate::metrics::histogram::{HistogramKind, View};
