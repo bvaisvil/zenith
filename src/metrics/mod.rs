@@ -523,6 +523,16 @@ impl CPUTimeApp {
 
                     set_addl_task_info(zp);
 
+                    // Update peak values
+                    zp.peak_cpu_usage = zp.peak_cpu_usage.max(zp.cpu_usage);
+                    zp.peak_memory = zp.peak_memory.max(zp.memory);
+                    let read_rate = zp.get_read_bytes_sec(&self.histogram_map.tick);
+                    let write_rate = zp.get_write_bytes_sec(&self.histogram_map.tick);
+                    zp.peak_read_bytes_sec = zp.peak_read_bytes_sec.max(read_rate);
+                    zp.peak_write_bytes_sec = zp.peak_write_bytes_sec.max(write_rate);
+                    zp.peak_gpu_usage = zp.peak_gpu_usage.max(zp.gpu_usage);
+                    zp.peak_fb_utilization = zp.peak_fb_utilization.max(zp.fb_utilization);
+
                     top.update(zp, &self.histogram_map.tick);
                 } else {
                     let uid = process.user_id().map(|uid| **uid).unwrap_or(0);

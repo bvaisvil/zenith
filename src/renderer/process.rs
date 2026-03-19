@@ -355,7 +355,13 @@ pub fn render_process(
         ]),
         Line::from(vec![
             Span::raw("CPU Usage:             "),
-            Span::styled(format!("{:>7.2} %", &p.cpu_usage), rhs_style),
+            Span::styled(
+                format!(
+                    "{:>7.2} %  (Peak: {:>7.2} %)",
+                    &p.cpu_usage, &p.peak_cpu_usage
+                ),
+                rhs_style,
+            ),
         ]),
         Line::from(vec![
             Span::raw("Threads:               "),
@@ -376,7 +382,11 @@ pub fn render_process(
         Line::from(vec![
             Span::raw("MEM Usage:             "),
             Span::styled(
-                format!("{:>7.2} %", percent_of(p.memory, app.mem_total)),
+                format!(
+                    "{:>7.2} %  (Peak: {:>10})",
+                    percent_of(p.memory, app.mem_total),
+                    float_to_byte_string!(p.peak_memory as f64, Unit::B)
+                ),
                 rhs_style,
             ),
         ]),
@@ -391,9 +401,10 @@ pub fn render_process(
             Span::raw("Disk Read:             "),
             Span::styled(
                 format!(
-                    "{:>10} {:}/s",
+                    "{:>10} {:}/s  (Peak: {:}/s)",
                     float_to_byte_string!(p.read_bytes as f64, Unit::B),
-                    float_to_byte_string!(p.get_read_bytes_sec(&app.histogram_map.tick), Unit::B)
+                    float_to_byte_string!(p.get_read_bytes_sec(&app.histogram_map.tick), Unit::B),
+                    float_to_byte_string!(p.peak_read_bytes_sec, Unit::B)
                 ),
                 rhs_style,
             ),
@@ -402,9 +413,10 @@ pub fn render_process(
             Span::raw("Disk Write:            "),
             Span::styled(
                 format!(
-                    "{:>10} {:}/s",
+                    "{:>10} {:}/s  (Peak: {:}/s)",
                     float_to_byte_string!(p.write_bytes as f64, Unit::B),
-                    float_to_byte_string!(p.get_write_bytes_sec(&app.histogram_map.tick), Unit::B)
+                    float_to_byte_string!(p.get_write_bytes_sec(&app.histogram_map.tick), Unit::B),
+                    float_to_byte_string!(p.peak_write_bytes_sec, Unit::B)
                 ),
                 rhs_style,
             ),
@@ -418,7 +430,13 @@ pub fn render_process(
         ]));
         text.push(Line::from(vec![
             Span::raw("Frame Buffer:       "),
-            Span::styled(format!("{:7.2} %", p.fb_utilization as f64), rhs_style),
+            Span::styled(
+                format!(
+                    "{:7.2} %  (Peak: {:7.2} %)",
+                    p.fb_utilization as f64, p.peak_fb_utilization as f64
+                ),
+                rhs_style,
+            ),
         ]));
         text.push(Line::from(vec![
             Span::raw("Encoder Util:       "),
@@ -427,6 +445,16 @@ pub fn render_process(
         text.push(Line::from(vec![
             Span::raw("Decoder Util:       "),
             Span::styled(format!("{:7.2} %", p.dec_utilization as f64), rhs_style),
+        ]));
+        text.push(Line::from(vec![
+            Span::raw("GPU Usage:          "),
+            Span::styled(
+                format!(
+                    "{:7.2} %  (Peak: {:7.2} %)",
+                    p.gpu_usage as f64, p.peak_gpu_usage as f64
+                ),
+                rhs_style,
+            ),
         ]));
     }
 

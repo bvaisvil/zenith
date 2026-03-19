@@ -157,6 +157,12 @@ pub struct ZProcess {
     pub swap_delay: Duration,
     pub prev_io_delay: Duration,
     pub prev_swap_delay: Duration,
+    pub peak_cpu_usage: f32,
+    pub peak_memory: u64,
+    pub peak_read_bytes_sec: f64,
+    pub peak_write_bytes_sec: f64,
+    pub peak_gpu_usage: u64,
+    pub peak_fb_utilization: u64,
 }
 
 #[cfg(target_os = "macos")]
@@ -228,6 +234,12 @@ impl ZProcess {
             swap_delay: Duration::from_nanos(0),
             prev_io_delay: Duration::from_nanos(0),
             prev_swap_delay: Duration::from_nanos(0),
+            peak_cpu_usage: process.cpu_usage(),
+            peak_memory: process.memory(),
+            peak_read_bytes_sec: 0.0,
+            peak_write_bytes_sec: 0.0,
+            peak_gpu_usage: 0,
+            peak_fb_utilization: 0,
         };
         set_addl_task_info(&mut zp);
 
