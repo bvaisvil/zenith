@@ -2,49 +2,61 @@ name: Audit and Build
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Run Tests
+        run: cargo test
   clippy:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout Sources
-         uses: actions/checkout@v2
-       - name: Install stable toolchain
-         uses: actions-rs/toolchain@v1
-         with:
-           profile: minimal
-           toolchain: stable
-           override: true
-       - name: Cargo clippy
-         run: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Cargo clippy
+        run: cargo clippy
   fmt:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout Sources
-         uses: actions/checkout@v2
-       - name: Install stable toolchain
-         uses: actions-rs/toolchain@v1
-         with:
-           profile: minimal
-           toolchain: stable
-           override: true
-       - name: Check rustfmt
-         run: cargo fmt -- --check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Check rustfmt
+        run: cargo fmt -- --check
   build:
-
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest]
     steps:
-    - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose
-    - name: Build with Nvidia
-      run: cargo build --verbose --features nvidia
-      if: ${{ matrix.os == 'ubuntu-latest' }}
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v2
+      - name: Build
+        run: cargo build --verbose
+      - name: Build with Nvidia
+        run: cargo build --verbose --features nvidia
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - name: Run tests
+        run: cargo test --verbose
