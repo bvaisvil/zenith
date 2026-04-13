@@ -278,3 +278,227 @@ impl Drop for HistogramMap {
         self.save_histograms();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_histogram_map_new_no_db() {
+        let dur = Duration::from_secs(60 * 60);
+        let tick = Duration::from_secs(2);
+        let hm = HistogramMap::new(dur, tick, None);
+
+        assert!(!hm.writes_db_store());
+    }
+
+    #[test]
+    fn test_histogram_map_add_value_to() {
+        let dur = Duration::from_secs(60 * 60);
+        let tick = Duration::from_secs(2);
+        let mut hm = HistogramMap::new(dur, tick, None);
+
+        hm.add_value_to(&HistogramKind::Cpu, 50);
+        hm.add_value_to(&HistogramKind::Cpu, 75);
+        hm.add_value_to(&HistogramKind::Cpu, 100);
+
+        let hist = hm.get(&HistogramKind::Cpu).unwrap();
+        let data = hist.data();
+        assert!(data.len() > 0);
+        assert_eq!(data[data.len() - 3], 50);
+        assert_eq!(data[data.len() - 2], 75);
+        assert_eq!(data[data.len() - 1], 100);
+    }
+
+    #[test]
+    fn test_histogram_map_multiple_kinds() {
+        let dur = Duration::from_secs(60 * 60);
+        let tick = Duration::from_secs(2);
+        let mut hm = HistogramMap::new(dur, tick, None);
+
+        hm.add_value_to(&HistogramKind::Cpu, 50);
+        hm.add_value_to(&HistogramKind::Mem, 75);
+        hm.add_value_to(&HistogramKind::NetTx, 1000);
+        hm.add_value_to(&HistogramKind::NetRx, 2000);
+        hm.add_value_to(&HistogramKind::IoRead("sda".to_string()), 500);
+        hm.add_value_to(&HistogramKind::IoWrite("sda".to_string()), 300);
+
+        // these should all be added to the last position in the histogram
+        // every histogram should be same length
+        let last_pos = hm.get(&HistogramKind::Cpu).unwrap().data().len() - 1;
+        assert!(hm.get(&HistogramKind::Cpu).unwrap().data()[last_pos] == 50);
+        assert!(hm.get(&HistogramKind::Mem).unwrap().data()[last_pos] == 75);
+        assert!(hm.get(&HistogramKind::NetTx).unwrap().data()[last_pos] == 1000);
+        assert!(hm.get(&HistogramKind::NetRx).unwrap().data()[last_pos] == 2000);
+        assert!(
+            hm.get(&HistogramKind::IoRead("sda".to_string()))
+                .unwrap()
+                .data()[last_pos]
+                == 500
+        );
+        assert!(
+            hm.get(&HistogramKind::IoWrite("sda".to_string()))
+                .unwrap()
+                .data()[last_pos]
+                == 300
+        );
+    }
+
+    #[test]
+    fn test_histogram_map_hist_duration() {
+        let dur = Duration::from_secs(60 * 60);
+        let tick = Duration::from_secs(2);
+        let hm = HistogramMap::new(dur, tick, None);
+
+        let hist_dur = hm.hist_duration(100, 1);
+        // 2 seconds * 100 width * 1 zoom = 200 seconds
+        assert_eq!(hist_dur.num_seconds(), 200);
+
+        let hist_dur_zoomed = hm.hist_duration(100, 2);
+        // 2 seconds * 100 width * 2 zoom = 400 seconds
+        assert_eq!(hist_dur_zoomed.num_seconds(), 400);
+    }
+
+    #[test]
+    fn test_histogram_map_histograms_width_with_data() {
+        let dur = Duration::from_secs(60 * 60);
+        let tick = Duration::from_secs(2);
+        let mut hm = HistogramMap::new(dur, tick, None);
+
+        hm.add_value_to(&HistogramKind::Cpu, 50);
+        hm.add_value_to(&HistogramKind::Cpu, 75);
+
+        let width = hm.histograms_width();
+        assert!(width.is_some());
+        // Size should be duration / tick + number of added values
+        // 3600 / 2 = 1800 initial size, plus 2 added values
+        assert!(width.unwrap() == 1802);
+    }
+
+    #[test]
+    fn test_histogram_map_get_zoomed_no_data() {
+        let dur = Duration::from_secs(60 * 60);
+        let tick = Duration::from_secs(2);
+        let hm = HistogramMap::new(dur, tick, None);
+
+        let view = View {
+            zoom_factor: 1,
+            update_number: 0,
+            width: 10,
+            offset: 0,
+        };
+
+        assert!(hm.get_zoomed(&HistogramKind::Cpu, &view).is_none());
+    }
+
+    #[test]
+    fn test_histogram_map_get_zoomed_zoom_factor_1() {
+        let dur = Duration::from_secs(60);
+        let tick = Duration::from_secs(1);
+        let mut hm = HistogramMap::new(dur, tick, None);
+
+        // Add some values
+        for i in 0..20 {
+            hm.add_value_to(&HistogramKind::Cpu, i as u64);
+        }
+
+        let view = View {
+            zoom_factor: 1,
+            update_number: 0,
+            width: 5,
+            offset: 0,
+        };
+
+        let zoomed = hm.get_zoomed(&HistogramKind::Cpu, &view);
+        assert!(zoomed.is_some());
+
+        let histogram = zoomed.unwrap();
+        let h_data = histogram.data();
+        // Should get the last 5 values
+        assert_eq!(h_data.len(), 5);
+        assert_eq!(h_data[h_data.len() - 1], 19);
+        assert_eq!(h_data[h_data.len() - 2], 18);
+        assert_eq!(h_data[h_data.len() - 3], 17);
+        assert_eq!(h_data[h_data.len() - 4], 16);
+        assert_eq!(h_data[h_data.len() - 5], 15);
+    }
+
+    #[test]
+    fn test_histogram_map_get_zoomed_with_offset() {
+        let dur = Duration::from_secs(60);
+        let tick = Duration::from_secs(1);
+        let mut hm = HistogramMap::new(dur, tick, None);
+
+        // Add some values
+        for i in 0..20 {
+            hm.add_value_to(&HistogramKind::Cpu, i as u64);
+        }
+
+        let view = View {
+            zoom_factor: 1,
+            update_number: 0,
+            width: 5,
+            offset: 2,
+        };
+
+        let zoomed = hm.get_zoomed(&HistogramKind::Cpu, &view);
+        let histogram = zoomed.unwrap();
+        let h_data = histogram.data();
+        // Should get the last 5 values
+        assert_eq!(h_data.len(), 5);
+        assert_eq!(h_data[h_data.len() - 1], 17);
+        assert_eq!(h_data[h_data.len() - 2], 16);
+        assert_eq!(h_data[h_data.len() - 3], 15);
+        assert_eq!(h_data[h_data.len() - 4], 14);
+        assert_eq!(h_data[h_data.len() - 5], 13);
+    }
+
+    #[test]
+    fn test_histogram_map_get_zoomed_with_zoom() {
+        let dur = Duration::from_secs(60);
+        let tick = Duration::from_secs(1);
+        let mut hm = HistogramMap::new(dur, tick, None);
+
+        // Add values: 10, 20, 30, 40 at the end
+        for i in 0..10 {
+            hm.add_value_to(&HistogramKind::Cpu, (i + 1) * 10);
+        }
+
+        let view = View {
+            zoom_factor: 2,
+            update_number: 0,
+            width: 3,
+            offset: 0,
+        };
+
+        let zoomed = hm.get_zoomed(&HistogramKind::Cpu, &view);
+        let histogram = zoomed.unwrap();
+        let h_data = histogram.data();
+        assert_eq!(h_data.len(), 3);
+        assert_eq!(h_data[h_data.len() - 1], 95);
+        assert_eq!(h_data[h_data.len() - 2], 75);
+        assert_eq!(h_data[h_data.len() - 3], 55);
+    }
+
+    #[test]
+    fn test_histogram_kind_gpu() {
+        let gpu_use = HistogramKind::GpuUse("GPU0".to_string());
+        let gpu_mem = HistogramKind::GpuMem("GPU0".to_string());
+
+        assert_ne!(gpu_use, gpu_mem);
+        assert_eq!(gpu_use, HistogramKind::GpuUse("GPU0".to_string()));
+    }
+
+    #[test]
+    fn test_histogram_kind_file_system() {
+        let fs1 = HistogramKind::FileSystemUsedSpace("/dev/sda1".to_string());
+        let fs2 = HistogramKind::FileSystemUsedSpace("/dev/sdb1".to_string());
+
+        assert_ne!(fs1, fs2);
+        assert_eq!(
+            fs1,
+            HistogramKind::FileSystemUsedSpace("/dev/sda1".to_string())
+        );
+    }
+}
