@@ -36,7 +36,10 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
         0 => 0,
         _ => histogram.iter().max().unwrap_or(&0).to_owned(),
     };
-    let temp = if !app.sensors.is_empty() {
+    //let temp = if !app.sensors.is_empty() {
+    // Build TEMP spans conditionally - if no sensors, returns empty vec
+    // so "TEMP []" doesn't appear in the title bar
+    let temp_spans: Vec<Span> = if !app.sensors.is_empty() {
         let t = app
             .sensors
             .iter()
@@ -53,17 +56,55 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
             .map(|s| s.current_temp as f64)
             .fold(f64::MIN, f64::max);
 
-        if max_temp > hot_threshold {
+        //if max_temp > hot_threshold {
+        // Style the temperature number based on how hot it is
+        let colored = if max_temp > hot_threshold {
             Span::styled(numbers_txt, max_style())
         } else if max_temp < cold_threshold {
             Span::styled(numbers_txt, Style::default().fg(Color::Cyan))
         } else {
             Span::raw(numbers_txt)
-        }
+        };
+        
+        // Return all three spans so brackets only appear when there are sensors
+        vec![Span::raw(" TEMP ["), colored, Span::raw("]")]
     } else {
-        Span::raw(String::from(""))
+        //Span::raw(String::from(""))
+        vec![]
     };
-    Line::from(vec![
+
+    // Build the title spans incrementally so TEMP section can be
+    // conditionally included via extend
+    let mut spans = vec![
+        Span::raw("CPU ["),
+        Span::styled(
+            format!("{: >3}%", app.cpu_utilization),
+            if app.cpu_utilization > 90 {
+                max_style()
+            } else {
+                ok_style()
+            },
+        ),
+        Span::raw("]"),
+    ];
+    spans.extend(temp_spans);
+    spans.extend([
+        Span::raw(" MEAN ["),
+        Span::styled(
+            format!("{mean: >3.2}%"),
+            if mean > 90.0 { max_style() } else { ok_style() },
+        ),
+        Span::raw("] PEAK ["),
+        Span::styled(
+            format!("{peak: >3.2}%"),
+            if peak > 90 { max_style() } else { ok_style() },
+        ),
+        Span::raw(format!(
+            "] TOP [{top_pid} - {top_process_name} - {top_process_amt}]"
+        )),
+    ]);
+    Line::from(spans)
+    /*Line::from(vec![
         Span::raw("CPU ["),
         Span::styled(
             format!("{: >3}%", app.cpu_utilization),
@@ -90,7 +131,7 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
         Span::raw(format!(
             "] TOP [{top_pid} - {top_process_name} - {top_process_amt}]"
         )),
-    ])
+    ])*/
 }
 
 fn mem_title(app: &'_ CPUTimeApp) -> Line<'_> {
