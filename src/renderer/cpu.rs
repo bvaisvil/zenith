@@ -63,7 +63,7 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
         } else {
             Span::raw(numbers_txt)
         };
-        
+
         // Return all three spans so brackets only appear when there are sensors
         vec![Span::raw(" TEMP ["), colored, Span::raw("]")]
     } else {
