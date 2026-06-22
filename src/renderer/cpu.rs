@@ -84,7 +84,9 @@ fn cpu_title<'a>(app: &'a CPUTimeApp, histogram: &'a [u64]) -> Line<'a> {
         ),
         Span::raw("]"),
     ];
-    spans.extend(temp_spans);
+    if !temp_spans.is_empty() {
+        spans.extend(temp_spans);
+    }
     spans.extend([
         Span::raw(" MEAN ["),
         Span::styled(
