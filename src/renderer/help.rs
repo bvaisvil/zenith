@@ -102,7 +102,7 @@ pub fn render_help(
         let content = match ne {
             NvmlError::DriverNotLoaded => "NVIDIA Error: No Driver Detected.",
             NvmlError::NoPermission => "NVIDIA Error: Permissioned denied to talk to driver.",
-            NvmlError::Unknown => "NVIDIA Error: Unkown Error.",
+            NvmlError::Unknown => "NVIDIA Error: Unknown Error.",
             _ => "",
         };
         if !content.is_empty() {
