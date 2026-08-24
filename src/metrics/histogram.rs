@@ -104,7 +104,7 @@ pub fn load_zenith_store(path: &Path, current_time: &SystemTime) -> Option<Histo
                 .duration_since(previous_stop)
                 .expect("Current time is before stored time. This should not happen.");
             let week_ticks = ONE_WEEK / hm.tick.as_secs();
-            for (_k, v) in hm.map.iter_mut() {
+            for v in hm.map.values_mut() {
                 let data = v.data.to_mut();
                 if data.len() as u64 > week_ticks {
                     let end = data.len() as u64 - week_ticks;
