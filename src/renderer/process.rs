@@ -44,7 +44,7 @@ pub fn render_process_table(
                 .expect("expected pid to be present")
         })
         .collect();
-    let highlighted_process = if !procs.is_empty() {
+    let highlighted_process = if !procs.is_empty() && procs.len() > highlighted_row {
         Some(Box::new(procs[highlighted_row].clone()))
     } else {
         None
