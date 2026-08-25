@@ -30,6 +30,7 @@ use std::io;
 use std::io::Stdout;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::mpsc::TryRecvError;
 use std::time::{Duration, Instant};
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -463,6 +464,38 @@ impl TerminalRenderer<'_> {
         }
     }
 
+    async fn handle_event(&mut self, event: Event<KeyEvent>) -> Action {
+        match event {
+            Event::Input(input) => {
+                let process_table =
+                    process::filter_process_table(&self.app, &self.filter).into_owned();
+
+                if !process_table.is_empty() && self.highlighted_row >= process_table.len() {
+                    self.highlighted_row = process_table.len() - 1;
+                }
+                self.process_key_event(input, &process_table, self.process_table_height)
+                    .await
+            }
+            Event::Resize(_, height) => {
+                self.constraints = get_constraints(&self.section_geometry, height);
+                Action::Continue
+            }
+            Event::Tick => {
+                self.process_tick().await;
+                Action::Continue
+            }
+            Event::Save => {
+                debug!("Event Save");
+                self.app.save_state().await;
+                Action::Continue
+            }
+            Event::Terminate => {
+                debug!("Event Terminate");
+                Action::Quit
+            }
+        }
+    }
+
     pub async fn start(&mut self, mut terminal: Terminal<CrosstermBackend<Stdout>>) {
         debug!("Starting Main Loop.");
         if self.recompute_constraints_on_start_up {
@@ -473,40 +506,28 @@ impl TerminalRenderer<'_> {
             terminal
                 .draw(|f| self.render_frame(f))
                 .expect("Could not draw frame.");
-
-            let process_table = process::filter_process_table(&self.app, &self.filter);
-
-            if !process_table.is_empty() && self.highlighted_row >= process_table.len() {
-                self.highlighted_row = process_table.len() - 1;
+            // block waiting for the first event
+            let event = self
+                .events
+                .next()
+                .expect("Event channel closed unexpectedly.");
+            let action = self.handle_event(event).await;
+            if let Action::Quit = action {
+                return;
             }
-            let event = self.events.next().expect("No new event.");
-            let action = match event {
-                Event::Input(input) => {
-                    let process_table = process_table.into_owned();
-                    self.process_key_event(input, &process_table, self.process_table_height)
-                        .await
+            // then process all subsequent events
+            loop {
+                match self.events.try_next() {
+                    Ok(event) => {
+                        let action = self.handle_event(event).await;
+                        match action {
+                            Action::Quit => return,
+                            Action::Continue => {}
+                        }
+                    }
+                    Err(TryRecvError::Empty) => break, // no event break out of loop
+                    Err(TryRecvError::Disconnected) => return,
                 }
-                Event::Resize(_, height) => {
-                    self.constraints = get_constraints(&self.section_geometry, height);
-                    Action::Continue
-                }
-                Event::Tick => {
-                    self.process_tick().await;
-                    Action::Continue
-                }
-                Event::Save => {
-                    debug!("Event Save");
-                    self.app.save_state().await;
-                    Action::Continue
-                }
-                Event::Terminate => {
-                    debug!("Event Terminate");
-                    Action::Quit
-                }
-            };
-            match action {
-                Action::Quit => break,
-                Action::Continue => {}
             }
         }
     }

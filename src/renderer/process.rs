@@ -44,7 +44,7 @@ pub fn render_process_table(
                 .expect("expected pid to be present")
         })
         .collect();
-    let highlighted_process = if !procs.is_empty() {
+    let highlighted_process = if !procs.is_empty() && procs.len() > highlighted_row {
         Some(Box::new(procs[highlighted_row].clone()))
     } else {
         None
@@ -322,12 +322,12 @@ pub fn render_process(
     let mut text = vec![
         Line::from(vec![
             Span::raw("Name:                  "),
-            Span::styled(format!("{:} ({:})", &p.name, alive), rhs_style),
+            Span::styled(format!("{:} ({:})", p.name, alive), rhs_style),
         ]),
         Line::from(vec![
             Span::raw("PID:                   "),
             Span::styled(
-                format!("{:>width$}", &p.pid, width = app.max_pid_len),
+                format!("{:>width$}", p.pid, width = app.max_pid_len),
                 rhs_style,
             ),
         ]),
@@ -358,14 +358,14 @@ pub fn render_process(
             Span::styled(
                 format!(
                     "{:>7.2} %  (Peak: {:>7.2} %)",
-                    &p.cpu_usage, &p.peak_cpu_usage
+                    p.cpu_usage, p.peak_cpu_usage
                 ),
                 rhs_style,
             ),
         ]),
         Line::from(vec![
             Span::raw("Threads:               "),
-            Span::styled(format!("{:>7}", &p.threads_total), rhs_style),
+            Span::styled(format!("{:>7}", p.threads_total), rhs_style),
         ]),
         Line::from(vec![
             Span::raw("Status:                "),

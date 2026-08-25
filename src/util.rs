@@ -105,6 +105,10 @@ impl Events {
     pub fn next(&self) -> Result<Event<KeyEvent>, mpsc::RecvError> {
         self.rx.recv()
     }
+
+    pub fn try_next(&self) -> Result<Event<KeyEvent>, mpsc::TryRecvError> {
+        self.rx.try_recv()
+    }
 }
 
 /// Keeps a file open exclusively
