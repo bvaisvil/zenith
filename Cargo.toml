@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.15.0"
+version = "0.15.1"
 authors = ["Benjamin Vaisvil"]
 edition = "2018"
 description = "Similar to top or htop but with CPU, Network Usage, and Disk Usage charts."
@@ -35,7 +35,7 @@ serde = { version = "~1.0.217", features = ["derive"] }
 serde_derive = "~1.0.217"
 flate2 = "1.0.35"
 bincode = "1.3.3"
-starship-battery = "0.10.*"
+starship-battery = "0.11.*"
 signal-hook = "~0.3.17"
 log = "~0.4.22"
 env_logger = { version = "~0.11.6", default-features = false }
