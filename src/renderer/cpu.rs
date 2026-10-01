@@ -119,23 +119,23 @@ fn mem_title(app: &'_ CPUTimeApp) -> Line<'_> {
 
     Line::from(vec![
         Span::raw("MEM ["),
+        Span::raw(format!(
+            "{} / {} - ",
+            float_to_byte_string!(app.mem_utilization as f64, Unit::B),
+            float_to_byte_string!(app.mem_total as f64, Unit::B),
+        )),
         Span::styled(
-            format!(
-                "{} / {} - {:}%",
-                float_to_byte_string!(app.mem_utilization as f64, Unit::B),
-                float_to_byte_string!(app.mem_total as f64, Unit::B),
-                mem
-            ),
+            format!("{:}%", mem),
             if mem > 95 { max_style() } else { ok_style() },
         ),
         Span::raw("] SWP ["),
+        Span::raw(format!(
+            "{} / {} - ",
+            float_to_byte_string!(app.swap_utilization as f64, Unit::B),
+            float_to_byte_string!(app.swap_total as f64, Unit::B),
+        )),
         Span::styled(
-            format!(
-                "{} / {} - {:}%",
-                float_to_byte_string!(app.swap_utilization as f64, Unit::B),
-                float_to_byte_string!(app.swap_total as f64, Unit::B),
-                swp,
-            ),
+            format!("{:}%", swp),
             if swp > 20 { max_style() } else { ok_style() },
         ),
         Span::raw("] "),
